@@ -1,0 +1,49 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build split-per-abi release APKs
+        run: >
+          flutter build apk --release --split-per-abi
+          --dart-define=GIPHY_API_KEY=${{ secrets.GIPHY_API_KEY }}
+          --dart-define=AI_API_KEY=${{ secrets.AI_API_KEY }}
+
+      - name: Build universal release APK
+        run: >
+          flutter build apk --release
+          --dart-define=GIPHY_API_KEY=${{ secrets.GIPHY_API_KEY }}
+          --dart-define=AI_API_KEY=${{ secrets.AI_API_KEY }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: build/app/outputs/flutter-apk/*.apk
