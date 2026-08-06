@@ -9,19 +9,26 @@ import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/ui.dart';
 import '../ai/ai_screen.dart';
+import '../discover/discover_screen.dart';
 import '../flow.dart';
 
-/// "My Collages" library — the home base. Every finished collage lands here and
-/// can be re-opened and edited.
-class HomeScreen extends ConsumerWidget {
+/// Home base with two tabs: My Collages (the re-editable library) and Discover
+/// (location + date collage suggestions).
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final drafts = ref.watch(draftsProvider);
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Collage', style: AppText.displayMd),
+        title: Text(_index == 0 ? 'My collages' : 'Discover', style: AppText.displayMd),
         actions: [
           IconButton(
             tooltip: 'AI auto-collage',
@@ -33,12 +40,37 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => startNewCollage(context, ref),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New collage'),
+      floatingActionButton: _index == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => startNewCollage(context, ref),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New collage'),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.photo_library_outlined), selectedIcon: Icon(Icons.photo_library_rounded), label: 'Collages'),
+          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: 'Discover'),
+        ],
       ),
-      body: drafts.when(
+      body: IndexedStack(
+        index: _index,
+        children: const [_CollagesView(), DiscoverTab()],
+      ),
+    );
+  }
+}
+
+/// The saved-collages library.
+class _CollagesView extends ConsumerWidget {
+  const _CollagesView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final drafts = ref.watch(draftsProvider);
+    return drafts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e', style: AppText.bodyMd)),
         data: (list) {
@@ -67,8 +99,7 @@ class HomeScreen extends ConsumerWidget {
             itemBuilder: (_, i) => _CollageCard(project: list[i]),
           );
         },
-      ),
-    );
+      );
   }
 }
 

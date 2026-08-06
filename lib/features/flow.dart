@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../data/layout_templates.dart';
 import '../models/collage_project.dart';
 import '../models/layout_template.dart';
 import '../services/permission_service.dart';
@@ -64,6 +65,36 @@ Future<void> startNewCollage(BuildContext context, WidgetRef ref) async {
     MaterialPageRoute(builder: (_) => EditorScreen(project: project, pool: picked)),
   );
   await ref.read(draftsProvider.notifier).reload();
+}
+
+/// Open a set of photos directly as a new, editable collage with a sensible
+/// auto-layout (used by Discover moments and AI suggestions).
+Future<void> openPhotosAsCollage(
+  BuildContext context,
+  WidgetRef ref,
+  List<String> assetIds, {
+  String title = 'Collage',
+}) async {
+  final pool = assetIds.take(9).toList();
+  if (pool.isEmpty) return;
+  final layout = LayoutTemplates.forCount(pool.length.clamp(1, 9)).first;
+  final now = DateTime.now().millisecondsSinceEpoch;
+  final project = CollageProject(
+    id: const Uuid().v4(),
+    title: title,
+    createdAt: now,
+    updatedAt: now,
+    ratioLabel: CanvasRatio.square.label,
+    layout: layout,
+    fills: {},
+    elements: [],
+    border: BorderSettings(),
+    background: BackgroundSettings(),
+  );
+  await Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => EditorScreen(project: project, pool: pool)),
+  );
+  if (context.mounted) await ref.read(draftsProvider.notifier).reload();
 }
 
 /// Re-open a saved collage for editing.
