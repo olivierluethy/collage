@@ -27,7 +27,101 @@ class EditorController extends ChangeNotifier {
   String? selectedElementId;
   String? selectedSlotId;
 
+  // --- transient preview state (never persisted) ---------------------------
+  /// Slot currently being dragged, and the slot it is hovering over, so both
+  /// can show the pending swap live before the finger is lifted.
+  String? dragSourceSlot;
+  String? dragOverSlot;
+
+  /// Tap-to-swap mode: the first slot the user chose; the next slot tapped
+  /// swaps with it.
+  String? swapSource;
+
+  /// Live replace preview: the slot being replaced and the candidate photo the
+  /// user is previewing before committing.
+  String? replaceSlotId;
+  String? replaceCandidate;
+
   bool get hasSelection => selectedElementId != null || selectedSlotId != null;
+
+  // --- drag-to-swap preview ------------------------------------------------
+  void startSlotDrag(String id) {
+    dragSourceSlot = id;
+    notifyListeners();
+  }
+
+  void updateSlotDragOver(String? id) {
+    if (dragOverSlot == id) return;
+    dragOverSlot = id;
+    notifyListeners();
+  }
+
+  void endSlotDrag() {
+    dragSourceSlot = null;
+    dragOverSlot = null;
+    notifyListeners();
+  }
+
+  // --- tap-to-swap mode ----------------------------------------------------
+  void startSwapMode(String id) {
+    swapSource = id;
+    selectSlot(id);
+  }
+
+  void cancelSwapMode() {
+    swapSource = null;
+    notifyListeners();
+  }
+
+  /// Returns true if the tap completed a swap.
+  bool completeSwapIfActive(String target) {
+    if (swapSource == null) return false;
+    final src = swapSource!;
+    swapSource = null;
+    if (src != target) swapSlots(src, target);
+    return true;
+  }
+
+  // --- live replace --------------------------------------------------------
+  void startReplace(String slotId) {
+    replaceSlotId = slotId;
+    replaceCandidate = null;
+    selectSlot(slotId);
+  }
+
+  void previewReplace(String assetId) {
+    replaceCandidate = assetId;
+    notifyListeners();
+  }
+
+  void commitReplace() {
+    if (replaceSlotId != null && replaceCandidate != null) {
+      addToPool(replaceCandidate!);
+      assignSlot(replaceSlotId!, replaceCandidate!);
+    }
+    replaceSlotId = null;
+    replaceCandidate = null;
+    notifyListeners();
+  }
+
+  void cancelReplace() {
+    replaceSlotId = null;
+    replaceCandidate = null;
+    notifyListeners();
+  }
+
+  /// The photo (with its pan/zoom) a slot should render right now, accounting
+  /// for any live drag-swap or replace preview.
+  SlotFill? effectiveFill(String slotId) {
+    if (slotId == replaceSlotId && replaceCandidate != null) {
+      return SlotFill(assetId: replaceCandidate!);
+    }
+    if (dragSourceSlot != null && dragOverSlot != null && dragSourceSlot != dragOverSlot) {
+      if (slotId == dragOverSlot) return fillFor(dragSourceSlot!);
+      if (slotId == dragSourceSlot) return fillFor(dragOverSlot!);
+    }
+    return fillFor(slotId);
+  }
 
   void _touch() {
     project.updatedAt = DateTime.now().millisecondsSinceEpoch;
@@ -50,6 +144,8 @@ class EditorController extends ChangeNotifier {
   void clearSelection() {
     selectedElementId = null;
     selectedSlotId = null;
+    swapSource = null;
+    if (replaceSlotId != null) cancelReplace();
     notifyListeners();
   }
 
