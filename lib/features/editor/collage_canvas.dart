@@ -7,6 +7,7 @@ import '../../data/fonts.dart';
 import '../../data/shape_catalog.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
+import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/pattern_painter.dart';
 import '../../widgets/photo_image.dart';
@@ -20,12 +21,14 @@ class CollageCanvas extends StatelessWidget {
     super.key,
     required this.controller,
     this.interactive = true,
-    this.onSlotTap,
+    this.onRequestReplace,
   });
 
   final EditorController controller;
   final bool interactive;
-  final void Function(String slotId)? onSlotTap;
+
+  /// Ask the host to open the replace picker for a slot (with live preview).
+  final void Function(String slotId)? onRequestReplace;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +105,7 @@ class CollageCanvas extends StatelessWidget {
           thickness: thickness,
           borderColor: c.border.color,
           interactive: interactive,
-          onTap: onSlotTap,
+          onRequestReplace: onRequestReplace,
         ),
       );
     }).toList();
@@ -155,7 +158,7 @@ class _SlotView extends StatelessWidget {
     required this.thickness,
     required this.borderColor,
     required this.interactive,
-    this.onTap,
+    this.onRequestReplace,
   });
 
   final EditorController controller;
@@ -164,31 +167,31 @@ class _SlotView extends StatelessWidget {
   final double thickness;
   final Color borderColor;
   final bool interactive;
-  final void Function(String slotId)? onTap;
+  final void Function(String slotId)? onRequestReplace;
 
   @override
   Widget build(BuildContext context) {
-    final fill = controller.fillFor(slotId);
+    // effectiveFill honours any live drag-swap or replace preview.
+    final fill = controller.effectiveFill(slotId);
+    final realFill = controller.fillFor(slotId);
     final selected = controller.selectedSlotId == slotId;
+    final swapTarget = controller.swapSource != null && controller.swapSource != slotId;
     final br = BorderRadius.circular(radius);
 
-    Widget content;
-    if (fill != null) {
-      content = ClipRRect(
-        borderRadius: br,
-        child: Transform.scale(
-          scale: fill.zoom,
-          child: PhotoImage(
-            assetId: fill.assetId,
-            full: true,
-            fit: BoxFit.cover,
-            alignment: Alignment(fill.offsetX, fill.offsetY),
-          ),
-        ),
-      );
-    } else {
-      content = DottedSlot(radius: radius);
-    }
+    Widget content = fill != null
+        ? ClipRRect(
+            borderRadius: br,
+            child: Transform.scale(
+              scale: fill.zoom,
+              child: PhotoImage(
+                assetId: fill.assetId,
+                full: true,
+                fit: BoxFit.cover,
+                alignment: Alignment(fill.offsetX, fill.offsetY),
+              ),
+            ),
+          )
+        : DottedSlot(radius: radius);
 
     Widget box = Container(
       decoration: BoxDecoration(
@@ -198,54 +201,180 @@ class _SlotView extends StatelessWidget {
       child: content,
     );
 
-    if (selected) {
+    if (!interactive) return box;
+
+    // A subtle, persistent edit badge signals every filled slot is tappable.
+    if (realFill != null && !selected) {
+      box = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: box),
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.edit_rounded, size: 12, color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Selected / swap-target highlight.
+    if (selected || swapTarget) {
       box = Container(
         decoration: BoxDecoration(
           borderRadius: br,
-          border: Border.all(color: AppColors.amber, width: 2),
-          boxShadow: Shadows.focusGlow,
+          border: Border.all(
+            color: swapTarget ? AppColors.amberBright : AppColors.amber,
+            width: swapTarget ? 3 : 2,
+          ),
+          boxShadow: selected ? Shadows.focusGlow : null,
         ),
         child: box,
       );
     }
 
-    if (!interactive) return box;
-
-    // Long-press to lift this photo and drop it on another slot to swap.
-    return DragTarget<String>(
+    // Drop target for drag-to-swap, with live preview via updateSlotDragOver.
+    Widget interactiveBox = DragTarget<String>(
       onWillAcceptWithDetails: (d) => d.data != slotId,
-      onAcceptWithDetails: (d) => controller.swapSlots(d.data, slotId),
-      builder: (context, candidate, __) {
-        final hovering = candidate.isNotEmpty;
+      onMove: (_) => controller.updateSlotDragOver(slotId),
+      onLeave: (_) {
+        if (controller.dragOverSlot == slotId) controller.updateSlotDragOver(null);
+      },
+      onAcceptWithDetails: (d) {
+        controller.swapSlots(d.data, slotId);
+        controller.endSlotDrag();
+      },
+      builder: (context, candidate, rejected) {
         final child = GestureDetector(
-          onTap: () => onTap?.call(slotId),
-          child: AnimatedContainer(
-            duration: Motion.fast,
-            decoration: BoxDecoration(
-              borderRadius: br,
-              border: hovering ? Border.all(color: AppColors.amberBright, width: 3) : null,
-            ),
-            child: box,
-          ),
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (controller.completeSwapIfActive(slotId)) return;
+            controller.selectSlot(slotId);
+          },
+          child: box,
         );
-        if (fill == null) return child;
-        return LongPressDraggable<String>(
+        // A filled slot can be dragged with an immediate (non-long-press) drag.
+        if (realFill == null) return child;
+        return Draggable<String>(
           data: slotId,
+          onDragStarted: () => controller.startSlotDrag(slotId),
+          onDragEnd: (_) => controller.endSlotDrag(),
+          onDraggableCanceled: (_, __) => controller.endSlotDrag(),
           feedback: Opacity(
-            opacity: 0.85,
+            opacity: 0.9,
             child: SizedBox(
-              width: 120,
-              height: 120,
+              width: 110,
+              height: 110,
               child: ClipRRect(
                 borderRadius: br,
-                child: PhotoImage(assetId: fill.assetId, full: true, fit: BoxFit.cover),
+                child: PhotoImage(assetId: realFill.assetId, full: true, fit: BoxFit.cover),
               ),
             ),
           ),
-          childWhenDragging: Opacity(opacity: 0.3, child: box),
+          childWhenDragging: Opacity(opacity: 0.25, child: box),
           child: child,
         );
       },
+    );
+
+    // Inline action chips on the selected slot.
+    if (selected) {
+      interactiveBox = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: interactiveBox),
+          Positioned(
+            top: 4,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: FittedBox(
+                child: _SlotChips(
+                  hasPhoto: realFill != null,
+                  onReplace: () => onRequestReplace?.call(slotId),
+                  onSwap: () => controller.startSwapMode(slotId),
+                  onClear: () => controller.clearSlot(slotId),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return interactiveBox;
+  }
+}
+
+/// The Replace / Swap / Clear chips shown on a selected slot.
+class _SlotChips extends StatelessWidget {
+  const _SlotChips({
+    required this.hasPhoto,
+    required this.onReplace,
+    required this.onSwap,
+    required this.onClear,
+  });
+  final bool hasPhoto;
+  final VoidCallback onReplace;
+  final VoidCallback onSwap;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(Radii.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Chip(icon: Icons.photo_library_rounded, label: hasPhoto ? 'Replace' : 'Choose', onTap: onReplace),
+          if (hasPhoto) _Chip(icon: Icons.swap_horiz_rounded, label: 'Swap', onTap: onSwap),
+          if (hasPhoto) _Chip(icon: Icons.close_rounded, label: 'Clear', onTap: onClear, danger: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.icon, required this.label, required this.onTap, this.danger = false});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = danger ? AppColors.danger : AppColors.amber;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(Radii.pill),
+          border: Border.all(color: c),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: c),
+            const SizedBox(width: 4),
+            Text(label, style: AppText.labelMd.copyWith(color: c)),
+          ],
+        ),
+      ),
     );
   }
 }
