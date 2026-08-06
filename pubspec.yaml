@@ -48,6 +48,7 @@ dependencies:
   collection: ^1.19.1
   emoji_picker_flutter: ^4.5.3
   share_plus: ^13.3.0
+  geocoding: ^4.0.0
 
 dev_dependencies:
   flutter_test:
