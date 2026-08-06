@@ -68,6 +68,9 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
                 'To build a collage, Collage needs to open your photo library so '
                 'you can pick the pictures you want. It also needs permission to '
                 'save your finished collage back to your gallery.\n\n'
+                'Allowing photo access also lets Collage read when and where your '
+                'photos were taken, so it can suggest ready-made collages like '
+                '"you were in Rome on 12 Jun". \n\n'
                 'Your photos stay on your device. Nothing is uploaded.',
                 style: AppText.bodyLg.copyWith(color: AppColors.textMid),
               ),

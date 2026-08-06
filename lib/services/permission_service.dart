@@ -27,7 +27,8 @@ class PermissionService {
       requestOption: const PermissionRequestOption(
         androidPermission: AndroidPermission(
           type: RequestType.image,
-          mediaLocation: false,
+          // Read EXIF GPS so we can suggest collages by place (ACCESS_MEDIA_LOCATION).
+          mediaLocation: true,
         ),
       ),
     );

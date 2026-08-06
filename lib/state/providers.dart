@@ -6,6 +6,7 @@ import '../services/draft_service.dart';
 import '../services/export_service.dart';
 import '../services/gallery_service.dart';
 import '../services/giphy_service.dart';
+import '../services/moments_service.dart';
 import '../services/permission_service.dart';
 import '../services/prefs_service.dart';
 
@@ -20,6 +21,14 @@ final draftServiceProvider = Provider((_) => const DraftService());
 final exportServiceProvider = Provider((_) => const ExportService());
 final giphyServiceProvider = Provider((_) => const GiphyService());
 final aiServiceProvider = Provider((_) => const AiCollageService());
+final momentsServiceProvider =
+    Provider((ref) => MomentsService(ref.read(galleryServiceProvider)));
+
+/// Location + date "moments" suggested on the Discover tab. autoDispose so it
+/// re-scans when the user returns to Discover.
+final momentsProvider = FutureProvider.autoDispose<List<Moment>>(
+  (ref) => ref.read(momentsServiceProvider).discover(),
+);
 
 /// The "My Collages" library. Reloads on demand via [reload].
 final draftsProvider =
