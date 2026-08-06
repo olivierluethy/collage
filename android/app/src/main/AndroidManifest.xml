@@ -1,6 +1,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Network: Giphy GIF search, GIF rendering, AI auto-collage. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Photo library access. Android 13+ uses granular media permissions; older
+         versions fall back to READ_EXTERNAL_STORAGE. ACCESS_MEDIA_LOCATION lets
+         the app read EXIF location for AI grouping. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <!-- Saving the finished collage on Android 9 and below. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
+
     <application
-        android:label="collage"
+        android:label="Collage"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Collage needs access to your photos so you can pick the pictures for your collage.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Collage saves your finished collage to your photo library.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
