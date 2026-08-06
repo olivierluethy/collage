@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 
 /// Captures the collage canvas (wrapped in a RepaintBoundary) to a high-res
 /// PNG for saving/sharing.
