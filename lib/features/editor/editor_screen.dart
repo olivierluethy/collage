@@ -3,17 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
-import '../../data/layout_templates.dart';
 import '../../state/providers.dart';
 import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
-import '../../widgets/layout_miniature.dart';
-import '../../widgets/ui.dart';
 import '../picker/photo_picker_screen.dart';
 import '../result/result_screen.dart';
 import 'collage_canvas.dart';
 import 'editor_controller.dart';
-import 'editor_sheets.dart';
+import 'editor_panels.dart';
+
+enum _Panel { none, layout, borders, background, stickers, shapes, text, emoji, gif, replace }
 
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key, required this.project, required this.pool});
@@ -29,6 +28,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   final _boundaryKey = GlobalKey();
   bool _saving = false;
 
+  _Panel _panel = _Panel.none;
+  String? _editingTextId;
+  String? _replaceSlotId;
+
   @override
   void initState() {
     super.initState();
@@ -42,9 +45,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     await prefs.setCoachSeen('editor_slots');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      duration: const Duration(seconds: 6),
-      content: const Text('Tap a slot to choose its photo. Press and hold a photo, '
-          'then drag it onto another to swap them.'),
+      duration: const Duration(seconds: 7),
+      content: const Text('Tap any photo to Replace, Swap or Clear it. Or drag one '
+          'photo onto another to swap them.'),
       action: SnackBarAction(label: 'Got it', onPressed: () {}),
     ));
   }
@@ -53,6 +56,51 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   void dispose() {
     _c.dispose();
     super.dispose();
+  }
+
+  // ---- panel management ----------------------------------------------------
+  void _cleanupPanel() {
+    if (_panel == _Panel.text && _editingTextId != null) {
+      final e = _c.selectedElement;
+      if (e is TextElement && e.text.trim().isEmpty) _c.deleteElement(e.id);
+      _editingTextId = null;
+    }
+    if (_panel == _Panel.replace) {
+      _c.cancelReplace();
+      _replaceSlotId = null;
+    }
+  }
+
+  void _closePanel() {
+    setState(() {
+      _cleanupPanel();
+      _panel = _Panel.none;
+    });
+  }
+
+  void _openPanel(_Panel p) {
+    setState(() {
+      _cleanupPanel();
+      _panel = p;
+    });
+  }
+
+  void _openText() {
+    final el = _c.addText('Your text', color: 0xFFF5EFE7);
+    setState(() {
+      _cleanupPanel();
+      _editingTextId = el.id;
+      _panel = _Panel.text;
+    });
+  }
+
+  void _openReplace(String slotId) {
+    _c.startReplace(slotId);
+    setState(() {
+      _cleanupPanel();
+      _replaceSlotId = slotId;
+      _panel = _Panel.replace;
+    });
   }
 
   Future<void> _addPhotos() async {
@@ -72,18 +120,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _saving = true);
+    _closePanel();
     _c.clearSelection();
-    await Future.delayed(Motion.fast); // let selection chrome clear before capture
+    setState(() => _saving = true);
+    await Future.delayed(Motion.fast);
     final export = ref.read(exportServiceProvider);
     final png = await export.capture(_boundaryKey, targetWidth: 2048);
     final thumb = await export.capture(_boundaryKey, targetWidth: 500);
     if (png == null) {
       setState(() => _saving = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not render the collage. Try again.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not render the collage. Try again.')));
       }
       return;
     }
@@ -91,14 +138,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     await ref.read(draftsProvider.notifier).reload();
     setState(() => _saving = false);
     if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         leading: const BackButton(),
         title: const Text('Editor'),
@@ -117,6 +163,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
       body: Column(
         children: [
+          // Canvas — always visible, shrinks to fit the space above any panel.
           Expanded(
             child: Center(
               child: Padding(
@@ -125,126 +172,78 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   aspectRatio: _c.project.ratio.value,
                   child: RepaintBoundary(
                     key: _boundaryKey,
-                    child: CollageCanvas(
-                      controller: _c,
-                      onSlotTap: (slotId) {
-                        _c.selectSlot(slotId);
-                        showSlotActionsSheet(context, _c, slotId);
-                      },
-                    ),
+                    child: CollageCanvas(controller: _c, onRequestReplace: _openReplace),
                   ),
                 ),
               ),
             ),
           ),
-          _ContextBar(controller: _c),
-          _ToolRail(
-            onLayout: () => _showLayoutSheet(),
-            onPhotos: _addPhotos,
-            onBorders: () => showBordersSheet(context, _c),
-            onBackground: () => showBackgroundSheet(context, _c),
-            onStickers: () => showStickersSheet(context, _c),
-            onShapes: () => showShapesSheet(context, _c),
-            onText: () => showTextSheet(context, _c),
-            onEmoji: () => showEmojiSheet(context, _c),
-            onGif: () => showGiphySheet(context, _c, ref.read(giphyServiceProvider)),
-          ),
+          _ContextBar(controller: _c, onEditText: (e) {
+            setState(() { _editingTextId = e.id; _panel = _Panel.text; });
+          }),
+          if (_panel != _Panel.none) _panelHost(context),
+          _ToolRail(active: _panel, onTool: _onTool, onPhotos: _addPhotos),
         ],
       ),
     );
   }
 
-  void _showLayoutSheet() {
-    final count = _c.pool.length.clamp(1, 9);
-    final options = [...LayoutTemplates.forCount(count), LayoutTemplates.freeform];
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      builder: (_) => SheetScaffold(
-        title: 'Layout',
-        height: MediaQuery.of(context).size.height * 0.6,
-        child: Column(
-          children: [
-            const SectionHeader('Canvas shape'),
-            SizedBox(
-              height: 40,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-                itemCount: CanvasRatio.all.length,
-                separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
-                itemBuilder: (_, i) {
-                  final r = CanvasRatio.all[i];
-                  final sel = r.label == _c.project.ratioLabel;
-                  return GestureDetector(
-                    onTap: () {
-                      _c.setRatioLabel(r.label);
-                      Navigator.of(context).pop();
-                    },
-                    child: Container(
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: Space.md),
-                      decoration: BoxDecoration(
-                        color: sel ? AppColors.amberTint : AppColors.surfaceInput,
-                        borderRadius: BorderRadius.circular(Radii.chip),
-                      ),
-                      child: Text(r.label,
-                          style: AppText.spec.copyWith(color: sel ? AppColors.amber : AppColors.textMid)),
-                    ),
-                  );
-                },
-              ),
+  void _onTool(_Panel p) {
+    if (p == _Panel.text) { _openText(); return; }
+    _openPanel(p);
+  }
+
+  Widget _panelHost(BuildContext context) {
+    final h = MediaQuery.of(context).size.height;
+    final (title, body, height) = switch (_panel) {
+      _Panel.layout => ('Layout', LayoutPanel(c: _c), 340.0),
+      _Panel.borders => ('Borders & spacing', BordersPanel(c: _c), 280.0),
+      _Panel.background => ('Background', BackgroundPanel(c: _c), 270.0),
+      _Panel.stickers => ('Stickers', StickersPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
+      _Panel.shapes => ('Shapes', ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
+      _Panel.text => ('Text', TextPanel(c: _c, elementId: _editingTextId ?? ''), 260.0),
+      _Panel.emoji => ('Emoji', EmojiPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
+      _Panel.gif => ('GIFs', GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
+      _Panel.replace => ('Choose a photo', ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
+      _Panel.none => ('', const SizedBox.shrink(), 0.0),
+    };
+
+    return Container(
+      height: height + 46,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.line)),
+        boxShadow: Shadows.e2,
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 46,
+            child: Row(
+              children: [
+                const SizedBox(width: Space.lg),
+                Text(title, style: AppText.titleMd),
+                const Spacer(),
+                IconButton(onPressed: _closePanel, icon: const Icon(Icons.keyboard_arrow_down_rounded), color: AppColors.textMid),
+              ],
             ),
-            const SectionHeader('Arrangement'),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: Space.md,
-                  crossAxisSpacing: Space.md,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: options.length,
-                itemBuilder: (_, i) {
-                  final t = options[i];
-                  final sel = _c.project.layout.id == t.id;
-                  return GestureDetector(
-                    onTap: () {
-                      _c.setLayout(t);
-                      Navigator.of(context).pop();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceHigh,
-                        borderRadius: BorderRadius.circular(Radii.control),
-                        border: Border.all(
-                          color: sel ? AppColors.amber : AppColors.line,
-                          width: sel ? 2 : 1,
-                        ),
-                      ),
-                      child: AspectRatio(
-                        aspectRatio: _c.project.ratio.value,
-                        child: LayoutMiniature(template: t),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: body),
+        ],
       ),
     );
   }
 }
 
-/// Contextual actions for the currently selected overlay element.
+// ---------------------------------------------------------------------------
+// Contextual element bar
+// ---------------------------------------------------------------------------
+
 class _ContextBar extends StatelessWidget {
-  const _ContextBar({required this.controller});
+  const _ContextBar({required this.controller, required this.onEditText});
   final EditorController controller;
+  final void Function(TextElement e) onEditText;
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +259,7 @@ class _ContextBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               if (el is TextElement)
-                _CtxBtn(icon: Icons.edit_rounded, label: 'Edit', onTap: () => showTextSheet(context, controller, edit: el)),
+                _CtxBtn(icon: Icons.edit_rounded, label: 'Edit', onTap: () => onEditText(el)),
               _CtxBtn(icon: Icons.flip_to_front_rounded, label: 'Forward', onTap: () => controller.bringForward(el.id)),
               _CtxBtn(icon: Icons.flip_to_back_rounded, label: 'Back', onTap: () => controller.sendBackward(el.id)),
               _CtxBtn(icon: Icons.restart_alt_rounded, label: 'Straighten', onTap: () => controller.updateTransform(el.id, rotation: 0)),
@@ -301,42 +300,28 @@ class _CtxBtn extends StatelessWidget {
   }
 }
 
-/// The always-visible, labelled bottom tool rail.
-class _ToolRail extends StatelessWidget {
-  const _ToolRail({
-    required this.onLayout,
-    required this.onPhotos,
-    required this.onBorders,
-    required this.onBackground,
-    required this.onStickers,
-    required this.onShapes,
-    required this.onText,
-    required this.onEmoji,
-    required this.onGif,
-  });
+// ---------------------------------------------------------------------------
+// Bottom tool rail (labels never overlap)
+// ---------------------------------------------------------------------------
 
-  final VoidCallback onLayout;
+class _ToolRail extends StatelessWidget {
+  const _ToolRail({required this.active, required this.onTool, required this.onPhotos});
+  final _Panel active;
+  final void Function(_Panel) onTool;
   final VoidCallback onPhotos;
-  final VoidCallback onBorders;
-  final VoidCallback onBackground;
-  final VoidCallback onStickers;
-  final VoidCallback onShapes;
-  final VoidCallback onText;
-  final VoidCallback onEmoji;
-  final VoidCallback onGif;
 
   @override
   Widget build(BuildContext context) {
-    final tools = <(IconData, String, VoidCallback)>[
-      (Icons.grid_view_rounded, 'Layout', onLayout),
-      (Icons.add_photo_alternate_outlined, 'Photos', onPhotos),
-      (Icons.border_outer_rounded, 'Borders', onBorders),
-      (Icons.gradient_rounded, 'Background', onBackground),
-      (Icons.emoji_emotions_outlined, 'Stickers', onStickers),
-      (Icons.category_outlined, 'Shapes', onShapes),
-      (Icons.title_rounded, 'Text', onText),
-      (Icons.tag_faces_rounded, 'Emoji', onEmoji),
-      (Icons.gif_box_outlined, 'GIF', onGif),
+    final tools = <(_Panel, IconData, String)>[
+      (_Panel.layout, Icons.grid_view_rounded, 'Layout'),
+      (_Panel.none, Icons.add_photo_alternate_outlined, 'Photos'),
+      (_Panel.borders, Icons.border_outer_rounded, 'Borders'),
+      (_Panel.background, Icons.gradient_rounded, 'Background'),
+      (_Panel.stickers, Icons.emoji_emotions_outlined, 'Stickers'),
+      (_Panel.shapes, Icons.category_outlined, 'Shapes'),
+      (_Panel.text, Icons.title_rounded, 'Text'),
+      (_Panel.emoji, Icons.tag_faces_rounded, 'Emoji'),
+      (_Panel.gif, Icons.gif_box_outlined, 'GIF'),
     ];
     return Container(
       decoration: const BoxDecoration(
@@ -346,24 +331,38 @@ class _ToolRail extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 76,
+          height: 74,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+            padding: const EdgeInsets.symmetric(horizontal: Space.xs),
             itemCount: tools.length,
             itemBuilder: (_, i) {
-              final (icon, label, onTap) = tools[i];
+              final (panel, icon, label) = tools[i];
+              final isActive = panel != _Panel.none && panel == active;
+              final color = isActive ? AppColors.amber : AppColors.textMid;
               return InkWell(
-                onTap: onTap,
+                onTap: () => label == 'Photos' ? onPhotos() : onTool(panel),
                 borderRadius: BorderRadius.circular(Radii.control),
-                child: SizedBox(
-                  width: 76,
+                child: Container(
+                  width: 78,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(icon, color: AppColors.textMid, size: 24),
+                      Icon(icon, color: color, size: 24),
                       const SizedBox(height: 6),
-                      Text(label, style: AppText.labelMd),
+                      SizedBox(
+                        width: 72,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: AppText.labelMd.copyWith(color: color),
+                        ),
+                      ),
                     ],
                   ),
                 ),
