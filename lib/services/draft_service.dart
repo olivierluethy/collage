@@ -43,13 +43,35 @@ class DraftService {
     for (final f in files) {
       try {
         final map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
-        projects.add(CollageProject.fromJson(map));
+        final project = CollageProject.fromJson(map);
+        // Backfill migration: a pre-v1.2 draft with no stored createdAt comes
+        // back as 0. Use the JSON file's own timestamp (when the collage was
+        // last written) so it still shows a sensible date, and persist it so
+        // the migration only runs once.
+        final schema = (map['schema'] as num?)?.toInt() ?? 1;
+        if (project.createdAt == 0 || schema < collageSchemaVersion) {
+          final stamp = _fileStamp(f);
+          if (project.createdAt == 0) project.createdAt = stamp;
+          if (project.updatedAt == 0) project.updatedAt = stamp;
+          await save(project); // re-writes with the current schema version
+        }
+        projects.add(project);
       } catch (_) {
         // Skip corrupt drafts rather than crashing the library.
       }
     }
     projects.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return projects;
+  }
+
+  /// The file's last-modified time in epoch millis, used to backfill a missing
+  /// createdAt for pre-v1.2 drafts. Falls back to "now" if unavailable.
+  int _fileStamp(File f) {
+    try {
+      return f.lastModifiedSync().millisecondsSinceEpoch;
+    } catch (_) {
+      return DateTime.now().millisecondsSinceEpoch;
+    }
   }
 
   Future<CollageProject?> load(String id) async {

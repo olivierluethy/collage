@@ -6,6 +6,11 @@ import 'layout_template.dart';
 int _c(Color c) => c.toARGB32();
 Color _uc(int v) => Color(v);
 
+/// Persisted schema version for saved collages. Bumped to 2 for the v1.2
+/// additions (guaranteed `createdAt`/`updatedAt`, per-cell filters and polygon
+/// layout slots). [DraftService] uses it to backfill missing fields on load.
+const int collageSchemaVersion = 2;
+
 /// A canvas aspect ratio the user can pick, with the spec label they asked to
 /// see (e.g. "4:5", "16:9").
 class CanvasRatio {
@@ -203,7 +208,9 @@ class CollageProject {
 
   final String id;
   String title;
-  final int createdAt;
+  // Set once when the collage is first created; only ever reassigned by the
+  // one-time backfill migration in DraftService for pre-v1.2 drafts.
+  int createdAt;
   int updatedAt;
   String ratioLabel;
   LayoutTemplate layout;
@@ -216,6 +223,7 @@ class CollageProject {
   CanvasRatio get ratio => CanvasRatio.byLabel(ratioLabel);
 
   Map<String, dynamic> toJson() => {
+        'schema': collageSchemaVersion,
         'id': id,
         'title': title,
         'createdAt': createdAt,
@@ -232,8 +240,15 @@ class CollageProject {
   factory CollageProject.fromJson(Map<String, dynamic> j) => CollageProject(
         id: j['id'] as String,
         title: j['title'] as String,
-        createdAt: j['createdAt'] as int,
-        updatedAt: j['updatedAt'] as int,
+        // Tolerant of pre-v1.2 drafts: a missing createdAt falls back to
+        // updatedAt, or 0 as a "backfill me" sentinel DraftService fills from
+        // the file's timestamp on load.
+        createdAt: (j['createdAt'] as num?)?.toInt() ??
+            (j['updatedAt'] as num?)?.toInt() ??
+            0,
+        updatedAt: (j['updatedAt'] as num?)?.toInt() ??
+            (j['createdAt'] as num?)?.toInt() ??
+            0,
         ratioLabel: j['ratioLabel'] as String,
         layout: LayoutTemplate.fromJson(j['layout'] as Map<String, dynamic>),
         fills: (j['fills'] as Map<String, dynamic>).map(
