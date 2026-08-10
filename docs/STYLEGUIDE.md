@@ -198,6 +198,49 @@ Use motion to explain (sheet rise, selection glow, slot-swap tween), not to deco
 
 ---
 
+## 9b. Feature patterns (v1.2 additions)
+
+New patterns introduced for creation dates, filters, diagonal layouts and the
+picker tray. They reuse existing tokens only — no new colour or font is added.
+
+**Meta line (date/spec)** — a single `caption` row in `textLo` used under a
+collage title to carry non-editorial metadata (creation date, counts). Date is
+stored as a raw epoch and formatted at display time with `intl`, German-friendly
+`dd.MM.yyyy · HH:mm` by default, following the device locale. Pair a small
+`schedule`/`event` icon (13dp, `textLo`) with the text; never colour it amber —
+metadata stays quiet.
+
+**Filter panel** — same bottom tool-rail entry + shrinking-canvas panel as every
+other tool. Header carries a `SegmentedButton` scope toggle: `Whole collage` /
+`This photo` (the selected cell). Below it, a horizontal **preset strip**
+(56×56 live thumbnails, selected = 2px `amber` ring + `amber` `caption` label,
+unselected = `line` hairline), then `LabeledSlider` rows for Brightness /
+Contrast / Warmth / Saturation reusing the Borders panel slider pattern (range
+shown as a signed `spec` value, 0 = neutral). A ghost "Reset" `TextButton` in the
+header clears adjustments. When scope is `This photo` and no cell is selected,
+show a `caption` hint "Tap a photo in the collage to filter just that one."
+Filters render with `ColorFiltered`/`ColorFilter.matrix` so what's on screen is
+exactly what the export bakes.
+
+**Diagonal / polygon cells** — layout slots may be arbitrary polygons, not only
+rectangles. A polygon cell clips its photo with `ClipPath` (which also clips the
+tap target, so overlapping bounding boxes still hit-test to the right cell).
+Gaps are an inward inset toward the cell centroid by `gap/2`; the `Border`
+setting strokes the polygon edges in the border colour. Rectangular slots are
+unchanged (rounded corners honoured) — polygons are an additive special case, so
+no existing straight grid regresses. Miniatures and the layout picker draw the
+same polygons so the card preview matches the result.
+
+**Selected-images tray** — a static strip pinned above the picker's primary
+button, never scrolling away with the grid. `surface` bg, top `line` hairline,
+`e2` shadow. Leading `spec` count chip (`3/9`). Then a horizontal list of 56dp
+rounded thumbnails; the active/focused one carries the `amber` ring. Each
+thumbnail has a 20dp `×` remove affordance (dark scrim circle, white icon,
+top-right). Tapping a thumbnail focuses/scrolls to it in the grid; the `×`
+removes it from the selection. Empty selection collapses the tray.
+
+---
+
 ## 10. How to use this file
 
 1. Read a token from the table; use the matching constant in `lib/theme/tokens.dart`.
