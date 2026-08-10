@@ -112,6 +112,30 @@ class CollageCanvas extends StatelessWidget {
   }
 }
 
+/// Builds a slot photo, cover-fitted, with its per-cell colour filter baked in
+/// via [ColorFiltered]. Because the editor and the export use the exact same
+/// widget, the saved image matches the screen. Identity filters skip the
+/// wrapper entirely for performance.
+Widget filteredPhoto(
+  SlotFill fill, {
+  Alignment alignment = Alignment.center,
+  BoxFit fit = BoxFit.cover,
+}) {
+  Widget photo = PhotoImage(
+    assetId: fill.assetId,
+    full: true,
+    fit: fit,
+    alignment: alignment,
+  );
+  if (!fill.filter.isIdentity) {
+    photo = ColorFiltered(
+      colorFilter: ColorFilter.matrix(fill.filter.matrix()),
+      child: photo,
+    );
+  }
+  return photo;
+}
+
 class _Background extends StatelessWidget {
   const _Background({required this.bg});
   final BackgroundSettings bg;
@@ -183,10 +207,8 @@ class _SlotView extends StatelessWidget {
             borderRadius: br,
             child: Transform.scale(
               scale: fill.zoom,
-              child: PhotoImage(
-                assetId: fill.assetId,
-                full: true,
-                fit: BoxFit.cover,
+              child: filteredPhoto(
+                fill,
                 alignment: Alignment(fill.offsetX, fill.offsetY),
               ),
             ),

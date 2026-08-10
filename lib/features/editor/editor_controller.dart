@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
+import '../../models/photo_filter.dart';
 
 /// Holds the collage being edited plus selection state, and exposes every
 /// mutation the editor UI performs. A plain [ChangeNotifier] so the canvas and
@@ -168,7 +169,36 @@ class EditorController extends ChangeNotifier {
   SlotFill? fillFor(String slotId) => project.fills[slotId];
 
   void assignSlot(String slotId, String assetId) {
-    project.fills[slotId] = SlotFill(assetId: assetId);
+    // Keep the cell's existing filter when its photo is replaced, so a styled
+    // slot keeps its look.
+    final prev = project.fills[slotId];
+    project.fills[slotId] =
+        SlotFill(assetId: assetId, filter: prev?.filter.clone());
+    _touch();
+  }
+
+  // ---- per-cell filters ---------------------------------------------------
+  /// Mutate the filter on a single slot (the "This photo" scope).
+  void updateSlotFilter(String slotId, void Function(PhotoFilter f) fn) {
+    final f = project.fills[slotId];
+    if (f == null) return;
+    fn(f.filter);
+    _touch();
+  }
+
+  /// Apply one filter to every filled cell (the "Whole collage" scope). Each
+  /// cell gets its own clone, so any cell remains individually re-editable
+  /// afterwards.
+  void applyFilterToAll(PhotoFilter template) {
+    for (final f in project.fills.values) {
+      final c = template.clone();
+      f.filter
+        ..preset = c.preset
+        ..brightness = c.brightness
+        ..contrast = c.contrast
+        ..saturation = c.saturation
+        ..warmth = c.warmth;
+    }
     _touch();
   }
 

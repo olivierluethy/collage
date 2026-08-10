@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'canvas_element.dart';
 import 'layout_template.dart';
+import 'photo_filter.dart';
 
 int _c(Color c) => c.toARGB32();
 Color _uc(int v) => Color(v);
@@ -45,13 +46,15 @@ class SlotFill {
     this.offsetY = 0,
     this.zoom = 1.0,
     this.imgAspect = 1.0,
-  });
+    PhotoFilter? filter,
+  }) : filter = filter ?? PhotoFilter();
 
   String assetId;
   double offsetX; // -1..1 pan within slot
   double offsetY;
   double zoom; // >= 1
   double imgAspect;
+  PhotoFilter filter; // per-cell colour treatment (see PhotoFilter)
 
   SlotFill clone() => SlotFill(
         assetId: assetId,
@@ -59,6 +62,7 @@ class SlotFill {
         offsetY: offsetY,
         zoom: zoom,
         imgAspect: imgAspect,
+        filter: filter.clone(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -67,6 +71,7 @@ class SlotFill {
         'offsetY': offsetY,
         'zoom': zoom,
         'imgAspect': imgAspect,
+        if (!filter.isIdentity) 'filter': filter.toJson(),
       };
 
   factory SlotFill.fromJson(Map<String, dynamic> j) => SlotFill(
@@ -75,6 +80,9 @@ class SlotFill {
         offsetY: (j['offsetY'] as num?)?.toDouble() ?? 0,
         zoom: (j['zoom'] as num?)?.toDouble() ?? 1.0,
         imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
+        filter: j['filter'] == null
+            ? null
+            : PhotoFilter.fromJson(j['filter'] as Map<String, dynamic>),
       );
 }
 
