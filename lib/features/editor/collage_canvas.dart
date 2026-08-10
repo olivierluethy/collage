@@ -11,6 +11,7 @@ import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/pattern_painter.dart';
 import '../../widgets/photo_image.dart';
+import '../../widgets/poly_clipper.dart';
 import 'editor_controller.dart';
 
 /// Renders and (optionally) edits the whole collage: background, the grid of
@@ -85,7 +86,35 @@ class CollageCanvas extends StatelessWidget {
       (size.height - 2 * margin).clamp(0, size.height),
     );
 
+    Offset toPx(Offset n) => Offset(
+          content.left + n.dx * content.width,
+          content.top + n.dy * content.height,
+        );
+
     return slots.map((slot) {
+      if (slot.isPolygon) {
+        // Map the normalised polygon into content pixels, inset for the gap,
+        // then position at its bounding box with local (box-relative) points.
+        var poly = slot.points!.map(toPx).toList();
+        poly = insetConvexPolygon(poly, gap / 2);
+        final b = _boundsOf(poly);
+        final local = [for (final p in poly) p - b.topLeft];
+        return Positioned(
+          left: b.left,
+          top: b.top,
+          width: b.width.clamp(0, size.width),
+          height: b.height.clamp(0, size.height),
+          child: _PolySlotView(
+            controller: c,
+            slotId: slot.id,
+            polygon: local,
+            thickness: thickness,
+            borderColor: c.border.color,
+            interactive: interactive,
+            onRequestReplace: onRequestReplace,
+          ),
+        );
+      }
       var r = Rect.fromLTRB(
         content.left + slot.rect.left * content.width,
         content.top + slot.rect.top * content.height,
@@ -109,6 +138,18 @@ class CollageCanvas extends StatelessWidget {
         ),
       );
     }).toList();
+  }
+
+  static Rect _boundsOf(List<Offset> pts) {
+    var minX = double.infinity, minY = double.infinity;
+    var maxX = -double.infinity, maxY = -double.infinity;
+    for (final p in pts) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 }
 
@@ -416,6 +457,189 @@ class DottedSlot extends StatelessWidget {
       child: const Center(
         child: Icon(Icons.add_photo_alternate_outlined, color: AppColors.textLo, size: 28),
       ),
+    );
+  }
+}
+
+/// A polygon (diagonal / mosaic) photo cell. Mirrors [_SlotView]'s interaction
+/// but clips to an arbitrary convex polygon. The [ClipPath] gates hit-testing,
+/// so taps in the bounding-box corners fall through to the cell behind — which
+/// is what lets overlapping diagonal cells select the right photo. The border,
+/// selection ring, edit badge and action chips are unclipped overlays anchored
+/// to the polygon centroid so they stay visible on narrow triangular cells.
+class _PolySlotView extends StatelessWidget {
+  const _PolySlotView({
+    required this.controller,
+    required this.slotId,
+    required this.polygon,
+    required this.thickness,
+    required this.borderColor,
+    required this.interactive,
+    this.onRequestReplace,
+  });
+
+  final EditorController controller;
+  final String slotId;
+  final List<Offset> polygon; // local (box-relative) pixels
+  final double thickness;
+  final Color borderColor;
+  final bool interactive;
+  final void Function(String slotId)? onRequestReplace;
+
+  Widget _innerVisual(SlotFill? fill) {
+    if (fill == null) {
+      return const ColoredBox(
+        color: AppColors.surfaceInput,
+        child: Center(
+          child: Icon(Icons.add_photo_alternate_outlined,
+              color: AppColors.textLo, size: 26),
+        ),
+      );
+    }
+    return SizedBox.expand(
+      child: Transform.scale(
+        scale: fill.zoom,
+        child: filteredPhoto(fill, alignment: Alignment(fill.offsetX, fill.offsetY)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = controller.effectiveFill(slotId);
+    final realFill = controller.fillFor(slotId);
+    final selected = controller.selectedSlotId == slotId;
+    final swapTarget = controller.swapSource != null && controller.swapSource != slotId;
+    final centroid = polygonCentroid(polygon);
+    final clipper = PolygonClipper(polygon);
+
+    final visual = _innerVisual(fill);
+
+    // Non-interactive (export): clip + optional border only.
+    if (!interactive) {
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: ClipPath(clipper: clipper, child: visual)),
+          if (thickness > 0)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: PolygonBorderPainter(
+                    points: polygon, color: borderColor, strokeWidth: thickness),
+              ),
+            ),
+        ],
+      );
+    }
+
+    // Interactive core: tap to select, drag to swap.
+    Widget core = ClipPath(
+      clipper: clipper,
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (d) => d.data != slotId,
+        onMove: (_) => controller.updateSlotDragOver(slotId),
+        onLeave: (_) {
+          if (controller.dragOverSlot == slotId) controller.updateSlotDragOver(null);
+        },
+        onAcceptWithDetails: (d) {
+          controller.swapSlots(d.data, slotId);
+          controller.endSlotDrag();
+        },
+        builder: (context, candidate, rejected) {
+          final child = GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              if (controller.completeSwapIfActive(slotId)) return;
+              controller.selectSlot(slotId);
+            },
+            child: visual,
+          );
+          if (realFill == null) return child;
+          return Draggable<String>(
+            data: slotId,
+            onDragStarted: () => controller.startSlotDrag(slotId),
+            onDragEnd: (_) => controller.endSlotDrag(),
+            onDraggableCanceled: (_, __) => controller.endSlotDrag(),
+            feedback: Opacity(
+              opacity: 0.9,
+              child: SizedBox(
+                width: 110,
+                height: 110,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: PhotoImage(assetId: realFill.assetId, full: true, fit: BoxFit.cover),
+                ),
+              ),
+            ),
+            childWhenDragging: Opacity(opacity: 0.25, child: visual),
+            child: child,
+          );
+        },
+      ),
+    );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(child: core),
+        // Border stroke along the polygon edges.
+        if (thickness > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: PolygonBorderPainter(
+                    points: polygon, color: borderColor, strokeWidth: thickness),
+              ),
+            ),
+          ),
+        // Selection / swap-target highlight (amber edge).
+        if (selected || swapTarget)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: PolygonBorderPainter(
+                  points: polygon,
+                  color: swapTarget ? AppColors.amberBright : AppColors.amber,
+                  strokeWidth: swapTarget ? 3 : 2.5,
+                ),
+              ),
+            ),
+          ),
+        // Persistent edit badge on a filled, unselected cell.
+        if (realFill != null && !selected)
+          Positioned(
+            left: centroid.dx,
+            top: centroid.dy,
+            child: FractionalTranslation(
+              translation: const Offset(-0.5, -0.5),
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.edit_rounded, size: 12, color: Colors.white),
+              ),
+            ),
+          ),
+        // Inline action chips on the selected cell.
+        if (selected)
+          Positioned(
+            left: centroid.dx,
+            top: centroid.dy,
+            child: FractionalTranslation(
+              translation: const Offset(-0.5, -0.5),
+              child: FittedBox(
+                child: _SlotChips(
+                  hasPhoto: realFill != null,
+                  onReplace: () => onRequestReplace?.call(slotId),
+                  onSwap: () => controller.startSwapMode(slotId),
+                  onClear: () => controller.clearSlot(slotId),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

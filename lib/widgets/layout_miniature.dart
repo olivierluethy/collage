@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/layout_template.dart';
 import '../theme/tokens.dart';
+import 'poly_clipper.dart';
 
 /// Draws a tiny illustration of a layout's slots so the user can see, at a
 /// glance, what each option does (the "little picture" the notes asked for).
@@ -54,6 +55,17 @@ class _MiniPainter extends CustomPainter {
     }
 
     for (final slot in template.slots) {
+      if (slot.isPolygon) {
+        final pts = [
+          for (final p in slot.points!)
+            Offset(p.dx * size.width, p.dy * size.height),
+        ];
+        final inset = insetConvexPolygon(pts, gap / 2);
+        final path = polygonPath(inset);
+        canvas.drawPath(path, fill);
+        canvas.drawPath(path, stroke);
+        continue;
+      }
       final r = Rect.fromLTRB(
         slot.rect.left * size.width,
         slot.rect.top * size.height,
