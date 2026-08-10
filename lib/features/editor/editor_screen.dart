@@ -12,7 +12,7 @@ import 'collage_canvas.dart';
 import 'editor_controller.dart';
 import 'editor_panels.dart';
 
-enum _Panel { none, layout, borders, background, stickers, shapes, text, emoji, gif, replace }
+enum _Panel { none, layout, borders, background, filter, stickers, shapes, text, emoji, gif, replace }
 
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key, required this.project, required this.pool});
@@ -199,6 +199,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _Panel.layout => ('Layout', LayoutPanel(c: _c), 340.0),
       _Panel.borders => ('Borders & spacing', BordersPanel(c: _c), 280.0),
       _Panel.background => ('Background', BackgroundPanel(c: _c), 270.0),
+      _Panel.filter => ('Filter', FilterPanel(c: _c), 360.0),
       _Panel.stickers => ('Stickers', StickersPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
       _Panel.shapes => ('Shapes', ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
       _Panel.text => ('Text', TextPanel(c: _c, elementId: _editingTextId ?? ''), 260.0),
@@ -317,6 +318,7 @@ class _ToolRail extends StatelessWidget {
       (_Panel.none, Icons.add_photo_alternate_outlined, 'Photos'),
       (_Panel.borders, Icons.border_outer_rounded, 'Borders'),
       (_Panel.background, Icons.gradient_rounded, 'Background'),
+      (_Panel.filter, Icons.tune_rounded, 'Filter'),
       (_Panel.stickers, Icons.emoji_emotions_outlined, 'Stickers'),
       (_Panel.shapes, Icons.category_outlined, 'Shapes'),
       (_Panel.text, Icons.title_rounded, 'Text'),

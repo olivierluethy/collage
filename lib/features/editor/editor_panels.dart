@@ -10,6 +10,7 @@ import '../../data/sticker_catalog.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
+import '../../models/photo_filter.dart';
 import '../../services/giphy_service.dart';
 import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
@@ -168,6 +169,245 @@ class BackgroundPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Scope for the filter panel: the whole collage, or just the selected cell.
+enum FilterScope { whole, cell }
+
+/// Live photo-filter panel. Two scopes: apply a preset + adjustments to every
+/// cell, or to only the tapped cell. Everything updates the collage live and is
+/// baked into the export by the shared render path.
+class FilterPanel extends StatefulWidget {
+  const FilterPanel({super.key, required this.c});
+  final EditorController c;
+
+  @override
+  State<FilterPanel> createState() => _FilterPanelState();
+}
+
+class _FilterPanelState extends State<FilterPanel> {
+  FilterScope _scope = FilterScope.whole;
+
+  /// Working filter for the "Whole collage" scope. In cell scope we edit the
+  /// selected slot's filter directly.
+  final PhotoFilter _whole = PhotoFilter();
+
+  EditorController get c => widget.c;
+
+  /// The filter currently being edited given the scope + selection.
+  PhotoFilter? get _target {
+    if (_scope == FilterScope.whole) return _whole;
+    final id = c.selectedSlotId;
+    if (id == null) return null;
+    return c.fillFor(id)?.filter;
+  }
+
+  /// A photo to preview presets on: the selected cell's, else the first filled.
+  String? get _sampleAsset {
+    if (_scope == FilterScope.cell && c.selectedSlotId != null) {
+      final f = c.fillFor(c.selectedSlotId!);
+      if (f != null) return f.assetId;
+    }
+    for (final f in c.project.fills.values) {
+      return f.assetId;
+    }
+    return null;
+  }
+
+  void _commit() {
+    if (_scope == FilterScope.whole) {
+      c.applyFilterToAll(_whole);
+    } else {
+      final id = c.selectedSlotId;
+      if (id != null) c.updateSlotFilter(id, (_) {});
+    }
+    setState(() {});
+  }
+
+  void _setPreset(FilterPreset p) {
+    final t = _target;
+    if (t == null) return;
+    t.preset = p;
+    _commit();
+  }
+
+  void _setAdjust(void Function(PhotoFilter f) fn) {
+    final t = _target;
+    if (t == null) return;
+    fn(t);
+    _commit();
+  }
+
+  void _reset() {
+    final t = _target;
+    if (t == null) return;
+    t.resetAdjustments();
+    t.preset = FilterPreset.none;
+    _commit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) {
+        final target = _target;
+        final sample = _sampleAsset;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Scope toggle + reset.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SegmentedButton<FilterScope>(
+                      segments: const [
+                        ButtonSegment(value: FilterScope.whole, label: Text('Whole collage')),
+                        ButtonSegment(value: FilterScope.cell, label: Text('This photo')),
+                      ],
+                      selected: {_scope},
+                      onSelectionChanged: (s) => setState(() => _scope = s.first),
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: target == null ? null : _reset,
+                    child: const Text('Reset'),
+                  ),
+                ],
+              ),
+            ),
+            if (_scope == FilterScope.cell && c.selectedSlotId == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
+                child: Text(
+                  'Tap a photo in the collage above to filter just that one.',
+                  style: AppText.caption,
+                ),
+              )
+            else ...[
+              // Preset strip.
+              const SectionHeader('Look'),
+              SizedBox(
+                height: 74,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                  itemCount: FilterPreset.values.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
+                  itemBuilder: (_, i) {
+                    final p = FilterPreset.values[i];
+                    return _PresetChip(
+                      preset: p,
+                      sampleAsset: sample,
+                      selected: target?.preset == p,
+                      onTap: () => _setPreset(p),
+                    );
+                  },
+                ),
+              ),
+              const SectionHeader('Adjust'),
+              _AdjustSlider(label: 'Brightness', value: target?.brightness ?? 0, onChanged: (v) => _setAdjust((f) => f.brightness = v)),
+              _AdjustSlider(label: 'Contrast', value: target?.contrast ?? 0, onChanged: (v) => _setAdjust((f) => f.contrast = v)),
+              _AdjustSlider(label: 'Warmth', value: target?.warmth ?? 0, onChanged: (v) => _setAdjust((f) => f.warmth = v)),
+              _AdjustSlider(label: 'Saturation', value: target?.saturation ?? 0, onChanged: (v) => _setAdjust((f) => f.saturation = v)),
+              const SizedBox(height: Space.md),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A signed −100..100 adjustment slider mapping to the filter's −1..1 range.
+class _AdjustSlider extends StatelessWidget {
+  const _AdjustSlider({required this.label, required this.value, required this.onChanged});
+  final String label;
+  final double value; // −1..1
+  final ValueChanged<double> onChanged; // emits −1..1
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = (value * 100).round();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+      child: Row(
+        children: [
+          SizedBox(width: 84, child: Text(label, style: AppText.bodyMd)),
+          Expanded(
+            child: Slider(
+              value: value.clamp(-1, 1),
+              min: -1,
+              max: 1,
+              onChanged: onChanged,
+            ),
+          ),
+          SizedBox(
+            width: 44,
+            child: Text(shown > 0 ? '+$shown' : '$shown',
+                style: AppText.spec, textAlign: TextAlign.right),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A 56×56 live preview of one preset applied to a sample photo.
+class _PresetChip extends StatelessWidget {
+  const _PresetChip({
+    required this.preset,
+    required this.sampleAsset,
+    required this.selected,
+    required this.onTap,
+  });
+  final FilterPreset preset;
+  final String? sampleAsset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = selected ? AppColors.amber : AppColors.textMid;
+    Widget swatch;
+    if (sampleAsset == null) {
+      swatch = const ColoredBox(color: AppColors.surfaceInput);
+    } else {
+      final f = PhotoFilter(preset: preset);
+      Widget img = PhotoImage(assetId: sampleAsset!, fit: BoxFit.cover);
+      if (!f.isIdentity) {
+        img = ColorFiltered(colorFilter: ColorFilter.matrix(f.matrix()), child: img);
+      }
+      swatch = img;
+    }
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.control),
+              border: Border.all(
+                color: selected ? AppColors.amber : AppColors.line,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: swatch,
+          ),
+          const SizedBox(height: 4),
+          Text(preset.label, style: AppText.caption.copyWith(color: labelColor)),
+        ],
+      ),
     );
   }
 }
