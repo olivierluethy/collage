@@ -1,13 +1,37 @@
 import 'dart:ui';
 
-/// One rectangular hole in a grid layout, expressed as a normalised rect
-/// (0..1) inside the collage content area. Slots keep the same relative shape
-/// on any canvas size or aspect ratio.
+/// One hole in a layout. A slot is normally a rectangle (normalised 0..1 in the
+/// collage content area), but may instead be an arbitrary convex polygon via
+/// [points] — this is how diagonal / mosaic templates are expressed. When
+/// [points] is set, [rect] is its bounding box (used for ordering, pan/zoom and
+/// backward compatibility). Rectangular slots keep [points] null and render
+/// exactly as before, so straight grids never regress.
 class LayoutSlot {
-  const LayoutSlot({required this.id, required this.rect});
+  const LayoutSlot({required this.id, required this.rect, this.points});
+
+  /// Build a polygon slot from normalised vertices; [rect] is derived as their
+  /// bounding box.
+  factory LayoutSlot.poly(String id, List<Offset> points) {
+    var minX = double.infinity, minY = double.infinity;
+    var maxX = -double.infinity, maxY = -double.infinity;
+    for (final p in points) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    return LayoutSlot(
+      id: id,
+      rect: Rect.fromLTRB(minX, minY, maxX, maxY),
+      points: points,
+    );
+  }
 
   final String id;
-  final Rect rect; // left, top, right, bottom in 0..1
+  final Rect rect; // bounding box in 0..1
+  final List<Offset>? points; // optional convex polygon in 0..1; null => rect
+
+  bool get isPolygon => points != null && points!.length >= 3;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -15,6 +39,8 @@ class LayoutSlot {
         't': rect.top,
         'r': rect.right,
         'b': rect.bottom,
+        if (points != null)
+          'pts': points!.map((p) => [p.dx, p.dy]).toList(),
       };
 
   factory LayoutSlot.fromJson(Map<String, dynamic> j) => LayoutSlot(
@@ -25,10 +51,16 @@ class LayoutSlot {
           (j['r'] as num).toDouble(),
           (j['b'] as num).toDouble(),
         ),
+        points: (j['pts'] as List?)
+            ?.map((e) => Offset(
+                  ((e as List)[0] as num).toDouble(),
+                  (e[1] as num).toDouble(),
+                ))
+            .toList(),
       );
 }
 
-enum LayoutFamily { rows, columns, grid, featured, freeform }
+enum LayoutFamily { rows, columns, grid, featured, freeform, diagonal }
 
 /// A curated collage layout: a named set of slots for a given photo count.
 class LayoutTemplate {
