@@ -34,13 +34,68 @@ class LayoutTemplates {
   ) =>
       LayoutTemplate(id: id, name: name, family: fam, slots: slots);
 
+  /// A polygon (diagonal) slot from normalised [x, y] pairs.
+  static LayoutSlot _ps(String id, List<List<double>> pts) =>
+      LayoutSlot.poly(id, [for (final p in pts) Offset(p[0], p[1])]);
+
+  /// A diagonal/mosaic template (non-rectilinear cells).
+  static LayoutTemplate _dt(String id, String name, List<LayoutSlot> slots) =>
+      _t(id, name, LayoutFamily.diagonal, slots);
+
+  /// Curated diagonal / mosaic templates for a given photo count. These sit
+  /// alongside the straight grids in the picker; each cell is a convex polygon.
+  static List<LayoutTemplate> _diagonalFor(int n) {
+    switch (n) {
+      case 2:
+        return [
+          _dt('2-angled', 'Angled', [
+            _ps('s0', [[0, 0], [0.6, 0], [0.4, 1], [0, 1]]),
+            _ps('s1', [[0.6, 0], [1, 0], [1, 1], [0.4, 1]]),
+          ]),
+          _dt('2-corner', 'Diagonal', [
+            _ps('s0', [[0, 0], [1, 0], [0, 1]]),
+            _ps('s1', [[1, 0], [1, 1], [0, 1]]),
+          ]),
+        ];
+      case 3:
+        return [
+          _dt('3-slanted', 'Slanted trio', [
+            _ps('s0', [[0, 0], [0.42, 0], [0.25, 1], [0, 1]]),
+            _ps('s1', [[0.42, 0], [0.72, 0], [0.55, 1], [0.25, 1]]),
+            _ps('s2', [[0.72, 0], [1, 0], [1, 1], [0.55, 1]]),
+          ]),
+        ];
+      case 4:
+        return [
+          _dt('4-x', 'Pinwheel', [
+            _ps('s0', [[0, 0], [1, 0], [0.5, 0.5]]),
+            _ps('s1', [[1, 0], [1, 1], [0.5, 0.5]]),
+            _ps('s2', [[1, 1], [0, 1], [0.5, 0.5]]),
+            _ps('s3', [[0, 1], [0, 0], [0.5, 0.5]]),
+          ]),
+          _dt('4-slanted', 'Slanted four', [
+            _ps('s0', [[0, 0], [0.28, 0], [0.15, 1], [0, 1]]),
+            _ps('s1', [[0.28, 0], [0.52, 0], [0.39, 1], [0.15, 1]]),
+            _ps('s2', [[0.52, 0], [0.76, 0], [0.63, 1], [0.39, 1]]),
+            _ps('s3', [[0.76, 0], [1, 0], [1, 1], [0.63, 1]]),
+          ]),
+        ];
+      default:
+        return const [];
+    }
+  }
+
   /// The freeform "no grid" layout — a blank canvas you drop photos onto.
   static final LayoutTemplate freeform =
       _t('freeform', 'Freeform', LayoutFamily.freeform, const []);
 
   /// All curated layouts for a given photo count (2..9). Falls back to a
-  /// best-fit grid for counts outside the curated range.
-  static List<LayoutTemplate> forCount(int n) {
+  /// best-fit grid for counts outside the curated range. Diagonal / mosaic
+  /// templates are appended after the straight grids where available.
+  static List<LayoutTemplate> forCount(int n) =>
+      [..._rectFor(n), ..._diagonalFor(n)];
+
+  static List<LayoutTemplate> _rectFor(int n) {
     switch (n) {
       case 1:
         return [_t('one', 'Single', LayoutFamily.grid, _grid(1, 1))];
