@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -27,6 +28,7 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
   AssetPathEntity? _album;
   final List<AssetEntity> _assets = [];
   final List<String> _selected = [];
+  String? _focusedId; // the tray thumbnail currently highlighted
   int _page = 0;
   bool _loading = false;
   bool _end = false;
@@ -76,10 +78,34 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
     });
   }
 
+  void _removeSelected(String id) {
+    setState(() {
+      _selected.remove(id);
+      if (_focusedId == id) _focusedId = null;
+    });
+  }
+
+  /// Tapping a tray thumbnail highlights it and scrolls the grid to it, so the
+  /// user can find a chosen photo again without hunting.
+  void _focusAsset(String id) {
+    setState(() => _focusedId = id);
+    final i = _assets.indexWhere((a) => a.id == id);
+    if (i < 0 || !_scroll.hasClients) return;
+    final w = MediaQuery.of(context).size.width;
+    final tile = (w - 4) / 3; // 3 columns, 2px outer padding + gaps
+    final target = (i ~/ 3) * (tile + 2);
+    _scroll.animateTo(
+      target.clamp(0.0, _scroll.position.maxScrollExtent),
+      duration: Motion.base,
+      curve: Motion.standard,
+    );
+  }
+
   void _toggle(AssetEntity a) {
     setState(() {
       if (_selected.contains(a.id)) {
         _selected.remove(a.id);
+        if (_focusedId == a.id) _focusedId = null;
       } else if (_selected.length >= widget.maxImages) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
@@ -142,19 +168,168 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
                 );
               },
             ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(Space.lg),
-          child: PrimaryButton(
-            label: _selected.isEmpty
-                ? 'Pick photos to continue'
-                : 'Use ${_selected.length} ${_selected.length == 1 ? "photo" : "photos"}',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: _selected.isEmpty
-                ? null
-                : () => Navigator.of(context).pop(List<String>.of(_selected)),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SelectedTray(
+            ids: _selected,
+            assets: _assets,
+            gallery: _gallery,
+            max: widget.maxImages,
+            focusedId: _focusedId,
+            onFocus: _focusAsset,
+            onRemove: _removeSelected,
           ),
-        ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(Space.lg),
+              child: PrimaryButton(
+                label: _selected.isEmpty
+                    ? 'Pick photos to continue'
+                    : 'Use ${_selected.length} ${_selected.length == 1 ? "photo" : "photos"}',
+                icon: Icons.arrow_forward_rounded,
+                onPressed: _selected.isEmpty
+                    ? null
+                    : () => Navigator.of(context).pop(List<String>.of(_selected)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A static, always-visible strip of the photos currently selected. Pinned
+/// above the primary action so the user never loses track of what they've
+/// chosen, however far they scroll the grid. Collapses when empty.
+class _SelectedTray extends StatelessWidget {
+  const _SelectedTray({
+    required this.ids,
+    required this.assets,
+    required this.gallery,
+    required this.max,
+    required this.focusedId,
+    required this.onFocus,
+    required this.onRemove,
+  });
+
+  final List<String> ids;
+  final List<AssetEntity> assets;
+  final GalleryService gallery;
+  final int max;
+  final String? focusedId;
+  final void Function(String id) onFocus;
+  final void Function(String id) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (ids.isEmpty) return const SizedBox.shrink();
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.line)),
+        boxShadow: Shadows.e2,
+      ),
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: Row(
+        children: [
+          const SizedBox(width: Space.lg),
+          SpecChip('${ids.length}/$max', active: true),
+          const SizedBox(width: Space.sm),
+          Expanded(
+            child: SizedBox(
+              height: 56,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(right: Space.lg),
+                itemCount: ids.length,
+                separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
+                itemBuilder: (_, i) {
+                  final id = ids[i];
+                  final asset = assets.firstWhereOrNull((a) => a.id == id);
+                  return _TrayThumb(
+                    id: id,
+                    asset: asset,
+                    gallery: gallery,
+                    focused: focusedId == id,
+                    onTap: () => onFocus(id),
+                    onRemove: () => onRemove(id),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrayThumb extends StatelessWidget {
+  const _TrayThumb({
+    required this.id,
+    required this.asset,
+    required this.gallery,
+    required this.focused,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final String id;
+  final AssetEntity? asset;
+  final GalleryService gallery;
+  final bool focused;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceInput,
+              borderRadius: BorderRadius.circular(Radii.control),
+              border: Border.all(
+                color: focused ? AppColors.amber : AppColors.line,
+                width: focused ? 2 : 1,
+              ),
+            ),
+            child: asset == null
+                ? null
+                : FutureBuilder<Uint8List?>(
+                    future: gallery.thumb(asset!, px: 150),
+                    builder: (_, snap) => snap.data == null
+                        ? const SizedBox.shrink()
+                        : Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true),
+                  ),
+          ),
+          Positioned(
+            top: -6,
+            right: -6,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.surface, width: 1),
+                ),
+                child: const Icon(Icons.close_rounded, size: 13, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
