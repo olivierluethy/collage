@@ -7,6 +7,7 @@ import '../../models/collage_project.dart';
 import '../../state/providers.dart';
 import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/meta_date.dart';
 import '../../widgets/ui.dart';
 import '../ai/ai_screen.dart';
 import '../discover/discover_screen.dart';
@@ -132,13 +133,20 @@ class _CollageCard extends ConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(Space.sm),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(project.title,
-                        style: AppText.labelLg, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(project.title,
+                            style: AppText.labelLg, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                      SpecChip(project.ratioLabel),
+                    ],
                   ),
-                  SpecChip(project.ratioLabel),
+                  const SizedBox(height: 2),
+                  MetaDate(epochMillis: project.createdAt),
                 ],
               ),
             ),

@@ -10,6 +10,7 @@ import '../../models/collage_project.dart';
 import '../../state/providers.dart';
 import '../../theme/text_styles.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/meta_date.dart';
 import '../../widgets/ui.dart';
 
 /// Shown right after Save: a clear preview of the finished collage with obvious
@@ -80,6 +81,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
             ),
           ),
+          Center(child: MetaDate(epochMillis: widget.project.createdAt, icon: Icons.schedule_rounded)),
+          const SizedBox(height: Space.sm),
           if (_saved)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
