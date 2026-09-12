@@ -1,4 +1,17 @@
-# Collage
+<div align="center">
+  <img src="assets/icon/icon.png" alt="Collage logo" width="140" />
+  <h1>Collage</h1>
+  <p><b>A photo collage maker where you place every photo yourself.</b><br/>A free, dark-mode Android app that puts you in control of every slot — no autofill.</p>
+  <p>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+    <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
+    <img alt="Dart" src="https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white">
+    <img alt="Riverpod" src="https://img.shields.io/badge/Riverpod-2C6BED?logo=flutter&logoColor=white">
+    <img alt="Android" src="https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white">
+  </p>
+</div>
+
+---
 
 A free, dark-mode photo collage maker for Android where **you** decide which photo goes in which slot. Unlike PicCollage-style apps that autofill for you, Collage puts you in control of every placement.
 
@@ -78,4 +91,8 @@ Flutter, Riverpod, photo_manager, permission_handler.
 
 ## License
 
-The code is licensed under the [MIT License](LICENSE). Bundled sticker assets are released under CC0 — see [docs/ASSETS.md](docs/ASSETS.md) for details. For the design system, see [docs/STYLEGUIDE.md](docs/STYLEGUIDE.md).
+The code is licensed under the [MIT License](LICENSE) © 2026 Olivier Lüthy. You're free to use, modify and distribute this software, including commercially, as long as the copyright notice and license are included. Bundled sticker assets are released under CC0 — see [docs/ASSETS.md](docs/ASSETS.md) for details. For the design system, see [docs/STYLEGUIDE.md](docs/STYLEGUIDE.md).
+
+## Author
+
+Built by **Olivier Lüthy** — [GitHub](https://github.com/olivierluethy).
