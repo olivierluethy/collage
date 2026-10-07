@@ -237,4 +237,21 @@ const Map<String, String> tr = {
   'aboutBody': 'Hangi fotoğrafın hangi alana gideceğine senin karar verdiğin ücretsiz bir fotoğraf kolajı uygulaması — otomatik doldurma yok.',
   'madeBy': '{name} tarafından yapıldı',
   'linkError': 'Bağlantı açılamadı.',
+
+  // Templates
+  'tabTemplates': 'Şablonlar',
+  'templatesPhotos': 'Fotoğraf',
+  'templatesStyle': 'Stil',
+  'templatesAll': 'Tümü',
+  'templatePhotoCount': '{count} fotoğraf',
+  'styleMinimal': 'Minimal',
+  'styleBirthday': 'Doğum günü',
+  'styleLove': 'Aşk',
+  'styleTravel': 'Seyahat',
+  'styleParty': 'Parti',
+  'styleFamily': 'Aile',
+  'styleSummer': 'Yaz',
+  'styleWinter': 'Kış',
+  'styleSocial': 'Sosyal',
+  'styleAesthetic': 'Estetik',
 };

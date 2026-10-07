@@ -237,4 +237,21 @@ const Map<String, String> zh = {
   'aboutBody': '一款免费的照片拼图应用，由你决定哪张照片放在哪个格子——不会自动填充。',
   'madeBy': '由 {name} 制作',
   'linkError': '无法打开该链接。',
+
+  // Templates
+  'tabTemplates': '模板',
+  'templatesPhotos': '照片',
+  'templatesStyle': '风格',
+  'templatesAll': '全部',
+  'templatePhotoCount': '{count} 张照片',
+  'styleMinimal': '极简',
+  'styleBirthday': '生日',
+  'styleLove': '爱情',
+  'styleTravel': '旅行',
+  'styleParty': '派对',
+  'styleFamily': '家庭',
+  'styleSummer': '夏日',
+  'styleWinter': '冬日',
+  'styleSocial': '社交',
+  'styleAesthetic': '美学',
 };

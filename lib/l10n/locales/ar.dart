@@ -237,4 +237,21 @@ const Map<String, String> ar = {
   'aboutBody': 'صانع كولاج صور مجاني تقرر فيه أي صورة تضع في أي خانة — بلا تعبئة تلقائية.',
   'madeBy': 'من إنشاء {name}',
   'linkError': 'تعذّر فتح الرابط.',
+
+  // Templates
+  'tabTemplates': 'قوالب',
+  'templatesPhotos': 'صور',
+  'templatesStyle': 'النمط',
+  'templatesAll': 'الكل',
+  'templatePhotoCount': '{count} صور',
+  'styleMinimal': 'بسيط',
+  'styleBirthday': 'عيد ميلاد',
+  'styleLove': 'حب',
+  'styleTravel': 'سفر',
+  'styleParty': 'حفلة',
+  'styleFamily': 'عائلة',
+  'styleSummer': 'صيف',
+  'styleWinter': 'شتاء',
+  'styleSocial': 'اجتماعي',
+  'styleAesthetic': 'جمالي',
 };

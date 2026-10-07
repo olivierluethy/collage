@@ -15,9 +15,10 @@ import '../ai/ai_screen.dart';
 import '../discover/discover_screen.dart';
 import '../flow.dart';
 import '../info/info_screen.dart';
+import '../templates/templates_tab.dart';
 
-/// Home base with two tabs: My Collages (the re-editable library) and Discover
-/// (location + date collage suggestions).
+/// Home base with three tabs: My Collages (the re-editable library), Templates
+/// (ready-made designs) and Discover (location + date collage suggestions).
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -30,10 +31,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final title = switch (_index) {
+      1 => context.l10n.t('tabTemplates'),
+      2 => context.l10n.t('homeDiscover'),
+      _ => context.l10n.t('homeCollages'),
+    };
     return Scaffold(
       appBar: AppBar(
-        title: Text(_index == 0 ? context.l10n.t('homeCollages') : context.l10n.t('homeDiscover'),
-            style: context.text.displayMd),
+        title: Text(title, style: context.text.displayMd),
         actions: [
           IconButton(
             tooltip: context.l10n.t('aiAutoCollage'),
@@ -69,6 +74,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               selectedIcon: const Icon(Icons.photo_library_rounded),
               label: context.l10n.t('tabCollages')),
           NavigationDestination(
+              icon: const Icon(Icons.dashboard_customize_outlined),
+              selectedIcon: const Icon(Icons.dashboard_customize_rounded),
+              label: context.l10n.t('tabTemplates')),
+          NavigationDestination(
               icon: const Icon(Icons.explore_outlined),
               selectedIcon: const Icon(Icons.explore_rounded),
               label: context.l10n.t('tabDiscover')),
@@ -76,7 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: IndexedStack(
         index: _index,
-        children: const [_CollagesView(), DiscoverTab()],
+        children: const [_CollagesView(), TemplatesTab(), DiscoverTab()],
       ),
     );
   }

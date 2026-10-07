@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/collage_project.dart';
+import '../models/remote_catalog.dart';
 import '../services/ai_collage_service.dart';
+import '../services/catalog_service.dart';
 import '../services/draft_service.dart';
 import '../services/export_service.dart';
 import '../services/gallery_service.dart';
@@ -23,6 +25,17 @@ final giphyServiceProvider = Provider((_) => const GiphyService());
 final aiServiceProvider = Provider((_) => const AiCollageService());
 final momentsServiceProvider =
     Provider((ref) => MomentsService(ref.read(galleryServiceProvider)));
+
+/// Loads and registers the optional remote font / sticker catalogs.
+final catalogServiceProvider =
+    Provider((ref) => CatalogService(ref.read(prefsProvider)));
+
+/// The remote catalogs, fetched once. Watching this kicks off the load and
+/// rebuilds the app when extra fonts / stickers arrive; an empty result simply
+/// leaves the bundled sets in place.
+final remoteCatalogsProvider = FutureProvider<RemoteCatalogs>(
+  (ref) => ref.read(catalogServiceProvider).load(),
+);
 
 /// Location + date "moments" suggested on the Discover tab. autoDispose so it
 /// re-scans when the user returns to Discover.

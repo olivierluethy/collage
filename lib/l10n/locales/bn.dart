@@ -237,4 +237,21 @@ const Map<String, String> bn = {
   'aboutBody': 'একটি বিনামূল্যের ফটো কোলাজ মেকার, যেখানে কোন ছবি কোন স্লটে যাবে তা আপনি ঠিক করেন — কোনো অটোফিল নয়।',
   'madeBy': '{name} তৈরি',
   'linkError': 'লিঙ্ক খোলা যায়নি।',
+
+  // Templates
+  'tabTemplates': 'টেমপ্লেট',
+  'templatesPhotos': 'ছবি',
+  'templatesStyle': 'স্টাইল',
+  'templatesAll': 'সব',
+  'templatePhotoCount': '{count}টি ছবি',
+  'styleMinimal': 'মিনিমাল',
+  'styleBirthday': 'জন্মদিন',
+  'styleLove': 'ভালোবাসা',
+  'styleTravel': 'ভ্রমণ',
+  'styleParty': 'পার্টি',
+  'styleFamily': 'পরিবার',
+  'styleSummer': 'গ্রীষ্ম',
+  'styleWinter': 'শীত',
+  'styleSocial': 'সোশ্যাল',
+  'styleAesthetic': 'অ্যাথেটিক',
 };

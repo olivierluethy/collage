@@ -237,4 +237,21 @@ const Map<String, String> en = {
   'aboutBody': 'A free photo collage maker where you decide which photo goes in which slot — no autofill.',
   'madeBy': 'Made by {name}',
   'linkError': 'Could not open the link.',
+
+  // Templates
+  'tabTemplates': 'Templates',
+  'templatesPhotos': 'Photos',
+  'templatesStyle': 'Style',
+  'templatesAll': 'All',
+  'templatePhotoCount': '{count} photos',
+  'styleMinimal': 'Minimal',
+  'styleBirthday': 'Birthday',
+  'styleLove': 'Love',
+  'styleTravel': 'Travel',
+  'styleParty': 'Party',
+  'styleFamily': 'Family',
+  'styleSummer': 'Summer',
+  'styleWinter': 'Winter',
+  'styleSocial': 'Social',
+  'styleAesthetic': 'Aesthetic',
 };

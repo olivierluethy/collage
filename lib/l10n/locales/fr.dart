@@ -237,4 +237,21 @@ const Map<String, String> fr = {
   'aboutBody': 'Un créateur de collages gratuit où vous décidez quelle photo va dans quel emplacement — sans remplissage automatique.',
   'madeBy': 'Réalisé par {name}',
   'linkError': 'Impossible d\'ouvrir le lien.',
+
+  // Templates
+  'tabTemplates': 'Modèles',
+  'templatesPhotos': 'Photos',
+  'templatesStyle': 'Style',
+  'templatesAll': 'Tous',
+  'templatePhotoCount': '{count} photos',
+  'styleMinimal': 'Minimal',
+  'styleBirthday': 'Anniversaire',
+  'styleLove': 'Amour',
+  'styleTravel': 'Voyage',
+  'styleParty': 'Fête',
+  'styleFamily': 'Famille',
+  'styleSummer': 'Été',
+  'styleWinter': 'Hiver',
+  'styleSocial': 'Social',
+  'styleAesthetic': 'Esthétique',
 };

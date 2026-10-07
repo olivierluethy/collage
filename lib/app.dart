@@ -15,6 +15,10 @@ class CollageApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final prefs = ref.watch(prefsProvider);
     final settings = ref.watch(settingsProvider);
+    // Kick off the optional remote font / sticker catalogs. The bundled sets
+    // work without it, so the (possibly pending) result is only used to know
+    // when to rebuild once extra fonts arrive.
+    ref.watch(remoteCatalogsProvider);
     return MaterialApp(
       title: 'Collage',
       debugShowCheckedModeBanner: false,

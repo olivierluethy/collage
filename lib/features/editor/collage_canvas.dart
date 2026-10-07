@@ -1,7 +1,4 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../data/fonts.dart';
 import '../../data/shape_catalog.dart';
@@ -11,9 +8,10 @@ import '../../models/collage_project.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../../widgets/pattern_painter.dart';
+import '../../widgets/collage_background.dart';
 import '../../widgets/photo_image.dart';
 import '../../widgets/poly_clipper.dart';
+import '../../widgets/sticker_image.dart';
 import 'editor_controller.dart';
 
 /// Renders and (optionally) edits the whole collage: background, the grid of
@@ -46,7 +44,7 @@ class CollageCanvas extends StatelessWidget {
             return ClipRect(
               child: Stack(
                 children: [
-                  Positioned.fill(child: _Background(bg: c.background)),
+                  Positioned.fill(child: CollageBackground(bg: c.background)),
                   // Tap-outside to deselect. Kept in the tree (inert on export)
                   // so slot/element children never shift position and get
                   // rebuilt — which would drop their decoded photo frames.
@@ -187,44 +185,6 @@ Widget filteredPhoto(
     );
   }
   return photo;
-}
-
-class _Background extends StatelessWidget {
-  const _Background({required this.bg});
-  final BackgroundSettings bg;
-
-  @override
-  Widget build(BuildContext context) {
-    switch (bg.kind) {
-      case BackgroundKind.solid:
-        return ColoredBox(color: bg.color);
-      case BackgroundKind.gradient:
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [bg.gradientStart, bg.gradientEnd],
-              begin: Alignment(math.cos(bg.gradientAngle), math.sin(bg.gradientAngle)),
-              end: Alignment(-math.cos(bg.gradientAngle), -math.sin(bg.gradientAngle)),
-            ),
-          ),
-        );
-      case BackgroundKind.pattern:
-        return PatternBackground(
-          patternKey: bg.patternKey,
-          color: bg.patternColor,
-          background: bg.patternBg,
-        );
-      case BackgroundKind.image:
-        if (bg.imageAssetId == null) return ColoredBox(color: context.colors.inkCanvas);
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            PhotoImage(assetId: bg.imageAssetId!, full: true, fit: BoxFit.cover),
-            if (bg.imageDim > 0) ColoredBox(color: Colors.black.withValues(alpha: bg.imageDim)),
-          ],
-        );
-    }
-  }
 }
 
 /// Touch framing for one slot photo: tap selects, drag repositions, pinch
@@ -933,7 +893,7 @@ class _ElementViewState extends State<_ElementView> {
         return SizedBox(
           width: w,
           height: w,
-          child: SvgPicture.asset(s.assetPath, fit: BoxFit.contain),
+          child: StickerImage(source: s.assetPath),
         );
       case ShapeElement s:
         final w = s.naturalWidthFrac * canvasW * s.scale;

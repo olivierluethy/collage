@@ -237,4 +237,21 @@ const Map<String, String> de = {
   'aboutBody': 'Ein kostenloser Collagen-Maker, bei dem du entscheidest, welches Foto in welches Feld kommt — ohne automatisches Füllen.',
   'madeBy': 'Erstellt von {name}',
   'linkError': 'Der Link konnte nicht geöffnet werden.',
+
+  // Templates
+  'tabTemplates': 'Vorlagen',
+  'templatesPhotos': 'Fotos',
+  'templatesStyle': 'Stil',
+  'templatesAll': 'Alle',
+  'templatePhotoCount': '{count} Fotos',
+  'styleMinimal': 'Minimalistisch',
+  'styleBirthday': 'Geburtstag',
+  'styleLove': 'Liebe',
+  'styleTravel': 'Reise',
+  'styleParty': 'Party',
+  'styleFamily': 'Familie',
+  'styleSummer': 'Sommer',
+  'styleWinter': 'Winter',
+  'styleSocial': 'Social',
+  'styleAesthetic': 'Ästhetisch',
 };

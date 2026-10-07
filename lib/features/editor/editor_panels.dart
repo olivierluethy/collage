@@ -1,6 +1,6 @@
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/fonts.dart';
 import '../../data/layout_templates.dart';
@@ -13,13 +13,16 @@ import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
 import '../../models/photo_filter.dart';
 import '../../services/giphy_service.dart';
+import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/layout_miniature.dart';
 import '../../widgets/pattern_painter.dart';
 import '../../widgets/photo_image.dart';
+import '../../widgets/sticker_image.dart';
 import '../../widgets/ui.dart';
+import '../flow.dart';
 import '../picker/photo_picker_screen.dart';
 import 'editor_controller.dart';
 
@@ -502,48 +505,55 @@ class _MiniAspect extends StatelessWidget {
   }
 }
 
-class StickersPanel extends StatelessWidget {
+class StickersPanel extends ConsumerWidget {
   const StickersPanel({super.key, required this.c, required this.onAdded});
   final EditorController c;
   final VoidCallback onAdded;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Rebuild when the remote sticker catalog arrives.
+    ref.watch(remoteCatalogsProvider);
+    final tabs = <(String, List<String>)>[
+      for (final cat in StickerCatalog.categories)
+        (context.l10n.t(_stickerKey(cat.dir)), cat.assetPaths),
+      for (final cat in StickerCatalog.remoteCategories)
+        (cat.label, [for (final s in cat.stickers) s.url]),
+    ];
     return DefaultTabController(
-      length: StickerCatalog.categories.length,
+      length: tabs.length,
       child: Column(
         children: [
           TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: StickerCatalog.categories
-                .map((cat) => Tab(text: context.l10n.t(_stickerKey(cat.dir))))
-                .toList(),
+            tabs: [for (final t in tabs) Tab(text: t.$1)],
           ),
           Expanded(
             child: TabBarView(
-              children: StickerCatalog.categories.map((cat) {
-                return GridView.builder(
-                  padding: const EdgeInsets.all(Space.md),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5,
-                    mainAxisSpacing: Space.sm,
-                    crossAxisSpacing: Space.sm,
+              children: [
+                for (final t in tabs)
+                  GridView.builder(
+                    padding: const EdgeInsets.all(Space.md),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      mainAxisSpacing: Space.sm,
+                      crossAxisSpacing: Space.sm,
+                    ),
+                    itemCount: t.$2.length,
+                    itemBuilder: (_, i) {
+                      final source = t.$2[i];
+                      return GestureDetector(
+                        onTap: () { c.addSticker(source); onAdded(); },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: context.colors.surfaceHigh, borderRadius: BorderRadius.circular(Radii.control)),
+                          child: StickerImage(source: source),
+                        ),
+                      );
+                    },
                   ),
-                  itemCount: cat.assetPaths.length,
-                  itemBuilder: (_, i) {
-                    final path = cat.assetPaths[i];
-                    return GestureDetector(
-                      onTap: () { c.addSticker(path); onAdded(); },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: context.colors.surfaceHigh, borderRadius: BorderRadius.circular(Radii.control)),
-                        child: SvgPicture.asset(path, fit: BoxFit.contain),
-                      ),
-                    );
-                  },
-                );
-              }).toList(),
+              ],
             ),
           ),
         ],
@@ -617,15 +627,15 @@ class EmojiPanel extends StatelessWidget {
 }
 
 /// Live text editor: mutates the given text element as the user types/styles it.
-class TextPanel extends StatefulWidget {
+class TextPanel extends ConsumerStatefulWidget {
   const TextPanel({super.key, required this.c, required this.elementId});
   final EditorController c;
   final String elementId;
   @override
-  State<TextPanel> createState() => _TextPanelState();
+  ConsumerState<TextPanel> createState() => _TextPanelState();
 }
 
-class _TextPanelState extends State<TextPanel> {
+class _TextPanelState extends ConsumerState<TextPanel> {
   late final TextEditingController _text;
   TextElement? get _el {
     final e = widget.c.selectedElement;
@@ -653,6 +663,9 @@ class _TextPanelState extends State<TextPanel> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when the remote font catalog arrives so extra fonts appear.
+    ref.watch(remoteCatalogsProvider);
+    final fonts = AppFonts.allChoices;
     final e = _el;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: Space.lg),
@@ -677,10 +690,10 @@ class _TextPanelState extends State<TextPanel> {
           height: 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: AppFonts.choices.length,
+            itemCount: fonts.length,
             separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
             itemBuilder: (_, i) {
-              final f = AppFonts.choices[i];
+              final f = fonts[i];
               final sel = f.$1 == e?.fontKey;
               return GestureDetector(
                 onTap: () => _mut((x) => x.fontKey = f.$1),
@@ -772,14 +785,14 @@ class _GiphyPanelState extends State<GiphyPanel> {
 
 /// Replace/choose a slot's photo with a LIVE in-place preview: tapping a
 /// candidate previews it in the collage above; Use it commits.
-class ReplacePanel extends StatelessWidget {
+class ReplacePanel extends ConsumerWidget {
   const ReplacePanel({super.key, required this.c, required this.slotId, required this.onDone});
   final EditorController c;
   final String slotId;
   final VoidCallback onDone;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AnimatedBuilder(
       animation: c,
       builder: (context, _) {
@@ -799,6 +812,10 @@ class ReplacePanel extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () async {
+                      // A template opened with an empty pool reaches here before
+                      // gallery access was granted, so ensure it first.
+                      if (!await ensureGalleryAccess(context, ref)) return;
+                      if (!context.mounted) return;
                       final picked = await Navigator.of(context).push<List<String>>(
                         MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 1)),
                       );

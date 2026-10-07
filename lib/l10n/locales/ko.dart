@@ -237,4 +237,21 @@ const Map<String, String> ko = {
   'aboutBody': '어떤 사진을 어느 자리에 넣을지 직접 정하는 무료 사진 콜라주 앱 — 자동 채우기는 없어요.',
   'madeBy': '제작: {name}',
   'linkError': '링크를 열 수 없어요.',
+
+  // Templates
+  'tabTemplates': '템플릿',
+  'templatesPhotos': '사진',
+  'templatesStyle': '스타일',
+  'templatesAll': '전체',
+  'templatePhotoCount': '사진 {count}장',
+  'styleMinimal': '미니멀',
+  'styleBirthday': '생일',
+  'styleLove': '사랑',
+  'styleTravel': '여행',
+  'styleParty': '파티',
+  'styleFamily': '가족',
+  'styleSummer': '여름',
+  'styleWinter': '겨울',
+  'styleSocial': '소셜',
+  'styleAesthetic': '에스테틱',
 };

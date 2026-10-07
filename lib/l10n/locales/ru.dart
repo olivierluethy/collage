@@ -237,4 +237,21 @@ const Map<String, String> ru = {
   'aboutBody': 'Бесплатный конструктор коллажей, где вы решаете, какое фото будет в каждой ячейке — без автозаполнения.',
   'madeBy': 'Создано: {name}',
   'linkError': 'Не удалось открыть ссылку.',
+
+  // Templates
+  'tabTemplates': 'Шаблоны',
+  'templatesPhotos': 'Фото',
+  'templatesStyle': 'Стиль',
+  'templatesAll': 'Все',
+  'templatePhotoCount': '{count} фото',
+  'styleMinimal': 'Минимал',
+  'styleBirthday': 'День рождения',
+  'styleLove': 'Любовь',
+  'styleTravel': 'Путешествия',
+  'styleParty': 'Вечеринка',
+  'styleFamily': 'Семья',
+  'styleSummer': 'Лето',
+  'styleWinter': 'Зима',
+  'styleSocial': 'Соцсети',
+  'styleAesthetic': 'Эстетика',
 };

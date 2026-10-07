@@ -12,6 +12,8 @@ class PrefsService {
   static const _kCoachPrefix = 'coach_';
   static const _kThemeMode = 'theme_mode';
   static const _kLocale = 'locale';
+  static const _kCatalogFonts = 'catalog_fonts_json';
+  static const _kCatalogStickers = 'catalog_stickers_json';
 
   bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
   Future<void> setOnboardingDone() => _prefs.setBool(_kOnboardingDone, true);
@@ -39,5 +41,19 @@ class PrefsService {
         await _prefs.remove(k);
       }
     }
+  }
+
+  /// Raw JSON of the remote font catalog, cached from the last successful fetch.
+  String? get catalogFontsJson => _prefs.getString(_kCatalogFonts);
+
+  /// Raw JSON of the remote sticker catalog, cached from the last fetch.
+  String? get catalogStickersJson => _prefs.getString(_kCatalogStickers);
+
+  Future<void> setCatalogCache({
+    required String fonts,
+    required String stickers,
+  }) async {
+    await _prefs.setString(_kCatalogFonts, fonts);
+    await _prefs.setString(_kCatalogStickers, stickers);
   }
 }

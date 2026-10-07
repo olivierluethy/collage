@@ -237,4 +237,21 @@ const Map<String, String> ja = {
   'aboutBody': 'どの写真をどの枠に入れるかを自分で決められる無料のフォトコラージュアプリ — 自動配置はしません。',
   'madeBy': '制作: {name}',
   'linkError': 'リンクを開けませんでした。',
+
+  // Templates
+  'tabTemplates': 'テンプレート',
+  'templatesPhotos': '写真',
+  'templatesStyle': 'スタイル',
+  'templatesAll': 'すべて',
+  'templatePhotoCount': '{count} 枚の写真',
+  'styleMinimal': 'ミニマル',
+  'styleBirthday': 'バースデー',
+  'styleLove': 'ラブ',
+  'styleTravel': 'トラベル',
+  'styleParty': 'パーティー',
+  'styleFamily': 'ファミリー',
+  'styleSummer': 'サマー',
+  'styleWinter': 'ウィンター',
+  'styleSocial': 'ソーシャル',
+  'styleAesthetic': 'エステ',
 };

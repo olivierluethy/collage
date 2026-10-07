@@ -8,6 +8,7 @@ import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../flow.dart';
 import '../picker/photo_picker_screen.dart';
 import '../result/result_screen.dart';
 import 'collage_canvas.dart';
@@ -111,6 +112,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _addPhotos() async {
+    // Templates open straight into the editor with no photos, so ask for gallery
+    // access here the first time the user reaches for the Photos tool.
+    if (!await ensureGalleryAccess(context, ref)) return;
+    if (!mounted) return;
     final picked = await Navigator.of(context).push<List<String>>(
       MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 9)),
     );

@@ -237,4 +237,21 @@ const Map<String, String> id = {
   'aboutBody': 'Pembuat kolase foto gratis tempat kamu menentukan foto mana yang masuk ke tiap slot — tanpa pengisian otomatis.',
   'madeBy': 'Dibuat oleh {name}',
   'linkError': 'Tidak bisa membuka tautan.',
+
+  // Templates
+  'tabTemplates': 'Templat',
+  'templatesPhotos': 'Foto',
+  'templatesStyle': 'Gaya',
+  'templatesAll': 'Semua',
+  'templatePhotoCount': '{count} foto',
+  'styleMinimal': 'Minimalis',
+  'styleBirthday': 'Ulang tahun',
+  'styleLove': 'Cinta',
+  'styleTravel': 'Perjalanan',
+  'styleParty': 'Pesta',
+  'styleFamily': 'Keluarga',
+  'styleSummer': 'Musim panas',
+  'styleWinter': 'Musim dingin',
+  'styleSocial': 'Sosial',
+  'styleAesthetic': 'Estetik',
 };

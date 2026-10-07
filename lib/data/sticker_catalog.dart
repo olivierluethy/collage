@@ -1,3 +1,5 @@
+import '../models/remote_catalog.dart';
+
 /// The bundled sticker set, grouped into the categories the brief calls for.
 /// Paths match the CC0 SVGs under assets/stickers/ (see docs/ASSETS.md).
 class StickerCategory {
@@ -47,4 +49,17 @@ class StickerCatalog {
     StickerCategory('Winter', 'winter',
         ['snowflake.svg', 'mitten.svg', 'snow_pile.svg', 'cloud_snow.svg']),
   ];
+
+  static final List<RemoteStickerCategory> _remote = [];
+
+  /// Extra sticker categories from the remote catalog (empty by default).
+  static List<RemoteStickerCategory> get remoteCategories => List.unmodifiable(_remote);
+
+  /// Replace the registered remote categories (called when the catalog loads).
+  static void registerRemote(List<RemoteStickerCategory> categories) {
+    _remote
+      ..clear()
+      ..addAll(categories);
+  }
 }
+

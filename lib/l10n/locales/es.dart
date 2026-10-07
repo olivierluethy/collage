@@ -237,4 +237,21 @@ const Map<String, String> es = {
   'aboutBody': 'Un creador de collages gratis donde tú decides qué foto va en cada hueco, sin relleno automático.',
   'madeBy': 'Hecho por {name}',
   'linkError': 'No se pudo abrir el enlace.',
+
+  // Templates
+  'tabTemplates': 'Plantillas',
+  'templatesPhotos': 'Fotos',
+  'templatesStyle': 'Estilo',
+  'templatesAll': 'Todas',
+  'templatePhotoCount': '{count} fotos',
+  'styleMinimal': 'Minimalista',
+  'styleBirthday': 'Cumpleaños',
+  'styleLove': 'Amor',
+  'styleTravel': 'Viajes',
+  'styleParty': 'Fiesta',
+  'styleFamily': 'Familia',
+  'styleSummer': 'Verano',
+  'styleWinter': 'Invierno',
+  'styleSocial': 'Social',
+  'styleAesthetic': 'Estético',
 };

@@ -237,4 +237,21 @@ const Map<String, String> hi = {
   'aboutBody': 'एक मुफ़्त फ़ोटो कोलाज मेकर, जिसमें आप तय करते हैं कि कौन सी फ़ोटो किस स्लॉट में जाएगी — कोई ऑटोफ़िल नहीं।',
   'madeBy': '{name} द्वारा बनाया गया',
   'linkError': 'लिंक नहीं खोला जा सका।',
+
+  // Templates
+  'tabTemplates': 'टेम्पलेट',
+  'templatesPhotos': 'फ़ोटो',
+  'templatesStyle': 'शैली',
+  'templatesAll': 'सभी',
+  'templatePhotoCount': '{count} फ़ोटो',
+  'styleMinimal': 'मिनिमल',
+  'styleBirthday': 'जन्मदिन',
+  'styleLove': 'प्यार',
+  'styleTravel': 'यात्रा',
+  'styleParty': 'पार्टी',
+  'styleFamily': 'परिवार',
+  'styleSummer': 'गर्मी',
+  'styleWinter': 'सर्दी',
+  'styleSocial': 'सोशल',
+  'styleAesthetic': 'एस्थेटिक',
 };
