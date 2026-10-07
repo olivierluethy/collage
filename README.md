@@ -22,7 +22,7 @@ A free, dark-mode photo collage maker for Android where **you** decide which pho
 - Freeform canvas: move, scale, and rotate every element
 - Stickers across 9 categories
 - Shapes, text, and emoji
-- Giphy GIF search
+<!-- Temporarily hidden: Giphy GIF search -->
 - Backgrounds: solid, gradient, pattern, or image
 - Live border and spacing controls
 - High-resolution PNG export straight to your gallery
@@ -38,6 +38,7 @@ A free, dark-mode photo collage maker for Android where **you** decide which pho
 3. When prompted, allow "Install unknown apps" for the browser or file manager you used to download it.
 4. Finish the install, then open Collage.
 
+<!-- Temporarily hidden: Giphy GIF search is disabled in the current build.
 ## Giphy GIF search (optional)
 
 GIF search is powered by the Giphy API. Without a key, the rest of the app works normally and the GIF tab simply shows a friendly message.
@@ -54,6 +55,7 @@ To enable it:
    For release builds, set the `GIPHY_API_KEY` GitHub secret instead.
 
 Never commit a real key to the repository.
+-->
 
 ## AI auto-collage (optional)
 
@@ -72,7 +74,8 @@ flutter pub get
 flutter build apk --release
 ```
 
-The `--dart-define=GIPHY_API_KEY=...` and `--dart-define=AI_API_KEY=...` flags are optional; add them if you want GIF search and AI suggestions enabled in your build.
+The `--dart-define=AI_API_KEY=...` flag is optional; add it if you want AI suggestions enabled in your build.
+<!-- Temporarily hidden: The `--dart-define=GIPHY_API_KEY=...` and `--dart-define=AI_API_KEY=...` flags are optional; add them if you want GIF search and AI suggestions enabled in your build. -->
 
 ## Releasing
 

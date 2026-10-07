@@ -28,6 +28,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   final _boundaryKey = GlobalKey();
   bool _saving = false;
 
+  /// While true the canvas renders without any editing chrome (badges, chips,
+  /// element handles) so the captured PNG contains only the artwork.
+  bool _exporting = false;
+
   _Panel _panel = _Panel.none;
   String? _editingTextId;
   String? _replaceSlotId;
@@ -122,23 +126,35 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Future<void> _save() async {
     _closePanel();
     _c.clearSelection();
-    setState(() => _saving = true);
-    await Future.delayed(Motion.fast);
-    final export = ref.read(exportServiceProvider);
-    final png = await export.capture(_boundaryKey, targetWidth: 2048);
-    final thumb = await export.capture(_boundaryKey, targetWidth: 500);
-    if (png == null) {
-      setState(() => _saving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not render the collage. Try again.')));
+    // Render a clean, non-interactive frame so no edit badges, action chips or
+    // selection handles are captured into the exported PNG.
+    setState(() {
+      _saving = true;
+      _exporting = true;
+    });
+    try {
+      await Future.delayed(Motion.fast);
+      final export = ref.read(exportServiceProvider);
+      final png = await export.capture(_boundaryKey, targetWidth: 2048);
+      final thumb = await export.capture(_boundaryKey, targetWidth: 500);
+      if (png == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not render the collage. Try again.')));
+        }
+        return;
       }
-      return;
+      await ref.read(draftServiceProvider).save(_c.project, thumbnail: thumb);
+      await ref.read(draftsProvider.notifier).reload();
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _exporting = false;
+        });
+      }
     }
-    await ref.read(draftServiceProvider).save(_c.project, thumbnail: thumb);
-    await ref.read(draftsProvider.notifier).reload();
-    setState(() => _saving = false);
-    if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)));
   }
 
   @override
@@ -172,7 +188,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   aspectRatio: _c.project.ratio.value,
                   child: RepaintBoundary(
                     key: _boundaryKey,
-                    child: CollageCanvas(controller: _c, onRequestReplace: _openReplace),
+                    child: CollageCanvas(
+                      controller: _c,
+                      interactive: !_exporting,
+                      onRequestReplace: _openReplace,
+                    ),
                   ),
                 ),
               ),
@@ -256,16 +276,30 @@ class _ContextBar extends StatelessWidget {
         return Container(
           color: AppColors.surface,
           padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              if (el is TextElement)
-                _CtxBtn(icon: Icons.edit_rounded, label: 'Edit', onTap: () => onEditText(el)),
-              _CtxBtn(icon: Icons.flip_to_front_rounded, label: 'Forward', onTap: () => controller.bringForward(el.id)),
-              _CtxBtn(icon: Icons.flip_to_back_rounded, label: 'Back', onTap: () => controller.sendBackward(el.id)),
-              _CtxBtn(icon: Icons.restart_alt_rounded, label: 'Straighten', onTap: () => controller.updateTransform(el.id, rotation: 0)),
-              _CtxBtn(icon: Icons.delete_outline_rounded, label: 'Delete', color: AppColors.danger, onTap: () => controller.deleteElement(el.id)),
-            ],
+          child: LayoutBuilder(
+            // Floats the actions evenly when they fit, and scrolls instead of
+            // overflowing once a free photo adds its Flip buttons.
+            builder: (context, constraints) => SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (el is TextElement)
+                      _CtxBtn(icon: Icons.edit_rounded, label: 'Edit', onTap: () => onEditText(el)),
+                    if (el is ImageElement) ...[
+                      _CtxBtn(icon: Icons.flip_rounded, label: 'Flip H', onTap: () => controller.flipElement(el.id, horizontal: true)),
+                      _CtxBtn(icon: Icons.flip_rounded, turns: 1, label: 'Flip V', onTap: () => controller.flipElement(el.id, vertical: true)),
+                    ],
+                    _CtxBtn(icon: Icons.flip_to_front_rounded, label: 'Forward', onTap: () => controller.bringForward(el.id)),
+                    _CtxBtn(icon: Icons.flip_to_back_rounded, label: 'Back', onTap: () => controller.sendBackward(el.id)),
+                    _CtxBtn(icon: Icons.restart_alt_rounded, label: 'Straighten', onTap: () => controller.updateTransform(el.id, rotation: 0)),
+                    _CtxBtn(icon: Icons.delete_outline_rounded, label: 'Delete', color: AppColors.danger, onTap: () => controller.deleteElement(el.id)),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -274,15 +308,18 @@ class _ContextBar extends StatelessWidget {
 }
 
 class _CtxBtn extends StatelessWidget {
-  const _CtxBtn({required this.icon, required this.label, required this.onTap, this.color});
+  const _CtxBtn({required this.icon, required this.label, required this.onTap, this.color, this.turns = 0});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final int turns; // quarter-turns applied to [icon] (1 → vertical mirror)
 
   @override
   Widget build(BuildContext context) {
     final c = color ?? AppColors.textMid;
+    Widget iconWidget = Icon(icon, color: c, size: 22);
+    if (turns != 0) iconWidget = RotatedBox(quarterTurns: turns, child: iconWidget);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(Radii.control),
@@ -291,7 +328,7 @@ class _CtxBtn extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: c, size: 22),
+            iconWidget,
             const SizedBox(height: 2),
             Text(label, style: AppText.caption.copyWith(color: c)),
           ],

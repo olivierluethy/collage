@@ -235,6 +235,30 @@ class EditorController extends ChangeNotifier {
     _touch();
   }
 
+  /// Mirror a slot photo across its horizontal and/or vertical axis. Each flag
+  /// toggles independently, so the two buttons can be combined (or reversed).
+  void flipSlot(String slotId, {bool horizontal = false, bool vertical = false}) {
+    final f = project.fills[slotId];
+    if (f == null || (!horizontal && !vertical)) return;
+    if (horizontal) f.flipX = !f.flipX;
+    if (vertical) f.flipY = !f.flipY;
+    _touch();
+  }
+
+  /// Mirror a free-floating photo element ([ImageElement]); non-photo elements
+  /// are unaffected.
+  void flipElement(String id, {bool horizontal = false, bool vertical = false}) {
+    for (final e in project.elements) {
+      if (e.id != id) continue;
+      if (e is ImageElement && (horizontal || vertical)) {
+        if (horizontal) e.flipX = !e.flipX;
+        if (vertical) e.flipY = !e.flipY;
+        _touch();
+      }
+      return;
+    }
+  }
+
   /// Assets from the pool not currently placed in any slot.
   List<String> get unusedPoolAssets {
     final used = project.fills.values.map((f) => f.assetId).toSet();
