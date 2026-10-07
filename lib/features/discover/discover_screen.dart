@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/moments_service.dart';
 import '../../services/permission_service.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/photo_image.dart';
 import '../../widgets/ui.dart';
 import '../flow.dart';
@@ -49,11 +51,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     if (_access == false) {
       return EmptyState(
         icon: Icons.explore_outlined,
-        title: 'Discover your moments',
-        message: 'Turn on photo access and Collage will suggest ready-made '
-            'collages from where and when your photos were taken.',
+        title: context.l10n.t('discoverTitle'),
+        message: context.l10n.t('discoverMessage'),
         action: PrimaryButton(
-          label: 'Turn on photos',
+          label: context.l10n.t('turnOnPhotos'),
           icon: Icons.photo_library_rounded,
           expand: false,
           onPressed: _grant,
@@ -66,16 +67,16 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
       onRefresh: () async => ref.invalidate(momentsProvider),
       child: moments.when(
         loading: () => ListView(
-          children: const [
-            SizedBox(height: 120),
-            Center(child: CircularProgressIndicator()),
-            SizedBox(height: Space.lg),
-            Center(child: Text('Finding your moments…')),
+          children: [
+            const SizedBox(height: 120),
+            const Center(child: CircularProgressIndicator()),
+            const SizedBox(height: Space.lg),
+            Center(child: Text(context.l10n.t('findingMoments'))),
           ],
         ),
         error: (e, _) => ListView(children: [
           const SizedBox(height: 120),
-          Center(child: Text('$e', style: AppText.bodyMd)),
+          Center(child: Text('$e', style: context.text.bodyMd)),
         ]),
         data: (list) {
           if (list.isEmpty) {
@@ -83,9 +84,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
               const SizedBox(height: 80),
               EmptyState(
                 icon: Icons.auto_awesome_outlined,
-                title: 'No moments yet',
-                message: 'Take a few photos out and about, then come back — '
-                    'Collage will group them by place and day for you.',
+                title: context.l10n.t('noMomentsTitle'),
+                message: context.l10n.t('noMomentsMessage'),
               ),
             ]);
           }
@@ -96,7 +96,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
               if (i == 0) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: Space.md),
-                  child: Text('Tap a moment to turn it into a collage.', style: AppText.bodyMd),
+                  child: Text(context.l10n.t('tapMomentHint'), style: context.text.bodyMd),
                 );
               }
               return _MomentCard(moment: list[i - 1]);
@@ -120,9 +120,9 @@ class _MomentCard extends ConsumerWidget {
         onTap: () => openPhotosAsCollage(context, ref, moment.assetIds, title: moment.title),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(Radii.card),
-            border: Border.all(color: AppColors.line),
+            border: Border.all(color: context.colors.line),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -146,18 +146,21 @@ class _MomentCard extends ConsumerWidget {
                 padding: const EdgeInsets.all(Space.md),
                 child: Row(
                   children: [
-                    const Icon(Icons.place_rounded, color: AppColors.amber, size: 20),
+                    Icon(Icons.place_rounded, color: context.colors.amber, size: 20),
                     const SizedBox(width: Space.sm),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(moment.title, style: AppText.titleMd, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text('${moment.subtitle} · ${moment.assetIds.length} photos', style: AppText.caption),
+                          Text(moment.title, style: context.text.titleMd, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(context.l10n.a('momentSubtitle', {
+                            'subtitle': moment.subtitle,
+                            'count': '${moment.assetIds.length}',
+                          }), style: context.text.caption),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right_rounded, color: AppColors.textMid),
+                    Icon(Icons.chevron_right_rounded, color: context.colors.textMid),
                   ],
                 ),
               ),

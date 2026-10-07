@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/text_styles.dart';
+import '../theme/palette.dart';
 import '../theme/tokens.dart';
+import '../theme/typography.dart';
 
 /// Monospace "spec chip" — the signature element for aspect ratios, pixel
 /// dimensions and counters (e.g. 4:5, 2048×2048, 3/9).
@@ -13,11 +14,11 @@ class SpecChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.amber : AppColors.textMid;
+    final color = active ? context.colors.amber : context.colors.textMid;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.surfaceHigh,
+        color: context.colors.surfaceHigh,
         borderRadius: BorderRadius.circular(Radii.pill),
       ),
       child: Row(
@@ -27,7 +28,7 @@ class SpecChip extends StatelessWidget {
             Icon(icon, size: 13, color: color),
             const SizedBox(width: 4),
           ],
-          Text(text, style: AppText.spec.copyWith(color: color)),
+          Text(text, style: context.text.spec.copyWith(color: color)),
         ],
       ),
     );
@@ -54,10 +55,10 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = busy
-        ? const SizedBox(
+        ? SizedBox(
             height: 22,
             width: 22,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAmber),
+            child: CircularProgressIndicator(strokeWidth: 2, color: context.colors.onAmber),
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
@@ -86,7 +87,7 @@ class SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.lg, Space.lg, Space.sm),
       child: Row(
         children: [
-          Expanded(child: Text(title.toUpperCase(), style: AppText.overline)),
+          Expanded(child: Text(title.toUpperCase(), style: context.text.overline)),
           if (trailing != null) trailing!,
         ],
       ),
@@ -117,7 +118,7 @@ class SheetScaffold extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.line,
+                color: context.colors.line,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -125,12 +126,12 @@ class SheetScaffold extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(Space.xl, Space.md, Space.xl, Space.sm),
               child: Row(
                 children: [
-                  Text(title, style: AppText.titleMd),
+                  Text(title, style: context.text.titleMd),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: const Icon(Icons.close),
-                    color: AppColors.textMid,
+                    color: context.colors.textMid,
                   ),
                 ],
               ),
@@ -165,11 +166,11 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: AppColors.textLo),
+            Icon(icon, size: 56, color: context.colors.textLo),
             const SizedBox(height: Space.lg),
-            Text(title, style: AppText.displayMd, textAlign: TextAlign.center),
+            Text(title, style: context.text.displayMd, textAlign: TextAlign.center),
             const SizedBox(height: Space.sm),
-            Text(message, style: AppText.bodyMd, textAlign: TextAlign.center),
+            Text(message, style: context.text.bodyMd, textAlign: TextAlign.center),
             if (action != null) ...[const SizedBox(height: Space.xl), action!],
           ],
         ),
@@ -203,7 +204,7 @@ class LabeledSlider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Space.lg),
       child: Row(
         children: [
-          SizedBox(width: 84, child: Text(label, style: AppText.bodyMd)),
+          SizedBox(width: 84, child: Text(label, style: context.text.bodyMd)),
           Expanded(
             child: Slider(
               value: value.clamp(min, max),
@@ -215,7 +216,7 @@ class LabeledSlider extends StatelessWidget {
           SizedBox(
             width: 44,
             child: Text('${value.round()}$suffix',
-                style: AppText.spec, textAlign: TextAlign.right),
+                style: context.text.spec, textAlign: TextAlign.right),
           ),
         ],
       ),
@@ -256,7 +257,7 @@ class SwatchRow extends StatelessWidget {
                 color: c,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSel ? AppColors.amber : AppColors.line,
+                  color: isSel ? context.colors.amber : context.colors.line,
                   width: isSel ? 2.5 : 1,
                 ),
               ),

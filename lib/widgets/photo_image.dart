@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../theme/tokens.dart';
+import '../theme/palette.dart';
 
 /// Renders a device photo by its photo_manager asset id, caching bytes in
 /// memory so the same photo doesn't reload on every rebuild.
@@ -67,9 +67,9 @@ class _PhotoImageState extends State<PhotoImage> {
   @override
   Widget build(BuildContext context) {
     if (_bytes == null) {
-      return const ColoredBox(
-        color: AppColors.surfaceInput,
-        child: Center(
+      return ColoredBox(
+        color: context.colors.surfaceInput,
+        child: const Center(
           child: SizedBox(
             width: 20,
             height: 20,

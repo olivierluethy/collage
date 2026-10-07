@@ -235,6 +235,18 @@ class EditorController extends ChangeNotifier {
     _touch();
   }
 
+  /// Recentre a slot's photo: default pan and no zoom. The escape hatch for the
+  /// "I over-dragged and want the whole photo back" case (double-tap a cell).
+  void resetSlotTransform(String slotId) {
+    final f = project.fills[slotId];
+    if (f == null) return;
+    if (f.offsetX == 0 && f.offsetY == 0 && f.zoom == 1) return;
+    f.offsetX = 0;
+    f.offsetY = 0;
+    f.zoom = 1;
+    _touch();
+  }
+
   /// Mirror a slot photo across its horizontal and/or vertical axis. Each flag
   /// toggles independently, so the two buttons can be combined (or reversed).
   void flipSlot(String slotId, {bool horizontal = false, bool vertical = false}) {

@@ -15,4 +15,18 @@ class Config {
 
   static bool get hasGiphy => giphyApiKey.isNotEmpty;
   static bool get hasAi => aiApiKey.isNotEmpty;
+
+  /// Public Privacy Policy page opened from Information → Privacy Policy.
+  /// Override at build time with `--dart-define=PRIVACY_POLICY_URL=...`.
+  static const privacyPolicyUrl = String.fromEnvironment(
+    'PRIVACY_POLICY_URL',
+    defaultValue: 'https://example.com/collage/privacy',
+  );
+
+  /// Public Terms of Service page opened from Information → Terms of Service.
+  /// Override at build time with `--dart-define=TERMS_URL=...`.
+  static const termsOfServiceUrl = String.fromEnvironment(
+    'TERMS_URL',
+    defaultValue: 'https://example.com/collage/terms',
+  );
 }

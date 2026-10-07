@@ -7,13 +7,15 @@ import '../../data/layout_templates.dart';
 import '../../data/palette.dart';
 import '../../data/shape_catalog.dart';
 import '../../data/sticker_catalog.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
 import '../../models/photo_filter.dart';
 import '../../services/giphy_service.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/layout_miniature.dart';
 import '../../widgets/pattern_painter.dart';
 import '../../widgets/photo_image.dart';
@@ -38,11 +40,11 @@ class BordersPanel extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.only(bottom: Space.md),
           children: [
-            LabeledSlider(label: 'Gap', value: b.gap, min: 0, max: 40, onChanged: (v) => c.updateBorder((x) => x.gap = v)),
-            LabeledSlider(label: 'Margin', value: b.margin, min: 0, max: 60, onChanged: (v) => c.updateBorder((x) => x.margin = v)),
-            LabeledSlider(label: 'Corners', value: b.radius, min: 0, max: 48, onChanged: (v) => c.updateBorder((x) => x.radius = v)),
-            LabeledSlider(label: 'Border', value: b.thickness, min: 0, max: 20, onChanged: (v) => c.updateBorder((x) => x.thickness = v)),
-            const SectionHeader('Border colour'),
+            LabeledSlider(label: context.l10n.t('gap'), value: b.gap, min: 0, max: 40, onChanged: (v) => c.updateBorder((x) => x.gap = v)),
+            LabeledSlider(label: context.l10n.t('margin'), value: b.margin, min: 0, max: 60, onChanged: (v) => c.updateBorder((x) => x.margin = v)),
+            LabeledSlider(label: context.l10n.t('corners'), value: b.radius, min: 0, max: 48, onChanged: (v) => c.updateBorder((x) => x.radius = v)),
+            LabeledSlider(label: context.l10n.t('border'), value: b.thickness, min: 0, max: 20, onChanged: (v) => c.updateBorder((x) => x.thickness = v)),
+            SectionHeader(context.l10n.t('borderColour')),
             SwatchRow(colors: Palette.swatches, selected: b.color, onPick: (col) => c.updateBorder((x) => x.color = col)),
           ],
         );
@@ -84,7 +86,7 @@ class BackgroundPanel extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [g.$1, g.$2]),
                         borderRadius: BorderRadius.circular(Radii.control),
-                        border: Border.all(color: AppColors.line),
+                        border: Border.all(color: context.colors.line),
                       ),
                     ),
                   );
@@ -112,7 +114,7 @@ class BackgroundPanel extends StatelessWidget {
                           clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(Radii.control),
-                            border: Border.all(color: sel ? AppColors.amber : AppColors.line, width: sel ? 2 : 1),
+                            border: Border.all(color: sel ? context.colors.amber : context.colors.line, width: sel ? 2 : 1),
                           ),
                           child: PatternBackground(patternKey: key, color: bg.patternColor, background: bg.patternBg, tile: 16),
                         ),
@@ -138,10 +140,12 @@ class BackgroundPanel extends StatelessWidget {
                       if (picked != null && picked.isNotEmpty) up((x) => x.imageAssetId = picked.first);
                     },
                     icon: const Icon(Icons.image_outlined),
-                    label: Text(bg.imageAssetId == null ? 'Choose a background photo' : 'Change background photo'),
+                    label: Text(bg.imageAssetId == null
+                        ? context.l10n.t('chooseBgPhoto')
+                        : context.l10n.t('changeBgPhoto')),
                   ),
                 ),
-                LabeledSlider(label: 'Darken', value: bg.imageDim * 100, min: 0, max: 70, suffix: '%', onChanged: (v) => up((x) => x.imageDim = v / 100)),
+                LabeledSlider(label: context.l10n.t('darken'), value: bg.imageDim * 100, min: 0, max: 70, suffix: '%', onChanged: (v) => up((x) => x.imageDim = v / 100)),
               ],
             );
         }
@@ -152,11 +156,11 @@ class BackgroundPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Space.lg),
               child: SegmentedButton<BackgroundKind>(
-                segments: const [
-                  ButtonSegment(value: BackgroundKind.solid, label: Text('Colour')),
-                  ButtonSegment(value: BackgroundKind.gradient, label: Text('Gradient')),
-                  ButtonSegment(value: BackgroundKind.pattern, label: Text('Pattern')),
-                  ButtonSegment(value: BackgroundKind.image, label: Text('Photo')),
+                segments: [
+                  ButtonSegment(value: BackgroundKind.solid, label: Text(context.l10n.t('colour'))),
+                  ButtonSegment(value: BackgroundKind.gradient, label: Text(context.l10n.t('gradient'))),
+                  ButtonSegment(value: BackgroundKind.pattern, label: Text(context.l10n.t('pattern'))),
+                  ButtonSegment(value: BackgroundKind.image, label: Text(context.l10n.t('photo'))),
                 ],
                 selected: {bg.kind},
                 onSelectionChanged: (s) => up((x) => x.kind = s.first),
@@ -265,9 +269,9 @@ class _FilterPanelState extends State<FilterPanel> {
                 children: [
                   Expanded(
                     child: SegmentedButton<FilterScope>(
-                      segments: const [
-                        ButtonSegment(value: FilterScope.whole, label: Text('Whole collage')),
-                        ButtonSegment(value: FilterScope.cell, label: Text('This photo')),
+                      segments: [
+                        ButtonSegment(value: FilterScope.whole, label: Text(context.l10n.t('wholeCollage'))),
+                        ButtonSegment(value: FilterScope.cell, label: Text(context.l10n.t('thisPhoto'))),
                       ],
                       selected: {_scope},
                       onSelectionChanged: (s) => setState(() => _scope = s.first),
@@ -277,7 +281,7 @@ class _FilterPanelState extends State<FilterPanel> {
                   ),
                   TextButton(
                     onPressed: target == null ? null : _reset,
-                    child: const Text('Reset'),
+                    child: Text(context.l10n.t('reset')),
                   ),
                 ],
               ),
@@ -286,13 +290,13 @@ class _FilterPanelState extends State<FilterPanel> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, 0),
                 child: Text(
-                  'Tap a photo in the collage above to filter just that one.',
-                  style: AppText.caption,
+                  context.l10n.t('tapPhotoToFilter'),
+                  style: context.text.caption,
                 ),
               )
             else ...[
               // Preset strip.
-              const SectionHeader('Look'),
+              SectionHeader(context.l10n.t('look')),
               SizedBox(
                 height: 74,
                 child: ListView.separated(
@@ -311,11 +315,11 @@ class _FilterPanelState extends State<FilterPanel> {
                   },
                 ),
               ),
-              const SectionHeader('Adjust'),
-              _AdjustSlider(label: 'Brightness', value: target?.brightness ?? 0, onChanged: (v) => _setAdjust((f) => f.brightness = v)),
-              _AdjustSlider(label: 'Contrast', value: target?.contrast ?? 0, onChanged: (v) => _setAdjust((f) => f.contrast = v)),
-              _AdjustSlider(label: 'Warmth', value: target?.warmth ?? 0, onChanged: (v) => _setAdjust((f) => f.warmth = v)),
-              _AdjustSlider(label: 'Saturation', value: target?.saturation ?? 0, onChanged: (v) => _setAdjust((f) => f.saturation = v)),
+              SectionHeader(context.l10n.t('adjust')),
+              _AdjustSlider(label: context.l10n.t('brightness'), value: target?.brightness ?? 0, onChanged: (v) => _setAdjust((f) => f.brightness = v)),
+              _AdjustSlider(label: context.l10n.t('contrast'), value: target?.contrast ?? 0, onChanged: (v) => _setAdjust((f) => f.contrast = v)),
+              _AdjustSlider(label: context.l10n.t('warmth'), value: target?.warmth ?? 0, onChanged: (v) => _setAdjust((f) => f.warmth = v)),
+              _AdjustSlider(label: context.l10n.t('saturation'), value: target?.saturation ?? 0, onChanged: (v) => _setAdjust((f) => f.saturation = v)),
               const SizedBox(height: Space.md),
             ],
           ],
@@ -339,7 +343,7 @@ class _AdjustSlider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Space.lg),
       child: Row(
         children: [
-          SizedBox(width: 84, child: Text(label, style: AppText.bodyMd)),
+          SizedBox(width: 84, child: Text(label, style: context.text.bodyMd)),
           Expanded(
             child: Slider(
               value: value.clamp(-1, 1),
@@ -351,7 +355,7 @@ class _AdjustSlider extends StatelessWidget {
           SizedBox(
             width: 44,
             child: Text(shown > 0 ? '+$shown' : '$shown',
-                style: AppText.spec, textAlign: TextAlign.right),
+                style: context.text.spec, textAlign: TextAlign.right),
           ),
         ],
       ),
@@ -374,10 +378,10 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = selected ? AppColors.amber : AppColors.textMid;
+    final labelColor = selected ? context.colors.amber : context.colors.textMid;
     Widget swatch;
     if (sampleAsset == null) {
-      swatch = const ColoredBox(color: AppColors.surfaceInput);
+      swatch = ColoredBox(color: context.colors.surfaceInput);
     } else {
       final f = PhotoFilter(preset: preset);
       Widget img = PhotoImage(assetId: sampleAsset!, fit: BoxFit.cover);
@@ -398,14 +402,14 @@ class _PresetChip extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(Radii.control),
               border: Border.all(
-                color: selected ? AppColors.amber : AppColors.line,
+                color: selected ? context.colors.amber : context.colors.line,
                 width: selected ? 2 : 1,
               ),
             ),
             child: swatch,
           ),
           const SizedBox(height: 4),
-          Text(preset.label, style: AppText.caption.copyWith(color: labelColor)),
+          Text(context.l10n.t(_presetKey(preset)), style: context.text.caption.copyWith(color: labelColor)),
         ],
       ),
     );
@@ -426,7 +430,7 @@ class LayoutPanel extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionHeader('Canvas shape'),
+            SectionHeader(context.l10n.t('canvasShape')),
             SizedBox(
               height: 38,
               child: ListView.separated(
@@ -443,16 +447,16 @@ class LayoutPanel extends StatelessWidget {
                       alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(horizontal: Space.md),
                       decoration: BoxDecoration(
-                        color: sel ? AppColors.amberTint : AppColors.surfaceInput,
+                        color: sel ? context.colors.amberTint : context.colors.surfaceInput,
                         borderRadius: BorderRadius.circular(Radii.chip),
                       ),
-                      child: Text(r.label, style: AppText.spec.copyWith(color: sel ? AppColors.amber : AppColors.textMid)),
+                      child: Text(r.label, style: context.text.spec.copyWith(color: sel ? context.colors.amber : context.colors.textMid)),
                     ),
                   );
                 },
               ),
             ),
-            const SectionHeader('Arrangement'),
+            SectionHeader(context.l10n.t('arrangement')),
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: Space.lg),
@@ -471,9 +475,9 @@ class LayoutPanel extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceHigh,
+                        color: context.colors.surfaceHigh,
                         borderRadius: BorderRadius.circular(Radii.control),
-                        border: Border.all(color: sel ? AppColors.amber : AppColors.line, width: sel ? 2 : 1),
+                        border: Border.all(color: sel ? context.colors.amber : context.colors.line, width: sel ? 2 : 1),
                       ),
                       child: _MiniAspect(template: t, ratio: c.project.ratio.value),
                     ),
@@ -512,7 +516,9 @@ class StickersPanel extends StatelessWidget {
           TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: StickerCatalog.categories.map((cat) => Tab(text: cat.label)).toList(),
+            tabs: StickerCatalog.categories
+                .map((cat) => Tab(text: context.l10n.t(_stickerKey(cat.dir))))
+                .toList(),
           ),
           Expanded(
             child: TabBarView(
@@ -531,7 +537,7 @@ class StickersPanel extends StatelessWidget {
                       onTap: () { c.addSticker(path); onAdded(); },
                       child: Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(Radii.control)),
+                        decoration: BoxDecoration(color: context.colors.surfaceHigh, borderRadius: BorderRadius.circular(Radii.control)),
                         child: SvgPicture.asset(path, fit: BoxFit.contain),
                       ),
                     );
@@ -577,7 +583,7 @@ class _ShapesPanelState extends State<ShapesPanel> {
                 onTap: () { widget.c.addShape(kind, fill: _color.toARGB32()); widget.onAdded(); },
                 child: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(Radii.control)),
+                  decoration: BoxDecoration(color: context.colors.surfaceHigh, borderRadius: BorderRadius.circular(Radii.control)),
                   child: CustomPaint(painter: ShapePainter(kind: kind, fill: _color)),
                 ),
               );
@@ -597,14 +603,14 @@ class EmojiPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return EmojiPicker(
       onEmojiSelected: (category, emoji) { c.addEmoji(emoji.emoji); onAdded(); },
-      config: const Config(
-        emojiViewConfig: EmojiViewConfig(backgroundColor: AppColors.surface),
+      config: Config(
+        emojiViewConfig: EmojiViewConfig(backgroundColor: context.colors.surface),
         categoryViewConfig: CategoryViewConfig(
-          backgroundColor: AppColors.surface,
-          iconColorSelected: AppColors.amber,
-          indicatorColor: AppColors.amber,
+          backgroundColor: context.colors.surface,
+          iconColorSelected: context.colors.amber,
+          indicatorColor: context.colors.amber,
         ),
-        bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+        bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
       ),
     );
   }
@@ -656,7 +662,7 @@ class _TextPanelState extends State<TextPanel> {
           autofocus: true,
           maxLines: 2,
           onChanged: (v) => _mut((x) => x.text = v),
-          decoration: const InputDecoration(hintText: 'Type your text'),
+          decoration: InputDecoration(hintText: context.l10n.t('typeYourText')),
         ),
         const SizedBox(height: Space.sm),
         Row(
@@ -681,8 +687,8 @@ class _TextPanelState extends State<TextPanel> {
                 child: Container(
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(color: sel ? AppColors.amberTint : AppColors.surfaceInput, borderRadius: BorderRadius.circular(Radii.chip)),
-                  child: Text(f.$2, style: AppFonts.style(f.$1, fontSize: 15, color: sel ? AppColors.amber : AppColors.textMid)),
+                  decoration: BoxDecoration(color: sel ? context.colors.amberTint : context.colors.surfaceInput, borderRadius: BorderRadius.circular(Radii.chip)),
+                  child: Text(f.$2, style: AppFonts.style(f.$1, fontSize: 15, color: sel ? context.colors.amber : context.colors.textMid)),
                 ),
               );
             },
@@ -735,13 +741,15 @@ class _GiphyPanelState extends State<GiphyPanel> {
           padding: const EdgeInsets.symmetric(horizontal: Space.lg),
           child: TextField(
             onSubmitted: _load,
-            decoration: const InputDecoration(hintText: 'Search GIFs', prefixIcon: Icon(Icons.search)),
+            decoration: InputDecoration(
+                hintText: context.l10n.t('searchGifs'),
+                prefixIcon: const Icon(Icons.search)),
           ),
         ),
         const SizedBox(height: Space.sm),
         Expanded(
           child: _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(Space.lg), child: Text(_error!, style: AppText.bodyMd, textAlign: TextAlign.center)))
+              ? Center(child: Padding(padding: const EdgeInsets.all(Space.lg), child: Text(_error!, style: context.text.bodyMd, textAlign: TextAlign.center)))
               : _loading
                   ? const Center(child: CircularProgressIndicator())
                   : GridView.builder(
@@ -786,7 +794,7 @@ class ReplacePanel extends StatelessWidget {
                   Expanded(
                     child: Text(
                       candidate == null ? 'Tap a photo to preview it here' : 'Preview shown above — use it?',
-                      style: AppText.caption,
+                      style: context.text.caption,
                     ),
                   ),
                   TextButton(
@@ -799,7 +807,7 @@ class ReplacePanel extends StatelessWidget {
                         c.previewReplace(picked.first);
                       }
                     },
-                    child: const Text('Add photo'),
+                    child: Text(context.l10n.t('addPhoto')),
                   ),
                 ],
               ),
@@ -817,7 +825,7 @@ class ReplacePanel extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: sel ? AppColors.amber : Colors.transparent, width: 3),
+                        border: Border.all(color: sel ? context.colors.amber : Colors.transparent, width: 3),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: PhotoImage(assetId: id, fit: BoxFit.cover),
@@ -835,13 +843,13 @@ class ReplacePanel extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () { c.cancelReplace(); onDone(); },
-                        child: const Text('Cancel'),
+                        child: Text(context.l10n.t('cancel')),
                       ),
                     ),
                     const SizedBox(width: Space.sm),
                     Expanded(
                       child: PrimaryButton(
-                        label: 'Use this photo',
+                        label: context.l10n.t('useThisPhoto'),
                         icon: Icons.check_rounded,
                         onPressed: candidate == null ? null : () { c.commitReplace(); onDone(); },
                       ),
@@ -856,3 +864,28 @@ class ReplacePanel extends StatelessWidget {
     );
   }
 }
+
+/// Maps a sticker category's directory id to its l10n key (see `locales/en.dart`).
+String _stickerKey(String id) => switch (id) {
+      'tape' => 'stickerTape',
+      'love' => 'stickerLove',
+      'notes' => 'stickerNotes',
+      'birthday' => 'stickerBirthday',
+      'paint' => 'stickerPaint',
+      'frame' => 'stickerFrame',
+      'christmas' => 'stickerChristmas',
+      'newyear' => 'stickerNewYear',
+      'winter' => 'stickerWinter',
+      _ => 'stickerTape',
+    };
+
+/// Maps a filter preset to its l10n key (see `locales/en.dart`).
+String _presetKey(FilterPreset p) => switch (p) {
+      FilterPreset.none => 'filterOriginal',
+      FilterPreset.grayscale => 'filterMono',
+      FilterPreset.sepia => 'filterSepia',
+      FilterPreset.vintage => 'filterVintage',
+      FilterPreset.cool => 'filterCool',
+      FilterPreset.highContrast => 'filterPunch',
+      FilterPreset.fade => 'filterFade',
+    };

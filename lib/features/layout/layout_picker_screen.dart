@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../data/layout_templates.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/layout_miniature.dart';
 import '../../widgets/ui.dart';
 import '../flow.dart';
@@ -56,11 +58,11 @@ class _LayoutPickerScreenState extends State<LayoutPickerScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: const Text('Pick a layout'),
+        title: Text(context.l10n.t('pickLayout')),
       ),
       body: Column(
         children: [
-          const SectionHeader('Canvas shape'),
+          SectionHeader(context.l10n.t('canvasShape')),
           SizedBox(
             height: 44,
             child: ListView.separated(
@@ -76,18 +78,18 @@ class _LayoutPickerScreenState extends State<LayoutPickerScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: Space.md),
                     decoration: BoxDecoration(
-                      color: sel ? AppColors.amberTint : AppColors.surfaceInput,
+                      color: sel ? context.colors.amberTint : context.colors.surfaceInput,
                       borderRadius: BorderRadius.circular(Radii.chip),
                     ),
                     child: Row(
                       children: [
                         Text(r.name,
-                            style: AppText.labelMd.copyWith(
-                                color: sel ? AppColors.amber : AppColors.textMid)),
+                            style: context.text.labelMd.copyWith(
+                                color: sel ? context.colors.amber : context.colors.textMid)),
                         const SizedBox(width: 6),
                         Text(r.label,
-                            style: AppText.spec.copyWith(
-                                color: sel ? AppColors.amber : AppColors.textLo)),
+                            style: context.text.spec.copyWith(
+                                color: sel ? context.colors.amber : context.colors.textLo)),
                       ],
                     ),
                   ),
@@ -95,7 +97,7 @@ class _LayoutPickerScreenState extends State<LayoutPickerScreen> {
               },
             ),
           ),
-          const SectionHeader('Layout'),
+          SectionHeader(context.l10n.t('layoutSection')),
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: Space.lg),
@@ -125,7 +127,7 @@ class _LayoutPickerScreenState extends State<LayoutPickerScreen> {
             child: Padding(
               padding: const EdgeInsets.all(Space.lg),
               child: PrimaryButton(
-                label: 'Use this layout',
+                label: context.l10n.t('useThisLayout'),
                 icon: Icons.check_rounded,
                 onPressed: _selected == null
                     ? null
@@ -163,10 +165,10 @@ class _LayoutTile extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(Radii.card),
                 border: Border.all(
-                  color: selected ? AppColors.amber : AppColors.line,
+                  color: selected ? context.colors.amber : context.colors.line,
                   width: selected ? 2 : 1,
                 ),
               ),
@@ -179,9 +181,9 @@ class _LayoutTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(template.name,
-              style: AppText.caption.copyWith(
-                  color: selected ? AppColors.amber : AppColors.textMid),
+          Text(_layoutName(context, template),
+              style: context.text.caption.copyWith(
+                  color: selected ? context.colors.amber : context.colors.textMid),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center),
@@ -205,20 +207,62 @@ class _CustomTile extends StatelessWidget {
           Expanded(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(Radii.card),
-                border: Border.all(color: AppColors.line),
+                border: Border.all(color: context.colors.line),
               ),
-              child: const Center(
-                child: Icon(Icons.add_rounded, color: AppColors.amber, size: 28),
+              child: Center(
+                child: Icon(Icons.add_rounded, color: context.colors.amber, size: 28),
               ),
             ),
           ),
           const SizedBox(height: 6),
-          Text('Custom',
-              style: AppText.caption, textAlign: TextAlign.center),
+          Text(context.l10n.t('custom'),
+              style: context.text.caption, textAlign: TextAlign.center),
         ],
       ),
     );
   }
 }
+
+/// The visible name for a layout template: its l10n string when we have a key
+/// for the id, else the template's own English name.
+String _layoutName(BuildContext context, LayoutTemplate t) {
+  final key = _layoutKey(t.id) ?? (t.custom ? 'custom' : null);
+  return key == null ? t.name : context.l10n.t(key);
+}
+
+/// Maps a curated layout id to its l10n key (see `locales/en.dart`).
+String? _layoutKey(String id) => switch (id) {
+      'one' => 'layoutSingle',
+      'freeform' => 'layoutFreeform',
+      '2-rows' => 'layoutStacked',
+      '2-cols' => 'layoutSideBySide',
+      '2-split-v' => 'layoutBigLeft',
+      '2-split-h' => 'layoutBigTop',
+      '2-angled' => 'layoutAngled',
+      '2-corner' => 'layoutDiagonal',
+      '3-cols' => 'layoutThreeColumns',
+      '3-rows' => 'layoutThreeRows',
+      '3-feat-left' => 'layoutBigLeftTwoRight',
+      '3-feat-top' => 'layoutBigTopTwoBelow',
+      '3-slanted' => 'layoutSlantedTrio',
+      '4-grid' => 'layoutGrid2x2',
+      '4-cols' => 'layoutFourColumns',
+      '4-rows' => 'layoutFourRows',
+      '4-feat' => 'layoutBigLeftThreeRight',
+      '4-x' => 'layoutPinwheel',
+      '4-slanted' => 'layoutSlantedFour',
+      '5-feat-left' => 'layoutBigLeftFourRight',
+      '5-top1-bottom4' => 'layoutOneUpFourDown',
+      '5-left1-right4' => 'layoutOneLeftFourRight',
+      '6-grid-3x2' => 'layoutGrid3x2',
+      '6-grid-2x3' => 'layoutGrid2x3',
+      '6-feat' => 'layoutBigTopFiveBelow',
+      '7-feat' => 'layoutBigLeftSixRight',
+      '7-top3-bottom4' => 'layoutThreeUpFourDown',
+      '8-grid-4x2' => 'layoutGrid4x2',
+      '8-grid-2x4' => 'layoutGrid2x4',
+      '9-grid' => 'layoutGrid3x3',
+      _ => null,
+    };

@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/gallery_service.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
 
 /// Browse device albums and multi-select photos, with the maximum shown up
@@ -110,7 +112,8 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(SnackBar(
-            content: Text('You can pick up to ${widget.maxImages} photos.'),
+            content: Text(context.l10n
+                .a('pickUpTo', {'count': '${widget.maxImages}'})),
           ));
       } else {
         _selected.add(a.id);
@@ -130,7 +133,7 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
       appBar: AppBar(
         leading: const BackButton(),
         title: _album == null
-            ? const Text('Choose photos')
+            ? Text(context.l10n.t('choosePhotos'))
             : _AlbumSelector(
                 albums: _albums,
                 selected: _album!,
@@ -186,8 +189,10 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
               padding: const EdgeInsets.all(Space.lg),
               child: PrimaryButton(
                 label: _selected.isEmpty
-                    ? 'Pick photos to continue'
-                    : 'Use ${_selected.length} ${_selected.length == 1 ? "photo" : "photos"}',
+                    ? context.l10n.t('pickPhotosToContinue')
+                    : (_selected.length == 1
+                        ? context.l10n.t('useOnePhoto')
+                        : context.l10n.a('useNPhotos', {'count': '${_selected.length}'})),
                 icon: Icons.arrow_forward_rounded,
                 onPressed: _selected.isEmpty
                     ? null
@@ -227,9 +232,9 @@ class _SelectedTray extends StatelessWidget {
   Widget build(BuildContext context) {
     if (ids.isEmpty) return const SizedBox.shrink();
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        border: Border(top: BorderSide(color: context.colors.line)),
         boxShadow: Shadows.e2,
       ),
       padding: const EdgeInsets.symmetric(vertical: Space.sm),
@@ -296,10 +301,10 @@ class _TrayThumb extends StatelessWidget {
             height: 56,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: AppColors.surfaceInput,
+              color: context.colors.surfaceInput,
               borderRadius: BorderRadius.circular(Radii.control),
               border: Border.all(
-                color: focused ? AppColors.amber : AppColors.line,
+                color: focused ? context.colors.amber : context.colors.line,
                 width: focused ? 2 : 1,
               ),
             ),
@@ -323,7 +328,7 @@ class _TrayThumb extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.7),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.surface, width: 1),
+                  border: Border.all(color: context.colors.surface, width: 1),
                 ),
                 child: const Icon(Icons.close_rounded, size: 13, color: Colors.white),
               ),
@@ -359,7 +364,7 @@ class _Tile extends StatelessWidget {
             future: gallery.thumb(asset, px: 300),
             builder: (_, snap) {
               if (snap.data == null) {
-                return const ColoredBox(color: AppColors.surfaceInput);
+                return ColoredBox(color: context.colors.surfaceInput);
               }
               return Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true);
             },
@@ -367,8 +372,8 @@ class _Tile extends StatelessWidget {
           if (selected)
             Container(
               decoration: BoxDecoration(
-                color: AppColors.amber.withValues(alpha: 0.18),
-                border: Border.all(color: AppColors.amber, width: 3),
+                color: context.colors.amber.withValues(alpha: 0.18),
+                border: Border.all(color: context.colors.amber, width: 3),
               ),
             ),
           Positioned(
@@ -378,14 +383,14 @@ class _Tile extends StatelessWidget {
               width: 24,
               height: 24,
               decoration: BoxDecoration(
-                color: selected ? AppColors.amber : Colors.black38,
+                color: selected ? context.colors.amber : Colors.black38,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white70, width: 1),
               ),
               child: selected
                   ? Center(
                       child: Text('${order + 1}',
-                          style: AppText.labelMd.copyWith(color: AppColors.onAmber)),
+                          style: context.text.labelMd.copyWith(color: context.colors.onAmber)),
                     )
                   : null,
             ),
@@ -406,15 +411,15 @@ class _AlbumSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<AssetPathEntity>(
       onSelected: onPick,
-      color: AppColors.surfaceHigh,
+      color: context.colors.surfaceHigh,
       itemBuilder: (_) => albums
-          .map((a) => PopupMenuItem(value: a, child: Text(a.name, style: AppText.bodyMd)))
+          .map((a) => PopupMenuItem(value: a, child: Text(a.name, style: context.text.bodyMd)))
           .toList(),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(child: Text(selected.name, style: AppText.titleLg, overflow: TextOverflow.ellipsis)),
-          const Icon(Icons.arrow_drop_down, color: AppColors.textMid),
+          Flexible(child: Text(selected.name, style: context.text.titleLg, overflow: TextOverflow.ellipsis)),
+          Icon(Icons.arrow_drop_down, color: context.colors.textMid),
         ],
       ),
     );

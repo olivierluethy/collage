@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
 import '../home/home_screen.dart';
 
@@ -21,25 +23,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
+  // Each page stores its l10n key; text is resolved against the live locale in
+  // [_Page] so the copy follows the selected app language.
   static const _pages = [
     _Page(
       icon: Icons.dashboard_customize_rounded,
-      title: 'Make beautiful collages',
-      body: 'Pick your photos, choose a layout, and arrange them just how you '
-          'like. Everything is labelled — no guesswork.',
+      title: 'obTitle1',
+      body: 'obBody1',
     ),
     _Page(
       icon: Icons.swap_horiz_rounded,
-      title: 'You decide what goes where',
-      body: 'Unlike other apps, you choose exactly which photo fills each spot. '
-          'Tap a slot to set its photo, or drag one photo onto another to swap them.',
+      title: 'obTitle2',
+      body: 'obBody2',
     ),
     _Page(
       icon: Icons.auto_awesome_rounded,
-      title: 'Add your personal touch',
+      title: 'obTitle3',
       // Temporarily hidden: "GIFs" removed while Giphy search is disabled.
-      body: 'Stickers, text, emoji, shapes and backgrounds — move, resize '
-          'and rotate anything with your fingers. Then save it to your gallery.',
+      body: 'obBody3',
     ),
   ];
 
@@ -62,7 +63,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _finish,
-                child: const Text('Skip'),
+                child: Text(context.l10n.t('skip')),
               ),
             ),
             Expanded(
@@ -82,7 +83,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   width: active ? 22 : 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: active ? AppColors.amber : AppColors.line,
+                    color: active ? context.colors.amber : context.colors.line,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 );
@@ -91,7 +92,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Padding(
               padding: const EdgeInsets.all(Space.xl),
               child: PrimaryButton(
-                label: last ? 'Get started' : 'Next',
+                label: last ? context.l10n.t('getStarted') : context.l10n.t('next'),
                 icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
                 onPressed: () {
                   if (last) {
@@ -112,8 +113,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 class _Page extends StatelessWidget {
   const _Page({required this.icon, required this.title, required this.body});
   final IconData icon;
-  final String title;
-  final String body;
+  final String title; // l10n key
+  final String body; // l10n key
 
   @override
   Widget build(BuildContext context) {
@@ -125,16 +126,17 @@ class _Page extends StatelessWidget {
           Container(
             width: 120,
             height: 120,
-            decoration: const BoxDecoration(
-              color: AppColors.amberTint,
+            decoration: BoxDecoration(
+              color: context.colors.amberTint,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 56, color: AppColors.amber),
+            child: Icon(icon, size: 56, color: context.colors.amber),
           ),
           const SizedBox(height: Space.xxl),
-          Text(title, style: AppText.displayMd, textAlign: TextAlign.center),
+          Text(context.l10n.t(title), style: context.text.displayMd, textAlign: TextAlign.center),
           const SizedBox(height: Space.md),
-          Text(body, style: AppText.bodyLg.copyWith(color: AppColors.textMid),
+          Text(context.l10n.t(body),
+              style: context.text.bodyLg.copyWith(color: context.colors.textMid),
               textAlign: TextAlign.center),
         ],
       ),

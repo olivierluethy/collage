@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kept in sync with AppLocalizations.languages (lib/l10n/app_localizations.dart)
+     so Android 13+ shows the per-app language picker and the store lists them. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en"/>
+    <locale android:name="zh"/>
+    <locale android:name="hi"/>
+    <locale android:name="es"/>
+    <locale android:name="ar"/>
+    <locale android:name="bn"/>
+    <locale android:name="fr"/>
+    <locale android:name="ru"/>
+    <locale android:name="pt"/>
+    <locale android:name="id"/>
+    <locale android:name="de"/>
+    <locale android:name="ja"/>
+    <locale android:name="tr"/>
+    <locale android:name="it"/>
+    <locale android:name="ko"/>
+</locale-config>

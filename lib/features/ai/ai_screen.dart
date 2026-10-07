@@ -7,11 +7,13 @@ import 'package:uuid/uuid.dart';
 
 import '../../config.dart';
 import '../../data/layout_templates.dart';
+import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
 import '../../services/ai_collage_service.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/photo_image.dart';
 import '../../widgets/ui.dart';
 import '../editor/editor_screen.dart';
@@ -41,6 +43,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   List<_SuggestedCollage> _results = [];
 
   Future<void> _run() async {
+    final l = context.l10n;
     if (!await ensureGalleryAccess(context, ref)) return;
     if (!mounted) return;
     final picked = await Navigator.of(context).push<List<String>>(
@@ -50,19 +53,20 @@ class _AiScreenState extends ConsumerState<AiScreen> {
 
     setState(() {
       _busy = true;
-      _status = 'Looking at your photos…';
+      _status = l.t('aiStatusLooking');
       _results = [];
     });
 
     // Group offline by place + day first (works without any key).
-    final offline = await _clusterByPlaceAndDay(picked);
+    final offline =
+        await _clusterByPlaceAndDay(picked, (n) => l.a('aiCollageName', {'n': '$n'}));
     var groups = offline;
 
     // Refine with AI when a key is present.
     final ai = ref.read(aiServiceProvider);
     if (ai.available) {
       try {
-        setState(() => _status = 'Grouping by destination with AI…');
+        setState(() => _status = l.t('aiStatusGrouping'));
         final inputs = await _buildInputs(picked);
         final aiGroups = await ai.suggest(inputs);
         if (aiGroups.isNotEmpty) {
@@ -104,7 +108,8 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     return inputs;
   }
 
-  Future<List<_SuggestedCollage>> _clusterByPlaceAndDay(List<String> ids) async {
+  Future<List<_SuggestedCollage>> _clusterByPlaceAndDay(
+      List<String> ids, String Function(int n) name) async {
     final buckets = <String, List<String>>{};
     for (final id in ids) {
       final asset = await AssetEntity.fromId(id);
@@ -121,7 +126,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       buckets.putIfAbsent(key, () => []).add(id);
     }
     var i = 1;
-    return buckets.entries.map((e) => _SuggestedCollage('Collage ${i++}', e.value)).toList();
+    return buckets.entries.map((e) => _SuggestedCollage(name(i++), e.value)).toList();
   }
 
   void _openGroup(_SuggestedCollage g) {
@@ -150,7 +155,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: const Text('AI auto-collage'),
+        title: Text(context.l10n.t('aiTitle')),
       ),
       body: _busy
           ? Center(
@@ -159,21 +164,19 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                 children: [
                   const CircularProgressIndicator(),
                   const SizedBox(height: Space.lg),
-                  Text(_status, style: AppText.bodyMd),
+                  Text(_status, style: context.text.bodyMd),
                 ],
               ),
             )
           : _results.isEmpty
               ? EmptyState(
                   icon: Icons.auto_awesome_rounded,
-                  title: 'Let us do the sorting',
+                  title: context.l10n.t('aiHeroTitle'),
                   message: Config.hasAi
-                      ? 'Pick a batch of photos and we\'ll group them into collages by '
-                          'place and moment — then you can fine-tune any of them.'
-                      : 'Pick a batch of photos and we\'ll group them by place and date. '
-                          'Add an AI key (see the README) for smarter, named suggestions.',
+                      ? context.l10n.t('aiHeroMessageKey')
+                      : context.l10n.t('aiHeroMessageNoKey'),
                   action: PrimaryButton(
-                    label: 'Choose photos',
+                    label: context.l10n.t('choosePhotos'),
                     icon: Icons.auto_awesome_rounded,
                     expand: false,
                     onPressed: _run,
@@ -182,14 +185,14 @@ class _AiScreenState extends ConsumerState<AiScreen> {
               : ListView(
                   padding: const EdgeInsets.all(Space.lg),
                   children: [
-                    Text('Tap a suggestion to open it in the editor.', style: AppText.bodyMd),
+                    Text(context.l10n.t('aiTapSuggestion'), style: context.text.bodyMd),
                     const SizedBox(height: Space.md),
                     for (final g in _results) _SuggestionCard(group: g, onTap: () => _openGroup(g)),
                     const SizedBox(height: Space.lg),
                     OutlinedButton.icon(
                       onPressed: _run,
                       icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Try other photos'),
+                      label: Text(context.l10n.t('tryOtherPhotos')),
                     ),
                   ],
                 ),
@@ -210,9 +213,9 @@ class _SuggestionCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(Radii.card),
-            border: Border.all(color: AppColors.line),
+            border: Border.all(color: context.colors.line),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -236,10 +239,10 @@ class _SuggestionCard extends StatelessWidget {
                 padding: const EdgeInsets.all(Space.md),
                 child: Row(
                   children: [
-                    Expanded(child: Text(group.title, style: AppText.titleMd)),
+                    Expanded(child: Text(group.title, style: context.text.titleMd)),
                     SpecChip('${group.assetIds.length} photos'),
                     const SizedBox(width: Space.sm),
-                    const Icon(Icons.chevron_right_rounded, color: AppColors.textMid),
+                    Icon(Icons.chevron_right_rounded, color: context.colors.textMid),
                   ],
                 ),
               ),

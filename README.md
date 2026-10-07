@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/icon/icon.png" alt="Collage logo" width="140" />
   <h1>Collage</h1>
-  <p><b>A photo collage maker where you place every photo yourself.</b><br/>A free, dark-mode Android app that puts you in control of every slot — no autofill.</p>
+  <p><b>A photo collage maker where you place every photo yourself.</b><br/>A free Android app that puts you in control of every slot — no autofill.</p>
   <p>
     <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
     <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
@@ -13,11 +13,12 @@
 
 ---
 
-A free, dark-mode photo collage maker for Android where **you** decide which photo goes in which slot. Unlike PicCollage-style apps that autofill for you, Collage puts you in control of every placement.
+A free photo collage maker for Android where **you** decide which photo goes in which slot. Unlike PicCollage-style apps that autofill for you, Collage puts you in control of every placement.
 
 ## Features
 
 - Manual slot assignment with drag-to-swap between slots
+- Frame each photo in its slot: drag to reposition, pinch to zoom, double-tap to recentre
 - Curated and custom layout templates, each labelled with its aspect-ratio numbers
 - Freeform canvas: move, scale, and rotate every element
 - Stickers across 9 categories
@@ -29,7 +30,9 @@ A free, dark-mode photo collage maker for Android where **you** decide which pho
 - Re-editable saved collages in "My Collages"
 - AI auto-collage suggestions
 - First-run onboarding and coach-marks to get you started
-- Dark mode only
+- Light and dark themes
+- 15 languages
+- Information screen: About, Privacy Policy, Terms of Service, language and theme
 
 ## Install the APK on Android
 
@@ -66,6 +69,19 @@ flutter run --dart-define=AI_API_KEY=your_key
 ```
 
 For release builds, set the `AI_API_KEY` GitHub secret. Without a key, the feature shows a clear message and everything else — including making collages by hand — works fully.
+
+## Information screen (About, legal, language, theme)
+
+The ⓘ button on the home screen opens an **Information** screen with About, Privacy Policy, Terms of Service, language and theme (light/dark/system). The app ships with 15 languages (English, 中文, हिन्दी, Español, العربية, বাংলা, Français, Русский, Português, Bahasa Indonesia, Deutsch, 日本語, Türkçe, Italiano, 한국어).
+
+Privacy Policy and Terms of Service open in the device browser. Point them at your real pages with dart-defines (the defaults are placeholders):
+
+```
+flutter run --dart-define=PRIVACY_POLICY_URL=https://your.site/privacy \
+            --dart-define=TERMS_URL=https://your.site/terms
+```
+
+For release builds use the `PRIVACY_POLICY_URL` and `TERMS_URL` GitHub secrets.
 
 ## Build it yourself
 

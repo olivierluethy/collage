@@ -1,6 +1,6 @@
 # Collage — Style Guide
 
-> **Single source of truth for the app's visual system.** Dark mode only.
+> **Single source of truth for the app's visual system.** Dark and light themes.
 > Every screen, feature, and future change must look like it was always part of this product.
 > Colours and text styling stay exactly as defined here. When in doubt, copy a token — never invent one.
 
@@ -28,8 +28,13 @@ An action keeps its name through the whole flow. Empty states invite the next mo
 
 ## 2. Colour tokens
 
-Dark only. Warm-neutral surfaces climb in lightness with elevation; amber is the single brand accent.
+Two palettes share one set of token names (`AppPalette` in `lib/theme/palette.dart`): the warm
+near-black **Darkroom** (dark) and the warm off-white **lightbox** (light). Surfaces climb in
+lightness with elevation; amber is the single brand accent in both.
 Hex values are canonical. Alpha given as `rgba()` or `@NN%`.
+
+Widgets read the live colours with `context.colors.<token>` — never hardcode a hex. The tables below
+list the dark values; the light equivalents follow after them.
 
 ### Base & surfaces
 | Token | Hex | Use |
@@ -71,6 +76,30 @@ Hex values are canonical. Alpha given as `rgba()` or `@NN%`.
 
 **Contrast:** `textHi` on `ink` ≈ 15:1; `onAmber` on `amber` ≈ 8:1; `textMid` on `surface` ≥ 5:1.
 Never place `textLo` on anything lighter than `surfaceHigh`.
+
+### Light palette (lightbox)
+| Token | Hex | Notes |
+|---|---|---|
+| `ink` / background | `#F7F3ED` | Warm paper scaffold |
+| `inkCanvas` | `#EDE6DC` | Editor canvas backdrop |
+| `surface` | `#FFFFFF` | Sheets, cards, toolbars |
+| `surfaceHigh` | `#F1EAE0` | Menus, popovers, elevated cards |
+| `surfaceInput` | `#E8DFD3` | Text fields, slider track, chip (unselected) |
+| `line` | `#DCD1C2` | Hairline borders, dividers |
+| `lineStrong` | `#C4B6A3` | Emphasised borders, handle rings |
+| `textHi` | `#221C15` | Primary text, active icons |
+| `textMid` | `#6A6155` | Secondary text, inactive labels |
+| `textLo` | `#8A8174` | Hints, captions, placeholder |
+| `textDisabled` | `#B4AA9C` | Disabled text & icons |
+| `amber` | `#E08A1E` | Same safelight accent, darkened for contrast on light |
+| `amberPressed` | `#C97812` | Pressed/active primary |
+| `amberBright` | `#F0AE4E` | Glow highlight |
+| `onAmber` | `#2A1B08` | Text/icons on amber fills |
+| `success` | `#2E9B57` | Saved confirmation, valid |
+| `danger` | `#D63B2F` | Destructive (delete, clear), errors |
+| `onDanger` | `#FFFFFF` | Text/icons on danger fills |
+| `info` | `#2F6FD0` | Neutral tips, links |
+| `warning` | `#B07C0A` | Caution |
 
 ---
 
