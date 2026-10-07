@@ -224,6 +224,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _Panel.shapes => ('Shapes', ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
       _Panel.text => ('Text', TextPanel(c: _c, elementId: _editingTextId ?? ''), 260.0),
       _Panel.emoji => ('Emoji', EmojiPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
+      // Temporarily hidden: unreachable while the GIF tool-rail entry is hidden.
       _Panel.gif => ('GIFs', GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.replace => ('Choose a photo', ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.none => ('', const SizedBox.shrink(), 0.0),
@@ -360,7 +361,9 @@ class _ToolRail extends StatelessWidget {
       (_Panel.shapes, Icons.category_outlined, 'Shapes'),
       (_Panel.text, Icons.title_rounded, 'Text'),
       (_Panel.emoji, Icons.tag_faces_rounded, 'Emoji'),
-      (_Panel.gif, Icons.gif_box_outlined, 'GIF'),
+      // Temporarily hidden: GIF tab (Giphy search disabled). Restore by
+      // uncommenting the entry below.
+      // (_Panel.gif, Icons.gif_box_outlined, 'GIF'),
     ];
     return Container(
       decoration: const BoxDecoration(

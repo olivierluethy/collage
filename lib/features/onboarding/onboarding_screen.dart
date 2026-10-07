@@ -37,7 +37,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _Page(
       icon: Icons.auto_awesome_rounded,
       title: 'Add your personal touch',
-      body: 'Stickers, text, emoji, shapes, GIFs and backgrounds — move, resize '
+      // Temporarily hidden: "GIFs" removed while Giphy search is disabled.
+      body: 'Stickers, text, emoji, shapes and backgrounds — move, resize '
           'and rotate anything with your fingers. Then save it to your gallery.',
     ),
   ];
