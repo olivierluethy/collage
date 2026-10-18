@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../theme/text_styles.dart';
-import '../theme/tokens.dart';
+import '../theme/palette.dart';
+import '../theme/typography.dart';
 
 /// Formats a raw epoch-millis timestamp for display. The timestamp is always
 /// stored raw; formatting happens only here, following the device locale with a
@@ -22,12 +22,15 @@ class MetaDate extends StatelessWidget {
     super.key,
     required this.epochMillis,
     this.icon = Icons.event_rounded,
-    this.color = AppColors.textLo,
+    this.color,
   });
 
   final int epochMillis;
   final IconData icon;
-  final Color color;
+
+  /// Overrides the default `textLo`. Resolved against the live palette in
+  /// [build] when null.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -36,15 +39,16 @@ class MetaDate extends StatelessWidget {
       localeName: Localizations.maybeLocaleOf(context)?.toString(),
     );
     if (text.isEmpty) return const SizedBox.shrink();
+    final c = color ?? context.colors.textLo;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: color),
+        Icon(icon, size: 13, color: c),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
             text,
-            style: AppText.caption.copyWith(color: color),
+            style: context.text.caption.copyWith(color: c),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

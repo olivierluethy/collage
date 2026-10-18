@@ -46,6 +46,8 @@ class SlotFill {
     this.offsetY = 0,
     this.zoom = 1.0,
     this.imgAspect = 1.0,
+    this.flipX = false,
+    this.flipY = false,
     PhotoFilter? filter,
   }) : filter = filter ?? PhotoFilter();
 
@@ -54,7 +56,11 @@ class SlotFill {
   double offsetY;
   double zoom; // >= 1
   double imgAspect;
+  bool flipX; // mirror left↔right
+  bool flipY; // mirror top↔bottom
   PhotoFilter filter; // per-cell colour treatment (see PhotoFilter)
+
+  bool get isFlipped => flipX || flipY;
 
   SlotFill clone() => SlotFill(
         assetId: assetId,
@@ -62,6 +68,8 @@ class SlotFill {
         offsetY: offsetY,
         zoom: zoom,
         imgAspect: imgAspect,
+        flipX: flipX,
+        flipY: flipY,
         filter: filter.clone(),
       );
 
@@ -71,6 +79,8 @@ class SlotFill {
         'offsetY': offsetY,
         'zoom': zoom,
         'imgAspect': imgAspect,
+        if (flipX) 'flipX': true,
+        if (flipY) 'flipY': true,
         if (!filter.isIdentity) 'filter': filter.toJson(),
       };
 
@@ -80,6 +90,8 @@ class SlotFill {
         offsetY: (j['offsetY'] as num?)?.toDouble() ?? 0,
         zoom: (j['zoom'] as num?)?.toDouble() ?? 1.0,
         imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
+        flipX: j['flipX'] as bool? ?? false,
+        flipY: j['flipY'] as bool? ?? false,
         filter: j['filter'] == null
             ? null
             : PhotoFilter.fromJson(j['filter'] as Map<String, dynamic>),

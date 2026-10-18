@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/meta_date.dart';
 import '../../widgets/ui.dart';
 
@@ -41,17 +43,18 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(asset != null
-          ? 'Saved to your gallery.'
-          : 'Could not save — check photo permissions.'),
+          ? context.l10n.t('savedToGallery')
+          : context.l10n.t('couldNotSave')),
     ));
   }
 
   Future<void> _share() async {
+    final l = context.l10n;
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/collage_share.png');
     await file.writeAsBytes(widget.png);
     await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: 'Made with Collage'),
+      ShareParams(files: [XFile(file.path)], text: l.t('madeWithCollage')),
     );
   }
 
@@ -60,7 +63,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const CloseButton(),
-        title: const Text('Your collage'),
+        title: Text(context.l10n.t('yourCollage')),
       ),
       body: Column(
         children: [
@@ -87,9 +90,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
+                Icon(Icons.check_circle_rounded, color: context.colors.success, size: 18),
                 const SizedBox(width: 6),
-                Text('Saved to your gallery', style: AppText.bodyMd.copyWith(color: AppColors.success)),
+                Text(context.l10n.t('savedToGallery'),
+                    style: context.text.bodyMd.copyWith(color: context.colors.success)),
               ],
             ),
           SafeArea(
@@ -98,7 +102,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               child: Column(
                 children: [
                   PrimaryButton(
-                    label: _saved ? 'Saved' : 'Save to gallery',
+                    label: _saved
+                        ? context.l10n.t('saved')
+                        : context.l10n.t('saveToGallery'),
                     icon: _saved ? Icons.check_rounded : Icons.download_rounded,
                     busy: _busy,
                     onPressed: _saved ? null : _saveToGallery,
@@ -110,7 +116,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _share,
                           icon: const Icon(Icons.ios_share_rounded, size: 18),
-                          label: const Text('Share'),
+                          label: Text(context.l10n.t('share')),
                         ),
                       ),
                       const SizedBox(width: Space.sm),
@@ -118,7 +124,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.edit_rounded, size: 18),
-                          label: const Text('Keep editing'),
+                          label: Text(context.l10n.t('keepEditing')),
                         ),
                       ),
                     ],
@@ -126,7 +132,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   const SizedBox(height: Space.sm),
                   TextButton(
                     onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                    child: const Text('Done'),
+                    child: Text(context.l10n.t('done')),
                   ),
                 ],
               ),

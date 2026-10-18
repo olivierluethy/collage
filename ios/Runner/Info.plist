@@ -10,6 +10,24 @@
 	<string>Collage saves your finished collage to your photo library.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh</string>
+		<string>hi</string>
+		<string>es</string>
+		<string>ar</string>
+		<string>bn</string>
+		<string>fr</string>
+		<string>ru</string>
+		<string>pt</string>
+		<string>id</string>
+		<string>de</string>
+		<string>ja</string>
+		<string>tr</string>
+		<string>it</string>
+		<string>ko</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Collage</string>
 	<key>CFBundleExecutable</key>

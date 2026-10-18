@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/layout_miniature.dart';
 import '../../widgets/ui.dart';
 
@@ -61,7 +63,7 @@ class _CustomTemplateScreenState extends State<CustomTemplateScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: const Text('Make your own'),
+        title: Text(context.l10n.t('makeYourOwn')),
       ),
       body: Column(
         children: [
@@ -74,9 +76,9 @@ class _CustomTemplateScreenState extends State<CustomTemplateScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
+                      color: context.colors.surface,
                       borderRadius: BorderRadius.circular(Radii.card),
-                      border: Border.all(color: AppColors.line),
+                      border: Border.all(color: context.colors.line),
                     ),
                     child: LayoutMiniature(template: template, gap: 6),
                   ),
@@ -84,25 +86,28 @@ class _CustomTemplateScreenState extends State<CustomTemplateScreen> {
               ),
             ),
           ),
-          SpecChip('${template.slotCount} slots · ${_ratio.label}', active: true),
+          SpecChip(
+              context.l10n.a('slotsCount',
+                  {'count': '${template.slotCount}', 'ratio': _ratio.label}),
+              active: true),
           const SizedBox(height: Space.md),
           SwitchListTile(
             value: _feature,
             onChanged: (v) => setState(() => _feature = v),
-            title: Text('Feature the first photo', style: AppText.bodyLg),
-            subtitle: Text('One big photo on the left', style: AppText.caption),
-            activeThumbColor: AppColors.onAmber,
+            title: Text(context.l10n.t('featureFirst'), style: context.text.bodyLg),
+            subtitle: Text(context.l10n.t('oneBigLeft'), style: context.text.caption),
+            activeThumbColor: context.colors.onAmber,
           ),
           if (!_feature)
             _Stepper(
-              label: 'Columns',
+              label: context.l10n.t('columns'),
               value: _cols,
               min: 1,
               max: 4,
               onChanged: (v) => setState(() => _cols = v),
             ),
           _Stepper(
-            label: _feature ? 'Photos on the right' : 'Rows',
+            label: _feature ? context.l10n.t('photosOnRight') : context.l10n.t('rows'),
             value: _rows,
             min: 1,
             max: 5,
@@ -112,7 +117,7 @@ class _CustomTemplateScreenState extends State<CustomTemplateScreen> {
             child: Padding(
               padding: const EdgeInsets.all(Space.lg),
               child: PrimaryButton(
-                label: 'Use this template',
+                label: context.l10n.t('useThisTemplate'),
                 icon: Icons.check_rounded,
                 onPressed: () => Navigator.of(context).pop(_build()),
               ),
@@ -144,14 +149,14 @@ class _Stepper extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Space.xl, vertical: 4),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: AppText.bodyLg)),
+          Expanded(child: Text(label, style: context.text.bodyLg)),
           IconButton.filledTonal(
             onPressed: value > min ? () => onChanged(value - 1) : null,
             icon: const Icon(Icons.remove),
           ),
           SizedBox(
             width: 40,
-            child: Text('$value', style: AppText.titleMd, textAlign: TextAlign.center),
+            child: Text('$value', style: context.text.titleMd, textAlign: TextAlign.center),
           ),
           IconButton.filledTonal(
             onPressed: value < max ? () => onChanged(value + 1) : null,

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/layout_templates.dart';
 import '../models/collage_project.dart';
+import '../models/collage_template.dart';
 import '../models/layout_template.dart';
 import '../services/permission_service.dart';
 import '../state/providers.dart';
@@ -104,6 +105,27 @@ Future<void> openCollage(BuildContext context, WidgetRef ref, CollageProject pro
   }.toList();
   await Navigator.of(context).push(
     MaterialPageRoute(builder: (_) => EditorScreen(project: project, pool: pool)),
+  );
+  if (context.mounted) await ref.read(draftsProvider.notifier).reload();
+}
+
+/// Open a ready-made template in the editor with empty slots: the styling,
+/// background, text and stickers are applied, and the user drops their own
+/// photos into the slots. No gallery permission is needed up front — the
+/// editor asks for it when the user picks photos.
+Future<void> openTemplate(
+  BuildContext context,
+  WidgetRef ref,
+  CollageTemplate template,
+) async {
+  final project = template.toProject(
+    id: const Uuid().v4(),
+    now: DateTime.now().millisecondsSinceEpoch,
+  );
+  await Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => EditorScreen(project: project, pool: const []),
+    ),
   );
   if (context.mounted) await ref.read(draftsProvider.notifier).reload();
 }

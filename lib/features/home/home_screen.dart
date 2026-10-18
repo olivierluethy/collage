@@ -3,18 +3,22 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/meta_date.dart';
 import '../../widgets/ui.dart';
 import '../ai/ai_screen.dart';
 import '../discover/discover_screen.dart';
 import '../flow.dart';
+import '../info/info_screen.dart';
+import '../templates/templates_tab.dart';
 
-/// Home base with two tabs: My Collages (the re-editable library) and Discover
-/// (location + date collage suggestions).
+/// Home base with three tabs: My Collages (the re-editable library), Templates
+/// (ready-made designs) and Discover (location + date collage suggestions).
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -27,16 +31,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final title = switch (_index) {
+      1 => context.l10n.t('tabTemplates'),
+      2 => context.l10n.t('homeDiscover'),
+      _ => context.l10n.t('homeCollages'),
+    };
     return Scaffold(
       appBar: AppBar(
-        title: Text(_index == 0 ? 'My collages' : 'Discover', style: AppText.displayMd),
+        title: Text(title, style: context.text.displayMd),
         actions: [
           IconButton(
-            tooltip: 'AI auto-collage',
+            tooltip: context.l10n.t('aiAutoCollage'),
             icon: const Icon(Icons.auto_awesome_rounded),
-            color: AppColors.amber,
+            color: context.colors.amber,
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AiScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: context.l10n.t('infoTitle'),
+            icon: const Icon(Icons.info_outline_rounded),
+            color: context.colors.textMid,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const InfoScreen()),
             ),
           ),
         ],
@@ -45,20 +62,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ? FloatingActionButton.extended(
               onPressed: () => startNewCollage(context, ref),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('New collage'),
+              label: Text(context.l10n.t('newCollage')),
             )
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.photo_library_outlined), selectedIcon: Icon(Icons.photo_library_rounded), label: 'Collages'),
-          NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore_rounded), label: 'Discover'),
+        destinations: [
+          NavigationDestination(
+              icon: const Icon(Icons.photo_library_outlined),
+              selectedIcon: const Icon(Icons.photo_library_rounded),
+              label: context.l10n.t('tabCollages')),
+          NavigationDestination(
+              icon: const Icon(Icons.dashboard_customize_outlined),
+              selectedIcon: const Icon(Icons.dashboard_customize_rounded),
+              label: context.l10n.t('tabTemplates')),
+          NavigationDestination(
+              icon: const Icon(Icons.explore_outlined),
+              selectedIcon: const Icon(Icons.explore_rounded),
+              label: context.l10n.t('tabDiscover')),
         ],
       ),
       body: IndexedStack(
         index: _index,
-        children: const [_CollagesView(), DiscoverTab()],
+        children: const [_CollagesView(), TemplatesTab(), DiscoverTab()],
       ),
     );
   }
@@ -73,16 +100,15 @@ class _CollagesView extends ConsumerWidget {
     final drafts = ref.watch(draftsProvider);
     return drafts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e', style: AppText.bodyMd)),
+        error: (e, _) => Center(child: Text('$e', style: context.text.bodyMd)),
         data: (list) {
           if (list.isEmpty) {
             return EmptyState(
               icon: Icons.photo_library_outlined,
-              title: 'No collages yet',
-              message: 'Make your first collage — pick photos, choose a layout, '
-                  'and decide exactly where each photo goes.',
+              title: context.l10n.t('noCollagesTitle'),
+              message: context.l10n.t('noCollagesMessage'),
               action: PrimaryButton(
-                label: 'New collage',
+                label: context.l10n.t('newCollage'),
                 icon: Icons.add_rounded,
                 expand: false,
                 onPressed: () => startNewCollage(context, ref),
@@ -115,9 +141,9 @@ class _CollageCard extends ConsumerWidget {
       onLongPress: () => _confirmDelete(context, ref),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.colors.surface,
           borderRadius: BorderRadius.circular(Radii.card),
-          border: Border.all(color: AppColors.line),
+          border: Border.all(color: context.colors.line),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -126,9 +152,9 @@ class _CollageCard extends ConsumerWidget {
             Expanded(
               child: project.thumbnailPath != null && File(project.thumbnailPath!).existsSync()
                   ? Image.file(File(project.thumbnailPath!), fit: BoxFit.cover)
-                  : const ColoredBox(
-                      color: AppColors.surfaceInput,
-                      child: Icon(Icons.image_outlined, color: AppColors.textLo),
+                  : ColoredBox(
+                      color: context.colors.surfaceInput,
+                      child: Icon(Icons.image_outlined, color: context.colors.textLo),
                     ),
             ),
             Padding(
@@ -140,7 +166,7 @@ class _CollageCard extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(project.title,
-                            style: AppText.labelLg, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            style: context.text.labelLg, maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                       SpecChip(project.ratioLabel),
                     ],
@@ -160,14 +186,15 @@ class _CollageCard extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete this collage?'),
-        content: const Text('This removes it from My Collages. Photos already '
-            'saved to your gallery are not affected.'),
+        title: Text(context.l10n.t('deleteCollageTitle')),
+        content: Text(context.l10n.t('deleteCollageMessage')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(context.l10n.t('cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+            child: Text(context.l10n.t('delete'), style: TextStyle(color: context.colors.danger)),
           ),
         ],
       ),

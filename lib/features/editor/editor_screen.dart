@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
+import '../flow.dart';
 import '../picker/photo_picker_screen.dart';
 import '../result/result_screen.dart';
 import 'collage_canvas.dart';
@@ -28,6 +31,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   final _boundaryKey = GlobalKey();
   bool _saving = false;
 
+  /// While true the canvas renders without any editing chrome (badges, chips,
+  /// element handles) so the captured PNG contains only the artwork.
+  bool _exporting = false;
+
   _Panel _panel = _Panel.none;
   String? _editingTextId;
   String? _replaceSlotId;
@@ -46,9 +53,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       duration: const Duration(seconds: 7),
-      content: const Text('Tap any photo to Replace, Swap or Clear it. Or drag one '
-          'photo onto another to swap them.'),
-      action: SnackBarAction(label: 'Got it', onPressed: () {}),
+      content: const Text('Tap a photo for Replace, Swap or Clear. Drag it to '
+          'reposition, pinch to zoom, double-tap to recentre. Or drag one photo '
+          'onto another to swap them.'),
+      action: SnackBarAction(label: context.l10n.t('gotIt'), onPressed: () {}),
     ));
   }
 
@@ -86,7 +94,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _openText() {
-    final el = _c.addText('Your text', color: 0xFFF5EFE7);
+    final el = _c.addText(context.l10n.t('defaultText'), color: 0xFFF5EFE7);
     setState(() {
       _cleanupPanel();
       _editingTextId = el.id;
@@ -104,6 +112,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _addPhotos() async {
+    // Templates open straight into the editor with no photos, so ask for gallery
+    // access here the first time the user reaches for the Photos tool.
+    if (!await ensureGalleryAccess(context, ref)) return;
+    if (!mounted) return;
     final picked = await Navigator.of(context).push<List<String>>(
       MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 9)),
     );
@@ -122,23 +134,36 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Future<void> _save() async {
     _closePanel();
     _c.clearSelection();
-    setState(() => _saving = true);
-    await Future.delayed(Motion.fast);
-    final export = ref.read(exportServiceProvider);
-    final png = await export.capture(_boundaryKey, targetWidth: 2048);
-    final thumb = await export.capture(_boundaryKey, targetWidth: 500);
-    if (png == null) {
-      setState(() => _saving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not render the collage. Try again.')));
+    // Render a clean, non-interactive frame so no edit badges, action chips or
+    // selection handles are captured into the exported PNG.
+    setState(() {
+      _saving = true;
+      _exporting = true;
+    });
+    try {
+      await Future.delayed(Motion.fast);
+      final export = ref.read(exportServiceProvider);
+      final png = await export.capture(_boundaryKey, targetWidth: 2048);
+      final thumb = await export.capture(_boundaryKey, targetWidth: 500);
+      if (png == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.t('couldNotRender'))));
+        }
+        return;
       }
-      return;
+      await ref.read(draftServiceProvider).save(_c.project, thumbnail: thumb);
+      await ref.read(draftsProvider.notifier).reload();
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _exporting = false;
+        });
+      }
     }
-    await ref.read(draftServiceProvider).save(_c.project, thumbnail: thumb);
-    await ref.read(draftsProvider.notifier).reload();
-    setState(() => _saving = false);
-    if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)));
   }
 
   @override
@@ -147,16 +172,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         leading: const BackButton(),
-        title: const Text('Editor'),
+        title: Text(context.l10n.t('editorTitle')),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: Space.sm),
             child: FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: _saving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAmber))
+                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: context.colors.onAmber))
                   : const Icon(Icons.save_alt_rounded, size: 18),
-              label: const Text('Save'),
+              label: Text(context.l10n.t('save')),
             ),
           ),
         ],
@@ -172,7 +197,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   aspectRatio: _c.project.ratio.value,
                   child: RepaintBoundary(
                     key: _boundaryKey,
-                    child: CollageCanvas(controller: _c, onRequestReplace: _openReplace),
+                    child: CollageCanvas(
+                      controller: _c,
+                      interactive: !_exporting,
+                      onRequestReplace: _openReplace,
+                    ),
                   ),
                 ),
               ),
@@ -196,24 +225,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Widget _panelHost(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
     final (title, body, height) = switch (_panel) {
-      _Panel.layout => ('Layout', LayoutPanel(c: _c), 340.0),
-      _Panel.borders => ('Borders & spacing', BordersPanel(c: _c), 280.0),
-      _Panel.background => ('Background', BackgroundPanel(c: _c), 270.0),
-      _Panel.filter => ('Filter', FilterPanel(c: _c), 360.0),
-      _Panel.stickers => ('Stickers', StickersPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
-      _Panel.shapes => ('Shapes', ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
-      _Panel.text => ('Text', TextPanel(c: _c, elementId: _editingTextId ?? ''), 260.0),
-      _Panel.emoji => ('Emoji', EmojiPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
-      _Panel.gif => ('GIFs', GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
-      _Panel.replace => ('Choose a photo', ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
+      _Panel.layout => (context.l10n.t('panelLayout'), LayoutPanel(c: _c), 340.0),
+      _Panel.borders => (context.l10n.t('panelBorders'), BordersPanel(c: _c), 280.0),
+      _Panel.background => (context.l10n.t('panelBackground'), BackgroundPanel(c: _c), 270.0),
+      _Panel.filter => (context.l10n.t('panelFilter'), FilterPanel(c: _c), 360.0),
+      _Panel.stickers => (context.l10n.t('panelStickers'), StickersPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
+      _Panel.shapes => (context.l10n.t('panelShapes'), ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
+      _Panel.text => (context.l10n.t('panelText'), TextPanel(c: _c, elementId: _editingTextId ?? ''), 260.0),
+      _Panel.emoji => (context.l10n.t('panelEmoji'), EmojiPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
+      // Temporarily hidden: unreachable while the GIF tool-rail entry is hidden.
+      _Panel.gif => (context.l10n.t('panelGif'), GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
+      _Panel.replace => (context.l10n.t('panelChoosePhoto'), ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.none => ('', const SizedBox.shrink(), 0.0),
     };
 
     return Container(
       height: height + 46,
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        border: Border(top: BorderSide(color: context.colors.line)),
         boxShadow: Shadows.e2,
       ),
       child: Column(
@@ -223,9 +253,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             child: Row(
               children: [
                 const SizedBox(width: Space.lg),
-                Text(title, style: AppText.titleMd),
+                Text(title, style: context.text.titleMd),
                 const Spacer(),
-                IconButton(onPressed: _closePanel, icon: const Icon(Icons.keyboard_arrow_down_rounded), color: AppColors.textMid),
+                IconButton(onPressed: _closePanel, icon: const Icon(Icons.keyboard_arrow_down_rounded), color: context.colors.textMid),
               ],
             ),
           ),
@@ -254,18 +284,32 @@ class _ContextBar extends StatelessWidget {
         final el = controller.selectedElement;
         if (el == null) return const SizedBox.shrink();
         return Container(
-          color: AppColors.surface,
+          color: context.colors.surface,
           padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              if (el is TextElement)
-                _CtxBtn(icon: Icons.edit_rounded, label: 'Edit', onTap: () => onEditText(el)),
-              _CtxBtn(icon: Icons.flip_to_front_rounded, label: 'Forward', onTap: () => controller.bringForward(el.id)),
-              _CtxBtn(icon: Icons.flip_to_back_rounded, label: 'Back', onTap: () => controller.sendBackward(el.id)),
-              _CtxBtn(icon: Icons.restart_alt_rounded, label: 'Straighten', onTap: () => controller.updateTransform(el.id, rotation: 0)),
-              _CtxBtn(icon: Icons.delete_outline_rounded, label: 'Delete', color: AppColors.danger, onTap: () => controller.deleteElement(el.id)),
-            ],
+          child: LayoutBuilder(
+            // Floats the actions evenly when they fit, and scrolls instead of
+            // overflowing once a free photo adds its Flip buttons.
+            builder: (context, constraints) => SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (el is TextElement)
+                      _CtxBtn(icon: Icons.edit_rounded, label: context.l10n.t('ctxEdit'), onTap: () => onEditText(el)),
+                    if (el is ImageElement) ...[
+                      _CtxBtn(icon: Icons.flip_rounded, label: context.l10n.t('ctxFlipH'), onTap: () => controller.flipElement(el.id, horizontal: true)),
+                      _CtxBtn(icon: Icons.flip_rounded, turns: 1, label: context.l10n.t('ctxFlipV'), onTap: () => controller.flipElement(el.id, vertical: true)),
+                    ],
+                    _CtxBtn(icon: Icons.flip_to_front_rounded, label: context.l10n.t('ctxForward'), onTap: () => controller.bringForward(el.id)),
+                    _CtxBtn(icon: Icons.flip_to_back_rounded, label: context.l10n.t('ctxBack'), onTap: () => controller.sendBackward(el.id)),
+                    _CtxBtn(icon: Icons.restart_alt_rounded, label: context.l10n.t('ctxStraighten'), onTap: () => controller.updateTransform(el.id, rotation: 0)),
+                    _CtxBtn(icon: Icons.delete_outline_rounded, label: context.l10n.t('ctxDelete'), color: context.colors.danger, onTap: () => controller.deleteElement(el.id)),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -274,15 +318,18 @@ class _ContextBar extends StatelessWidget {
 }
 
 class _CtxBtn extends StatelessWidget {
-  const _CtxBtn({required this.icon, required this.label, required this.onTap, this.color});
+  const _CtxBtn({required this.icon, required this.label, required this.onTap, this.color, this.turns = 0});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final int turns; // quarter-turns applied to [icon] (1 → vertical mirror)
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? AppColors.textMid;
+    final c = color ?? context.colors.textMid;
+    Widget iconWidget = Icon(icon, color: c, size: 22);
+    if (turns != 0) iconWidget = RotatedBox(quarterTurns: turns, child: iconWidget);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(Radii.control),
@@ -291,9 +338,9 @@ class _CtxBtn extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: c, size: 22),
+            iconWidget,
             const SizedBox(height: 2),
-            Text(label, style: AppText.caption.copyWith(color: c)),
+            Text(label, style: context.text.caption.copyWith(color: c)),
           ],
         ),
       ),
@@ -314,21 +361,23 @@ class _ToolRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tools = <(_Panel, IconData, String)>[
-      (_Panel.layout, Icons.grid_view_rounded, 'Layout'),
-      (_Panel.none, Icons.add_photo_alternate_outlined, 'Photos'),
-      (_Panel.borders, Icons.border_outer_rounded, 'Borders'),
-      (_Panel.background, Icons.gradient_rounded, 'Background'),
-      (_Panel.filter, Icons.tune_rounded, 'Filter'),
-      (_Panel.stickers, Icons.emoji_emotions_outlined, 'Stickers'),
-      (_Panel.shapes, Icons.category_outlined, 'Shapes'),
-      (_Panel.text, Icons.title_rounded, 'Text'),
-      (_Panel.emoji, Icons.tag_faces_rounded, 'Emoji'),
-      (_Panel.gif, Icons.gif_box_outlined, 'GIF'),
+      (_Panel.layout, Icons.grid_view_rounded, context.l10n.t('toolLayout')),
+      (_Panel.none, Icons.add_photo_alternate_outlined, context.l10n.t('toolPhotos')),
+      (_Panel.borders, Icons.border_outer_rounded, context.l10n.t('toolBorders')),
+      (_Panel.background, Icons.gradient_rounded, context.l10n.t('toolBackground')),
+      (_Panel.filter, Icons.tune_rounded, context.l10n.t('toolFilter')),
+      (_Panel.stickers, Icons.emoji_emotions_outlined, context.l10n.t('toolStickers')),
+      (_Panel.shapes, Icons.category_outlined, context.l10n.t('toolShapes')),
+      (_Panel.text, Icons.title_rounded, context.l10n.t('toolText')),
+      (_Panel.emoji, Icons.tag_faces_rounded, context.l10n.t('toolEmoji')),
+      // Temporarily hidden: GIF tab (Giphy search disabled). Restore by
+      // uncommenting the entry below.
+      // (_Panel.gif, Icons.gif_box_outlined, context.l10n.t('toolGif')),
     ];
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        border: Border(top: BorderSide(color: context.colors.line)),
       ),
       child: SafeArea(
         top: false,
@@ -341,9 +390,9 @@ class _ToolRail extends StatelessWidget {
             itemBuilder: (_, i) {
               final (panel, icon, label) = tools[i];
               final isActive = panel != _Panel.none && panel == active;
-              final color = isActive ? AppColors.amber : AppColors.textMid;
+              final color = isActive ? context.colors.amber : context.colors.textMid;
               return InkWell(
-                onTap: () => label == 'Photos' ? onPhotos() : onTool(panel),
+                onTap: () => panel == _Panel.none ? onPhotos() : onTool(panel),
                 borderRadius: BorderRadius.circular(Radii.control),
                 child: Container(
                   width: 78,
@@ -362,7 +411,7 @@ class _ToolRail extends StatelessWidget {
                           softWrap: false,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: AppText.labelMd.copyWith(color: color),
+                          style: context.text.labelMd.copyWith(color: color),
                         ),
                       ),
                     ],

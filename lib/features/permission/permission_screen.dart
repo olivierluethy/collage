@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/permission_service.dart';
 import '../../state/providers.dart';
-import '../../theme/text_styles.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
 
 /// Plain-language rationale for photo access, then the native request. On
@@ -54,52 +56,46 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
               Container(
                 width: 96,
                 height: 96,
-                decoration: const BoxDecoration(
-                  color: AppColors.amberTint,
+                decoration: BoxDecoration(
+                  color: context.colors.amberTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.photo_library_rounded,
-                    size: 44, color: AppColors.amber),
+                child: Icon(Icons.photo_library_rounded,
+                    size: 44, color: context.colors.amber),
               ),
               const SizedBox(height: Space.xl),
-              Text('Let Collage see your photos', style: AppText.displayMd),
+              Text(context.l10n.t('permissionTitle'), style: context.text.displayMd),
               const SizedBox(height: Space.md),
               Text(
-                'To build a collage, Collage needs to open your photo library so '
-                'you can pick the pictures you want. It also needs permission to '
-                'save your finished collage back to your gallery.\n\n'
-                'Allowing photo access also lets Collage read when and where your '
-                'photos were taken, so it can suggest ready-made collages like '
-                '"you were in Rome on 12 Jun". \n\n'
-                'Your photos stay on your device. Nothing is uploaded.',
-                style: AppText.bodyLg.copyWith(color: AppColors.textMid),
+                context.l10n.t('permissionBody'),
+                style: context.text.bodyLg.copyWith(color: context.colors.textMid),
               ),
               if (blocked) ...[
                 const SizedBox(height: Space.lg),
                 _Notice(
-                  color: AppColors.warning,
-                  text: 'Collage can\'t continue without photo access. Please '
-                      'tap "Allow access" and choose Allow.',
+                  color: context.colors.warning,
+                  text: context.l10n.t('permissionBlockedSnack'),
                 ),
               ],
               if (permanent) ...[
                 const SizedBox(height: Space.lg),
                 _Notice(
-                  color: AppColors.danger,
-                  text: 'Photo access is turned off. Open Settings, then turn on '
-                      'Photos for Collage, and come back.',
+                  color: context.colors.danger,
+                  text: context.l10n.t('permissionOffSnack'),
                 ),
               ],
               const Spacer(),
               if (permanent)
                 PrimaryButton(
-                  label: 'Open Settings',
+                  label: context.l10n.t('openSettings'),
                   icon: Icons.settings_rounded,
                   onPressed: () => _perm.openSettings(),
                 )
               else
                 PrimaryButton(
-                  label: blocked ? 'Allow access' : 'Allow photo access',
+                  label: blocked
+                      ? context.l10n.t('allowAccess')
+                      : context.l10n.t('allowPhotoAccess'),
                   icon: Icons.check_rounded,
                   busy: _busy,
                   onPressed: _request,
@@ -108,7 +104,7 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Not now'),
+                  child: Text(context.l10n.t('notNow')),
                 ),
               ),
             ],
@@ -137,7 +133,7 @@ class _Notice extends StatelessWidget {
         children: [
           Icon(Icons.info_outline_rounded, color: color, size: 20),
           const SizedBox(width: Space.sm),
-          Expanded(child: Text(text, style: AppText.bodyMd.copyWith(color: AppColors.textHi))),
+          Expanded(child: Text(text, style: context.text.bodyMd.copyWith(color: context.colors.textHi))),
         ],
       ),
     );

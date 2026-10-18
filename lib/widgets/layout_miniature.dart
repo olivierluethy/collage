@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/layout_template.dart';
-import '../theme/tokens.dart';
+import '../theme/palette.dart';
 import 'poly_clipper.dart';
 
 /// Draws a tiny illustration of a layout's slots so the user can see, at a
@@ -11,19 +11,27 @@ class LayoutMiniature extends StatelessWidget {
     super.key,
     required this.template,
     this.gap = 3,
-    this.slotColor = AppColors.surfaceInput,
-    this.strokeColor = AppColors.textLo,
+    this.slotColor,
+    this.strokeColor,
   });
 
   final LayoutTemplate template;
   final double gap;
-  final Color slotColor;
-  final Color strokeColor;
+
+  /// Override the slot fill / outline. Resolved against the live palette in
+  /// [build] when null.
+  final Color? slotColor;
+  final Color? strokeColor;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _MiniPainter(template, gap, slotColor, strokeColor),
+      painter: _MiniPainter(
+        template,
+        gap,
+        slotColor ?? context.colors.surfaceInput,
+        strokeColor ?? context.colors.textLo,
+      ),
       size: Size.infinite,
     );
   }

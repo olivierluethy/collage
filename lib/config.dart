@@ -15,4 +15,35 @@ class Config {
 
   static bool get hasGiphy => giphyApiKey.isNotEmpty;
   static bool get hasAi => aiApiKey.isNotEmpty;
+
+  /// Public Privacy Policy page opened from Information → Privacy Policy.
+  /// Override at build time with `--dart-define=PRIVACY_POLICY_URL=...`.
+  static const privacyPolicyUrl = String.fromEnvironment(
+    'PRIVACY_POLICY_URL',
+    defaultValue: 'https://example.com/collage/privacy',
+  );
+
+  /// Public Terms of Service page opened from Information → Terms of Service.
+  /// Override at build time with `--dart-define=TERMS_URL=...`.
+  static const termsOfServiceUrl = String.fromEnvironment(
+    'TERMS_URL',
+    defaultValue: 'https://example.com/collage/terms',
+  );
+
+  /// Remote font catalog URL (JSON). Empty → only the bundled fonts are shown.
+  /// Supply with `--dart-define=FONT_CATALOG_URL=...`; see docs/CATALOGS.md.
+  static const fontCatalogUrl = String.fromEnvironment(
+    'FONT_CATALOG_URL',
+    defaultValue: '',
+  );
+
+  /// Remote sticker catalog URL (JSON). Empty → only the bundled stickers.
+  /// Supply with `--dart-define=STICKER_CATALOG_URL=...`; see docs/CATALOGS.md.
+  static const stickerCatalogUrl = String.fromEnvironment(
+    'STICKER_CATALOG_URL',
+    defaultValue: '',
+  );
+
+  static bool get hasRemoteFonts => fontCatalogUrl.isNotEmpty;
+  static bool get hasRemoteStickers => stickerCatalogUrl.isNotEmpty;
 }

@@ -2,45 +2,9 @@ import 'package:flutter/widgets.dart';
 
 /// Design tokens — the machine-readable half of docs/STYLEGUIDE.md.
 ///
-/// Never hardcode a hex, size or duration in a widget. Reference a token here
-/// (or the [ThemeData] built from it) so the whole app stays one product.
-class AppColors {
-  AppColors._();
-
-  // Base & surfaces (warm-neutral "Darkroom")
-  static const ink = Color(0xFF131110);
-  static const inkCanvas = Color(0xFF1A1714);
-  static const surface = Color(0xFF211D19);
-  static const surfaceHigh = Color(0xFF2A2521);
-  static const surfaceInput = Color(0xFF332D28);
-  static const line = Color(0xFF3D362F);
-  static const lineStrong = Color(0xFF4E463D);
-
-  // Text & icons
-  static const textHi = Color(0xFFF5EFE7);
-  static const textMid = Color(0xFFB6AB9D);
-  static const textLo = Color(0xFF8A7F71);
-  static const textDisabled = Color(0xFF5E564C);
-
-  // Brand accent — Safelight amber
-  static const amber = Color(0xFFFFB454);
-  static const amberPressed = Color(0xFFF59E2E);
-  static const amberBright = Color(0xFFFFC97A);
-  static const onAmber = Color(0xFF2A1B08);
-  static const amberTint = Color(0x1FFFB454); // 12%
-  static const amberGlow = Color(0x52FFB454); // 32%
-
-  // Semantic
-  static const success = Color(0xFF6FD08C);
-  static const danger = Color(0xFFFF6B5E);
-  static const onDanger = Color(0xFF2A0E0B);
-  static const info = Color(0xFF6FB2FF);
-  static const warning = Color(0xFFE7B84B);
-
-  // Common overlays
-  static const scrim = Color(0xB8131110); // ink @72% for coach-mark spotlight
-  static const pressLight = Color(0x14FFFFFF); // white @8%
-}
+/// Colours live in [AppPalette] (a ThemeExtension); sizes, radii, shadows,
+/// motion and touch targets live here. Never hardcode a hex, size or duration
+/// in a widget — reference a token or the theme built from it.
 
 /// Spacing scale (dp, base-4).
 class Space {
@@ -87,7 +51,7 @@ class Shadows {
 
   /// Signature "safelight" glow around the selected element / focused field.
   static const List<BoxShadow> focusGlow = [
-    BoxShadow(color: AppColors.amberGlow, blurRadius: 20, spreadRadius: 0),
+    BoxShadow(color: Color(0x52FFB454), blurRadius: 20, spreadRadius: 0),
   ];
 }
 

@@ -366,6 +366,8 @@ class ImageElement extends CanvasElement {
     required super.cy,
     required this.assetId,
     this.imgAspect = 1.0,
+    this.flipX = false,
+    this.flipY = false,
     super.scale,
     super.rotation,
     super.z,
@@ -373,6 +375,8 @@ class ImageElement extends CanvasElement {
 
   final String assetId;
   double imgAspect;
+  bool flipX; // mirror left↔right
+  bool flipY; // mirror top↔bottom
 
   @override
   ElementType get type => ElementType.image;
@@ -388,14 +392,21 @@ class ImageElement extends CanvasElement {
         cy: cy,
         assetId: assetId,
         imgAspect: imgAspect,
+        flipX: flipX,
+        flipY: flipY,
         scale: scale,
         rotation: rotation,
         z: z,
       );
 
   @override
-  Map<String, dynamic> toJson() =>
-      {...baseJson(), 'assetId': assetId, 'imgAspect': imgAspect};
+  Map<String, dynamic> toJson() => {
+        ...baseJson(),
+        'assetId': assetId,
+        'imgAspect': imgAspect,
+        if (flipX) 'flipX': true,
+        if (flipY) 'flipY': true,
+      };
 
   factory ImageElement.fromJson(Map<String, dynamic> j) => ImageElement(
         id: j['id'] as String,
@@ -403,6 +414,8 @@ class ImageElement extends CanvasElement {
         cy: (j['cy'] as num).toDouble(),
         assetId: j['assetId'] as String,
         imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
+        flipX: j['flipX'] as bool? ?? false,
+        flipY: j['flipY'] as bool? ?? false,
         scale: (j['scale'] as num).toDouble(),
         rotation: (j['rotation'] as num).toDouble(),
         z: j['z'] as int,
