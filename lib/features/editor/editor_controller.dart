@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
@@ -15,6 +16,151 @@ class EditorController extends ChangeNotifier {
   EditorController({required this.project, required List<String> pool})
       : _pool = List.of(pool) {
     if (project.fills.isEmpty && project.layout.slots.isNotEmpty) autofill();
+    // The opening state is the floor of the history, not an undoable step.
+    _committed = _snapshot();
+    _latest = _committed;
+    _lastTouch = null;
+  }
+
+  // --- undo / redo -----------------------------------------------------------
+  /// Snapshot history. Every mutation goes through [_touch], which records the
+  /// resulting state. A burst of updates (a drag, a pinch, a slider) becomes
+  /// ONE undo step: it is committed when the next edit arrives after a pause
+  /// of at least [_settle], or when the user undoes/redoes. No timer, so
+  /// nothing is left pending when the editor closes.
+  static const _settle = Duration(milliseconds: 350);
+  static const _maxHistory = 60;
+
+  final List<String> _undo = [];
+  final List<String> _redo = [];
+  // Both start empty: the constructor's autofill already records, and the
+  // real opening state is set once construction is done.
+  String _committed = ''; // last state on the history stack
+  String _latest = ''; // state after the most recent edit
+  DateTime? _lastTouch;
+
+  bool get canUndo => _undo.isNotEmpty || _hasPendingChange;
+  bool get canRedo => _redo.isNotEmpty && !_hasPendingChange;
+
+  bool get _hasPendingChange => _latest != _committed;
+
+  /// The editable state as JSON, without bookkeeping fields that change on
+  /// every touch (so an unchanged collage compares equal).
+  String _snapshot() {
+    final j = project.toJson()
+      ..remove('updatedAt')
+      ..remove('thumbnailPath');
+    return jsonEncode(j);
+  }
+
+  /// Called after every mutation: closes the previous burst if this edit
+  /// comes after a pause, then remembers the new state.
+  void _record() {
+    final now = DateTime.now();
+    final last = _lastTouch;
+    if (last == null || now.difference(last) >= _settle) _commit();
+    _lastTouch = now;
+    _latest = _snapshot();
+  }
+
+  /// Push the pending burst (if it changed anything) onto the history.
+  void _commit() {
+    if (_latest == _committed) return;
+    _undo.add(_committed);
+    if (_undo.length > _maxHistory) _undo.removeAt(0);
+    _redo.clear();
+    _committed = _latest;
+  }
+
+  void undo() {
+    _commit();
+    if (_undo.isEmpty) return;
+    _redo.add(_committed);
+    _restore(_undo.removeLast());
+  }
+
+  void redo() {
+    _commit();
+    if (_redo.isEmpty) return;
+    _undo.add(_committed);
+    _restore(_redo.removeLast());
+  }
+
+  void _restore(String snapshot) {
+    _committed = snapshot;
+    _latest = snapshot;
+    _lastTouch = null;
+    final p = CollageProject.fromJson(jsonDecode(snapshot) as Map<String, dynamic>);
+    project
+      ..title = p.title
+      ..ratioLabel = p.ratioLabel
+      ..layout = p.layout
+      ..fills = p.fills
+      ..elements = p.elements
+      ..border = p.border
+      ..background = p.background
+      ..updatedAt = DateTime.now().millisecondsSinceEpoch;
+    // Drop transient state that may point at things the snapshot lacks.
+    swapSource = null;
+    replaceSlotId = null;
+    replaceCandidate = null;
+    guideX = null;
+    guideY = null;
+    if (selectedElementId != null && !project.elements.any((e) => e.id == selectedElementId)) {
+      selectedElementId = null;
+    }
+    if (selectedSlotId != null && !project.layout.slots.any((s) => s.id == selectedSlotId)) {
+      selectedSlotId = null;
+    }
+    notifyListeners();
+  }
+
+  // --- alignment guides (transient) ------------------------------------------
+  /// Canvas fractions where a dragged element is currently snapped, drawn as
+  /// guide lines by the canvas. Null when not snapped on that axis.
+  double? guideX;
+  double? guideY;
+
+  /// Snap distance, as a fraction of the canvas side.
+  static const snapThreshold = 0.015;
+
+  /// Snap a free element's centre to the canvas centre/thirds or to another
+  /// element's centre, and publish the matching guides.
+  (double, double) snapPosition(String id, double cx, double cy) {
+    final xs = <double>[0.5, 1 / 3, 2 / 3];
+    final ys = <double>[0.5, 1 / 3, 2 / 3];
+    for (final e in project.elements) {
+      if (e.id == id) continue;
+      xs.add(e.cx);
+      ys.add(e.cy);
+    }
+    double? best(double v, List<double> targets) {
+      double? hit;
+      var bestD = snapThreshold;
+      for (final t in targets) {
+        final d = (v - t).abs();
+        if (d <= bestD) {
+          bestD = d;
+          hit = t;
+        }
+      }
+      return hit;
+    }
+
+    final sx = best(cx, xs);
+    final sy = best(cy, ys);
+    if (sx != guideX || sy != guideY) {
+      guideX = sx;
+      guideY = sy;
+    }
+    return (sx ?? cx, sy ?? cy);
+  }
+
+  void clearGuides() {
+    if (guideX == null && guideY == null) return;
+    guideX = null;
+    guideY = null;
+    notifyListeners();
   }
 
   final CollageProject project;
@@ -126,6 +272,7 @@ class EditorController extends ChangeNotifier {
 
   void _touch() {
     project.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    _record();
     notifyListeners();
   }
 
@@ -240,12 +387,50 @@ class EditorController extends ChangeNotifier {
   void resetSlotTransform(String slotId) {
     final f = project.fills[slotId];
     if (f == null) return;
-    if (f.offsetX == 0 && f.offsetY == 0 && f.zoom == 1) return;
+    if (f.offsetX == 0 && f.offsetY == 0 && f.zoom == 1 && f.rotation == 0) return;
     f.offsetX = 0;
     f.offsetY = 0;
     f.zoom = 1;
+    f.rotation = 0;
     _touch();
   }
+
+  /// Tilt a slot photo by [radians] (kept in -π..π). The canvas enlarges the
+  /// photo so the cell stays covered at any angle.
+  void setSlotRotation(String slotId, double radians) {
+    final f = project.fills[slotId];
+    if (f == null) return;
+    const pi = 3.141592653589793;
+    var r = radians % (2 * pi);
+    if (r > pi) r -= 2 * pi;
+    f.rotation = r;
+    _touch();
+  }
+
+  /// Turn a slot photo by a quarter turn clockwise.
+  void rotateSlotQuarter(String slotId) {
+    final f = project.fills[slotId];
+    if (f == null) return;
+    setSlotRotation(slotId, f.rotation + 3.141592653589793 / 2);
+  }
+
+  // ---- crop (free photos) ---------------------------------------------------
+  /// Set the crop insets of a free photo; each edge is clamped so at least
+  /// 10% of the photo always remains visible on both axes.
+  void setCrop(String id, {double? l, double? t, double? r, double? b}) {
+    for (final e in project.elements) {
+      if (e.id != id || e is! ImageElement) continue;
+      const m = ImageElement.maxCrop;
+      if (l != null) e.cropL = l.clamp(0, m);
+      if (t != null) e.cropT = t.clamp(0, m);
+      if (r != null) e.cropR = r.clamp(0, m);
+      if (b != null) e.cropB = b.clamp(0, m);
+      _touch();
+      return;
+    }
+  }
+
+  void resetCrop(String id) => setCrop(id, l: 0, t: 0, r: 0, b: 0);
 
   /// Mirror a slot photo across its horizontal and/or vertical axis. Each flag
   /// toggles independently, so the two buttons can be combined (or reversed).
@@ -414,6 +599,39 @@ class EditorController extends ChangeNotifier {
     project.elements.removeWhere((e) => e.id == id);
     if (selectedElementId == id) selectedElementId = null;
     _touch();
+  }
+
+  /// Elements front-most first — the order the layers panel lists them in.
+  List<CanvasElement> get layers =>
+      [...project.elements]..sort((a, b) => b.z.compareTo(a.z));
+
+  /// Move the layer at [oldIndex] to [newIndex] (indices into [layers], as
+  /// reported by a ReorderableListView) and renumber z so the list order is
+  /// the stacking order.
+  void reorderLayer(int oldIndex, int newIndex) {
+    final list = layers;
+    if (oldIndex < 0 || oldIndex >= list.length) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    final moved = list.removeAt(oldIndex);
+    list.insert(newIndex.clamp(0, list.length), moved);
+    for (var i = 0; i < list.length; i++) {
+      list[i].z = list.length - 1 - i;
+    }
+    _touch();
+  }
+
+  /// Copy an element, slightly offset, and select the copy.
+  void duplicateElement(String id) {
+    for (final e in project.elements) {
+      if (e.id != id) continue;
+      final j = e.toJson()
+        ..['id'] = _uuid.v4()
+        ..['cx'] = (e.cx + 0.04).clamp(-0.1, 1.1)
+        ..['cy'] = (e.cy + 0.04).clamp(-0.1, 1.1)
+        ..['z'] = _nextZ;
+      _add(CanvasElement.fromJson(j));
+      return;
+    }
   }
 
   // ---- borders / background ----------------------------------------------

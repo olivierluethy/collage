@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
+import '../../services/export_service.dart';
 import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
@@ -18,9 +19,11 @@ import '../../widgets/ui.dart';
 /// Shown right after Save: a clear preview of the finished collage with obvious
 /// Save-to-gallery, Share and keep-editing actions.
 class ResultScreen extends ConsumerStatefulWidget {
-  const ResultScreen({super.key, required this.project, required this.png});
+  const ResultScreen({super.key, required this.project, required this.result});
   final CollageProject project;
-  final Uint8List png;
+  final ExportResult result;
+
+  Uint8List get bytes => result.bytes;
 
   @override
   ConsumerState<ResultScreen> createState() => _ResultScreenState();
@@ -32,9 +35,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   Future<void> _saveToGallery() async {
     setState(() => _busy = true);
-    final asset = await ref.read(galleryServiceProvider).savePng(
-          widget.png,
-          filename: 'collage_${DateTime.now().millisecondsSinceEpoch}.png',
+    final asset = await ref.read(galleryServiceProvider).saveImage(
+          widget.bytes,
+          filename: 'collage_${DateTime.now().millisecondsSinceEpoch}.${widget.result.format.extension}',
         );
     setState(() {
       _busy = false;
@@ -51,10 +54,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   Future<void> _share() async {
     final l = context.l10n;
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/collage_share.png');
-    await file.writeAsBytes(widget.png);
+    final format = widget.result.format;
+    final file = File('${dir.path}/collage_share.${format.extension}');
+    await file.writeAsBytes(widget.bytes);
     await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: l.t('madeWithCollage')),
+      ShareParams(files: [XFile(file.path, mimeType: format.mimeType)], text: l.t('madeWithCollage')),
     );
   }
 
@@ -78,7 +82,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(Radii.card),
-                    child: Image.memory(widget.png, fit: BoxFit.contain),
+                    child: Image.memory(widget.bytes, fit: BoxFit.contain),
                   ),
                 ),
               ),
