@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/collage_project.dart';
 import '../models/remote_catalog.dart';
@@ -59,6 +60,16 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
 
   Future<void> remove(String id) async {
     await ref.read(draftServiceProvider).delete(id);
+    await reload();
+  }
+
+  Future<void> rename(String id, String title) async {
+    await ref.read(draftServiceProvider).rename(id, title);
+    await reload();
+  }
+
+  Future<void> duplicate(String id, {required String title}) async {
+    await ref.read(draftServiceProvider).duplicate(id, newId: const Uuid().v4(), title: title);
     await reload();
   }
 }
