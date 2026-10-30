@@ -14,11 +14,11 @@ import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../../widgets/meta_date.dart';
 import '../../widgets/ui.dart';
 
-/// Shown right after Save: a clear preview of the finished collage with obvious
-/// Save-to-gallery, Share and keep-editing actions.
+/// Shown right after "Save to gallery": the collage is already being saved
+/// when this opens, so the screen confirms it and leads with the next likely
+/// step — sharing. Instagram-specific exports sit in their own group.
 class ResultScreen extends ConsumerStatefulWidget {
   const ResultScreen({super.key, required this.project, required this.result});
   final CollageProject project;
@@ -33,28 +33,37 @@ class ResultScreen extends ConsumerStatefulWidget {
 class _ResultScreenState extends ConsumerState<ResultScreen> {
   bool _saved = false;
   bool _busy = false;
+  bool _failed = false;
+
+  bool get _isPdf => widget.result.format == ExportFormat.pdf;
+
+  @override
+  void initState() {
+    super.initState();
+    // The user already chose "Save to gallery" — don't ask twice.
+    if (!_isPdf) WidgetsBinding.instance.addPostFrameCallback((_) => _saveToGallery());
+  }
 
   Future<void> _saveToGallery() async {
     final format = widget.result.format;
     // A PDF can't live in the gallery: hand it to the share sheet, where
     // "Save to Files" / Drive are offered.
     if (format == ExportFormat.pdf) return _share();
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _failed = false;
+    });
     final gallery = ref.read(galleryServiceProvider);
     final filename = 'collage_${DateTime.now().millisecondsSinceEpoch}.${format.extension}';
     final asset = format == ExportFormat.mp4
         ? await gallery.saveVideo(widget.bytes, filename: filename)
         : await gallery.saveImage(widget.bytes, filename: filename);
+    if (!mounted) return;
     setState(() {
       _busy = false;
       _saved = asset != null;
+      _failed = asset == null;
     });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(asset != null
-          ? context.l10n.t('savedToGallery')
-          : context.l10n.t('couldNotSave')),
-    ));
   }
 
   Future<void> _share() async {
@@ -85,7 +94,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   /// order they have to be posted.
   Future<void> _grid() async {
     final l = context.l10n;
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
       final bytes = widget.bytes;
@@ -101,10 +109,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             );
         if (a != null) ok++;
       }
-      messenger.showSnackBar(SnackBar(
-        duration: const Duration(seconds: 6),
-        content: Text(ok == tiles.length ? l.a('gridSaved', {'count': '$ok'}) : l.t('couldNotSave')),
-      ));
+      if (mounted) {
+        showAppSnack(
+          context,
+          ok == tiles.length ? l.a('gridSaved', {'count': '$ok'}) : l.t('couldNotSave'),
+          kind: ok == tiles.length ? SnackKind.success : SnackKind.error,
+          duration: const Duration(seconds: 6),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -114,7 +126,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   /// in posting order, or share them all at once.
   Future<void> _carousel({required bool share}) async {
     final l = context.l10n;
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
       final bytes = widget.bytes;
@@ -140,9 +151,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               );
           if (a != null) ok++;
         }
-        messenger.showSnackBar(SnackBar(
-          content: Text(ok == pieces.length ? l.a('carouselSaved', {'count': '$ok'}) : l.t('couldNotSave')),
-        ));
+        if (mounted) {
+          showAppSnack(
+            context,
+            ok == pieces.length ? l.a('carouselSaved', {'count': '$ok'}) : l.t('couldNotSave'),
+            kind: ok == pieces.length ? SnackKind.success : SnackKind.error,
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -151,16 +166,19 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final c = context.colors;
+    final instagram = _gridRows > 0 || _slides > 1;
     return Scaffold(
       appBar: AppBar(
-        leading: const CloseButton(),
-        title: Text(context.l10n.t('yourCollage')),
+        leading: CloseButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+        title: Text(l.t('yourCollage')),
       ),
       body: Column(
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(Space.xl),
+              padding: const EdgeInsets.fromLTRB(Space.xl, Space.lg, Space.xl, Space.md),
               child: Center(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -175,88 +193,92 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
             ),
           ),
-          Center(child: MetaDate(epochMillis: widget.project.createdAt, icon: Icons.schedule_rounded)),
-          const SizedBox(height: Space.sm),
-          if (_saved)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle_rounded, color: context.colors.success, size: 18),
-                const SizedBox(width: 6),
-                Text(context.l10n.t('savedToGallery'),
-                    style: context.text.bodyMd.copyWith(color: context.colors.success)),
-              ],
-            ),
+          _StatusLine(
+            saving: _busy && !_saved,
+            saved: _saved,
+            failed: _failed,
+            pdf: _isPdf,
+            onRetry: _saveToGallery,
+          ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(Space.lg),
+              padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.sm),
               child: Column(
                 children: [
                   PrimaryButton(
-                    label: _saved
-                        ? context.l10n.t('saved')
-                        : widget.result.format == ExportFormat.pdf
-                            ? context.l10n.t('savePdf')
-                            : context.l10n.t('saveToGallery'),
-                    icon: _saved ? Icons.check_rounded : Icons.download_rounded,
-                    busy: _busy,
-                    onPressed: _saved ? null : _saveToGallery,
+                    label: _isPdf ? l.t('savePdf') : l.t('share'),
+                    icon: _isPdf ? Icons.picture_as_pdf_outlined : Icons.ios_share_rounded,
+                    onPressed: _share,
                   ),
                   const SizedBox(height: Space.sm),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _share,
-                          icon: const Icon(Icons.ios_share_rounded, size: 18),
-                          label: Text(context.l10n.t('share')),
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: Text(l.t('keepEditing')),
                         ),
                       ),
                       const SizedBox(width: Space.sm),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.edit_rounded, size: 18),
-                          label: Text(context.l10n.t('keepEditing')),
+                          onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: Text(l.t('done')),
                         ),
                       ),
                     ],
                   ),
-                  if (_gridRows > 0) ...[
+                  if (instagram) ...[
                     const SizedBox(height: Space.sm),
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _grid,
-                      icon: const Icon(Icons.grid_on_rounded, size: 18),
-                      label: Text(context.l10n.a('gridSave', {'rows': '$_gridRows'})),
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(horizontal: Space.sm),
+                        leading: Icon(Icons.grid_on_rounded, color: c.textMid),
+                        title: Text(l.t('forInstagram'), style: context.text.labelLg),
+                        subtitle: Text(
+                          _slides > 1
+                              ? l.a('carouselSave', {'count': '$_slides'})
+                              : l.a('gridSave', {'rows': '$_gridRows'}),
+                          style: context.text.caption.copyWith(color: c.textMid),
+                        ),
+                        childrenPadding: const EdgeInsets.only(bottom: Space.sm),
+                        children: [
+                          if (_gridRows > 0)
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _busy ? null : _grid,
+                                icon: const Icon(Icons.grid_on_rounded, size: 18),
+                                label: Text(l.a('gridSave', {'rows': '$_gridRows'})),
+                              ),
+                            ),
+                          if (_slides > 1)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _busy ? null : () => _carousel(share: false),
+                                    icon: const Icon(Icons.view_carousel_outlined, size: 18),
+                                    label: Text(l.a('carouselSave', {'count': '$_slides'})),
+                                  ),
+                                ),
+                                const SizedBox(width: Space.sm),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _busy ? null : () => _carousel(share: true),
+                                    icon: const Icon(Icons.ios_share_rounded, size: 18),
+                                    label: Text(l.t('carouselShare')),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
                   ],
-                  if (_slides > 1) ...[
-                    const SizedBox(height: Space.sm),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _busy ? null : () => _carousel(share: false),
-                            icon: const Icon(Icons.view_carousel_outlined, size: 18),
-                            label: Text(context.l10n.a('carouselSave', {'count': '$_slides'})),
-                          ),
-                        ),
-                        const SizedBox(width: Space.sm),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _busy ? null : () => _carousel(share: true),
-                            icon: const Icon(Icons.ios_share_rounded, size: 18),
-                            label: Text(context.l10n.t('carouselShare')),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: Space.sm),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                    child: Text(context.l10n.t('done')),
-                  ),
                 ],
               ),
             ),
@@ -265,4 +287,69 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       ),
     );
   }
+}
+
+/// One line under the preview saying where the collage is: saving, saved, or
+/// not saved (with a way to try again). PDFs aren't saved to the gallery, so
+/// they get a hint about where to keep them instead.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({
+    required this.saving,
+    required this.saved,
+    required this.failed,
+    required this.pdf,
+    required this.onRetry,
+  });
+  final bool saving;
+  final bool saved;
+  final bool failed;
+  final bool pdf;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l = context.l10n;
+    final Widget child;
+    if (pdf) {
+      child = _row(context, Icons.info_outline_rounded, c.info, l.t('pdfHint'));
+    } else if (saved) {
+      child = _row(context, Icons.check_circle_rounded, c.success, l.t('savedToGallery'));
+    } else if (failed) {
+      child = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded, color: c.danger, size: 18),
+          const SizedBox(width: 6),
+          Flexible(child: Text(l.t('couldNotSave'), style: context.text.bodyMd.copyWith(color: c.danger))),
+          TextButton(onPressed: onRetry, child: Text(l.t('tryAgain'))),
+        ],
+      );
+    } else {
+      child = Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: c.amber)),
+          const SizedBox(width: Space.sm),
+          Text(l.t('savingToGallery'), style: context.text.bodyMd.copyWith(color: c.textMid)),
+        ],
+      );
+    }
+    return Semantics(
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+        child: SizedBox(height: Sizes.touchTarget, child: Center(child: child)),
+      ),
+    );
+  }
+
+  Widget _row(BuildContext context, IconData icon, Color color, String text) => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 6),
+          Flexible(child: Text(text, style: context.text.bodyMd.copyWith(color: color))),
+        ],
+      );
 }

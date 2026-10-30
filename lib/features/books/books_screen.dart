@@ -166,27 +166,21 @@ class _BookScreenState extends ConsumerState<BookScreen> {
       await file.writeAsBytes(pdf);
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/pdf')]));
     } catch (_) {
-      messenger.showSnackBar(SnackBar(content: Text(l.t('backupFailed'))));
+      showAppSnackOn(
+      messenger, l.t('backupFailed'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _delete() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(context.l10n.t('deleteBookTitle')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(context.l10n.t('cancel'))),
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(context.l10n.t('delete'), style: TextStyle(color: context.colors.danger)),
-          ),
-        ],
-      ),
+    final ok = await confirmDestructive(
+      context,
+      title: context.l10n.t('deleteBookTitle'),
+      confirmLabel: context.l10n.t('deleteBook'),
+      cancelLabel: context.l10n.t('cancel'),
     );
-    if (ok != true) return;
+    if (!ok) return;
     await ref.read(booksProvider.notifier).remove(_book.id);
     if (mounted) Navigator.of(context).pop();
   }

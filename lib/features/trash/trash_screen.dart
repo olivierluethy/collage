@@ -33,7 +33,11 @@ class TrashScreen extends ConsumerWidget {
       ),
       body: trash.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e', style: context.text.bodyMd)),
+        error: (e, _) => EmptyState(
+              icon: Icons.error_outline_rounded,
+              title: context.l10n.t('loadFailedTitle'),
+              message: context.l10n.t('loadFailedMessage'),
+            ),
         data: (list) {
           if (list.isEmpty) {
             return EmptyState(
@@ -43,11 +47,20 @@ class TrashScreen extends ConsumerWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: Space.sm),
-            itemCount: list.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            padding: const EdgeInsets.only(bottom: Space.xl),
+            itemCount: list.length + 1,
+            separatorBuilder: (_, i) => i == 0 ? const SizedBox.shrink() : const Divider(height: 1),
             itemBuilder: (_, i) {
-              final (project, deletedAt) = list[i];
+              if (i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.sm),
+                  child: Text(
+                    context.l10n.a('trashExplainer', {'days': '${DraftService.trashDays}'}),
+                    style: context.text.bodyMd.copyWith(color: context.colors.textMid),
+                  ),
+                );
+              }
+              final (project, deletedAt) = list[i - 1];
               return _TrashTile(project: project, deletedAt: deletedAt);
             },
           );
@@ -57,21 +70,15 @@ class TrashScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmEmpty(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(context.l10n.t('emptyTrashTitle')),
-        content: Text(context.l10n.t('emptyTrashMessage')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(context.l10n.t('cancel'))),
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(context.l10n.t('emptyTrash'), style: TextStyle(color: context.colors.danger)),
-          ),
-        ],
-      ),
+    final l = context.l10n;
+    final ok = await confirmDestructive(
+      context,
+      title: l.t('emptyTrashTitle'),
+      message: l.t('emptyTrashMessage'),
+      confirmLabel: l.t('emptyTrash'),
+      cancelLabel: l.t('cancel'),
     );
-    if (ok == true) await ref.read(trashProvider.notifier).empty();
+    if (ok) await ref.read(trashProvider.notifier).empty();
   }
 }
 
@@ -101,15 +108,29 @@ class _TrashTile extends ConsumerWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            tooltip: context.l10n.t('restore'),
-            icon: const Icon(Icons.restore_rounded),
-            onPressed: () => ref.read(trashProvider.notifier).restore(project.id),
+          TextButton.icon(
+            icon: const Icon(Icons.restore_rounded, size: 18),
+            label: Text(context.l10n.t('restore')),
+            onPressed: () async {
+              final l = context.l10n;
+              await ref.read(trashProvider.notifier).restore(project.id);
+              if (context.mounted) showAppSnack(context, l.t('restored'), kind: SnackKind.success);
+            },
           ),
           IconButton(
             tooltip: context.l10n.t('deleteForever'),
             icon: Icon(Icons.delete_forever_rounded, color: context.colors.danger),
-            onPressed: () => ref.read(trashProvider.notifier).deleteForever(project.id),
+            onPressed: () async {
+              final l = context.l10n;
+              final ok = await confirmDestructive(
+                context,
+                title: l.t('deleteForeverTitle'),
+                message: l.t('deleteForeverMessage'),
+                confirmLabel: l.t('deleteForever'),
+                cancelLabel: l.t('cancel'),
+              );
+              if (ok) await ref.read(trashProvider.notifier).deleteForever(project.id);
+            },
           ),
         ],
       ),
