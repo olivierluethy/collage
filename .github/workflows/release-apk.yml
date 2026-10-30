@@ -54,7 +54,7 @@ jobs:
         run: >
           flutter build apk --release --split-per-abi
           --dart-define=GIPHY_API_KEY=${{ secrets.GIPHY_API_KEY }}
-          --dart-define=AI_API_KEY=${{ secrets.AI_API_KEY }}
+          --dart-define=AI_PROXY_URL=${{ secrets.AI_PROXY_URL }}
           --dart-define=FONT_CATALOG_URL=${{ secrets.FONT_CATALOG_URL }}
           --dart-define=STICKER_CATALOG_URL=${{ secrets.STICKER_CATALOG_URL }}
 
@@ -62,7 +62,7 @@ jobs:
         run: >
           flutter build apk --release
           --dart-define=GIPHY_API_KEY=${{ secrets.GIPHY_API_KEY }}
-          --dart-define=AI_API_KEY=${{ secrets.AI_API_KEY }}
+          --dart-define=AI_PROXY_URL=${{ secrets.AI_PROXY_URL }}
           --dart-define=FONT_CATALOG_URL=${{ secrets.FONT_CATALOG_URL }}
           --dart-define=STICKER_CATALOG_URL=${{ secrets.STICKER_CATALOG_URL }}
 

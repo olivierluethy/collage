@@ -31,11 +31,19 @@ class AiUnavailable implements Exception {
 /// Sends downscaled photos (as base64) to Claude and asks it to group them into
 /// suggested collages by scene/destination and decide an ordering — so the user
 /// gets ready-made collages without doing the sorting themselves. Degrades
-/// gracefully when no AI key is supplied.
+/// gracefully when neither an AI proxy nor a key is supplied.
+///
+/// With [Config.aiProxyUrl] set, the identical Messages API body is posted to
+/// that backend without any credentials; the backend adds the key and the
+/// Anthropic headers (see docs/AI_PROXY.md).
 class AiCollageService {
   const AiCollageService();
 
   static const _endpoint = 'https://api.anthropic.com/v1/messages';
+
+  /// Server-side fallback: if a safety classifier declines the request, the
+  /// API retries it on a suitable model instead of returning a refusal.
+  static const _fallbackBeta = 'server-side-fallback-2026-07-01';
 
   bool get available => Config.hasAi;
 
@@ -75,8 +83,10 @@ class AiCollageService {
 
     final body = {
       'model': Config.aiModel,
-      'max_tokens': 1500,
-      'thinking': {'type': 'disabled'},
+      // Thinking can't be turned off on this model; low effort keeps it short,
+      // and the headroom keeps it from cutting the JSON answer off.
+      'max_tokens': 16000,
+      'fallbacks': 'default',
       'output_config': {
         'effort': 'low',
         'format': {
@@ -110,21 +120,32 @@ class AiCollageService {
       ],
     };
 
-    final res = await http.post(
-      Uri.parse(_endpoint),
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': Config.aiApiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: jsonEncode(body),
-    );
+    final res = Config.hasAiProxy
+        ? await http.post(
+            Uri.parse(Config.aiProxyUrl),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode(body),
+          )
+        : await http.post(
+            Uri.parse(_endpoint),
+            headers: {
+              'content-type': 'application/json',
+              'x-api-key': Config.aiApiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-beta': _fallbackBeta,
+            },
+            body: jsonEncode(body),
+          );
 
     if (res.statusCode != 200) {
       throw Exception('AI request failed (${res.statusCode}).');
     }
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
+    // A declined request has no usable content; check before parsing.
+    final stop = data['stop_reason'];
+    if (stop == 'refusal') throw Exception('AI declined this request.');
+    if (stop == 'max_tokens') throw Exception('AI answer was cut off.');
     final blocks = (data['content'] as List).cast<Map<String, dynamic>>();
     final text = blocks
         .where((b) => b['type'] == 'text')
