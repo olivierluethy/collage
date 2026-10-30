@@ -122,5 +122,7 @@ icons_launcher:
   platforms:
     android:
       enable: true
+      adaptive_background_color: "#0a0b17"
+      adaptive_foreground_image: "assets/icon/ic_launcher_foreground.png"
     ios:
       enable: true
