@@ -48,6 +48,7 @@ class SlotFill {
     this.imgAspect = 1.0,
     this.flipX = false,
     this.flipY = false,
+    this.rotation = 0,
     PhotoFilter? filter,
   }) : filter = filter ?? PhotoFilter();
 
@@ -58,6 +59,7 @@ class SlotFill {
   double imgAspect;
   bool flipX; // mirror left↔right
   bool flipY; // mirror top↔bottom
+  double rotation; // radians, -π..π; the photo is enlarged to keep the cell covered
   PhotoFilter filter; // per-cell colour treatment (see PhotoFilter)
 
   bool get isFlipped => flipX || flipY;
@@ -70,6 +72,7 @@ class SlotFill {
         imgAspect: imgAspect,
         flipX: flipX,
         flipY: flipY,
+        rotation: rotation,
         filter: filter.clone(),
       );
 
@@ -81,6 +84,7 @@ class SlotFill {
         'imgAspect': imgAspect,
         if (flipX) 'flipX': true,
         if (flipY) 'flipY': true,
+        if (rotation != 0) 'rotation': rotation,
         if (!filter.isIdentity) 'filter': filter.toJson(),
       };
 
@@ -92,6 +96,7 @@ class SlotFill {
         imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
         flipX: j['flipX'] as bool? ?? false,
         flipY: j['flipY'] as bool? ?? false,
+        rotation: (j['rotation'] as num?)?.toDouble() ?? 0,
         filter: j['filter'] == null
             ? null
             : PhotoFilter.fromJson(j['filter'] as Map<String, dynamic>),

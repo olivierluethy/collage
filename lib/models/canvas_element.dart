@@ -191,6 +191,10 @@ class TextElement extends CanvasElement {
     this.italic = false,
     this.align = TextAlignH.center,
     this.background,
+    this.outline,
+    this.outlineWidth = 0,
+    this.shadow = false,
+    this.letterSpacing = 0,
     super.scale,
     super.rotation,
     super.z,
@@ -205,6 +209,12 @@ class TextElement extends CanvasElement {
   bool italic;
   TextAlignH align;
   Color? background;
+
+  /// Stroke drawn around each glyph; only visible when [outlineWidth] > 0.
+  Color? outline;
+  double outlineWidth; // 0..12, in "canvas units per 1000" like borders
+  bool shadow; // soft drop shadow behind the glyphs
+  double letterSpacing; // -2..20, relative to a 100-unit font size
 
   @override
   ElementType get type => ElementType.text;
@@ -225,6 +235,10 @@ class TextElement extends CanvasElement {
         italic: italic,
         align: align,
         background: background,
+        outline: outline,
+        outlineWidth: outlineWidth,
+        shadow: shadow,
+        letterSpacing: letterSpacing,
         scale: scale,
         rotation: rotation,
         z: z,
@@ -240,6 +254,10 @@ class TextElement extends CanvasElement {
         'italic': italic,
         'align': align.name,
         'background': background == null ? null : _colorToInt(background!),
+        if (outline != null) 'outline': _colorToInt(outline!),
+        if (outlineWidth > 0) 'outlineWidth': outlineWidth,
+        if (shadow) 'shadow': true,
+        if (letterSpacing != 0) 'letterSpacing': letterSpacing,
       };
 
   factory TextElement.fromJson(Map<String, dynamic> j) => TextElement(
@@ -254,6 +272,10 @@ class TextElement extends CanvasElement {
         align: TextAlignH.values.byName(j['align'] as String? ?? 'center'),
         background:
             j['background'] == null ? null : _colorFromInt(j['background'] as int),
+        outline: j['outline'] == null ? null : _colorFromInt(j['outline'] as int),
+        outlineWidth: (j['outlineWidth'] as num?)?.toDouble() ?? 0,
+        shadow: j['shadow'] as bool? ?? false,
+        letterSpacing: (j['letterSpacing'] as num?)?.toDouble() ?? 0,
         scale: (j['scale'] as num).toDouble(),
         rotation: (j['rotation'] as num).toDouble(),
         z: j['z'] as int,
@@ -368,6 +390,10 @@ class ImageElement extends CanvasElement {
     this.imgAspect = 1.0,
     this.flipX = false,
     this.flipY = false,
+    this.cropL = 0,
+    this.cropT = 0,
+    this.cropR = 0,
+    this.cropB = 0,
     super.scale,
     super.rotation,
     super.z,
@@ -378,12 +404,24 @@ class ImageElement extends CanvasElement {
   bool flipX; // mirror left↔right
   bool flipY; // mirror top↔bottom
 
+  /// Crop insets as fractions (0..[maxCrop]) of the photo's width/height,
+  /// trimmed from each edge. The element's box takes the cropped aspect.
+  double cropL;
+  double cropT;
+  double cropR;
+  double cropB;
+
+  static const maxCrop = 0.45;
+
+  bool get isCropped => cropL > 0 || cropT > 0 || cropR > 0 || cropB > 0;
+
   @override
   ElementType get type => ElementType.image;
   @override
   double get naturalWidthFrac => 0.45;
   @override
-  double get aspectRatio => imgAspect;
+  double get aspectRatio =>
+      imgAspect * (1 - cropL - cropR) / (1 - cropT - cropB);
 
   @override
   ImageElement clone() => ImageElement(
@@ -394,6 +432,10 @@ class ImageElement extends CanvasElement {
         imgAspect: imgAspect,
         flipX: flipX,
         flipY: flipY,
+        cropL: cropL,
+        cropT: cropT,
+        cropR: cropR,
+        cropB: cropB,
         scale: scale,
         rotation: rotation,
         z: z,
@@ -406,18 +448,26 @@ class ImageElement extends CanvasElement {
         'imgAspect': imgAspect,
         if (flipX) 'flipX': true,
         if (flipY) 'flipY': true,
+        if (isCropped) 'crop': [cropL, cropT, cropR, cropB],
       };
 
-  factory ImageElement.fromJson(Map<String, dynamic> j) => ImageElement(
-        id: j['id'] as String,
-        cx: (j['cx'] as num).toDouble(),
-        cy: (j['cy'] as num).toDouble(),
-        assetId: j['assetId'] as String,
-        imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
-        flipX: j['flipX'] as bool? ?? false,
-        flipY: j['flipY'] as bool? ?? false,
-        scale: (j['scale'] as num).toDouble(),
-        rotation: (j['rotation'] as num).toDouble(),
-        z: j['z'] as int,
-      );
+  factory ImageElement.fromJson(Map<String, dynamic> j) {
+    final crop = (j['crop'] as List?)?.map((v) => (v as num).toDouble()).toList();
+    return ImageElement(
+      id: j['id'] as String,
+      cx: (j['cx'] as num).toDouble(),
+      cy: (j['cy'] as num).toDouble(),
+      assetId: j['assetId'] as String,
+      imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
+      flipX: j['flipX'] as bool? ?? false,
+      flipY: j['flipY'] as bool? ?? false,
+      cropL: crop != null && crop.length == 4 ? crop[0] : 0,
+      cropT: crop != null && crop.length == 4 ? crop[1] : 0,
+      cropR: crop != null && crop.length == 4 ? crop[2] : 0,
+      cropB: crop != null && crop.length == 4 ? crop[3] : 0,
+      scale: (j['scale'] as num).toDouble(),
+      rotation: (j['rotation'] as num).toDouble(),
+      z: j['z'] as int,
+    );
+  }
 }
