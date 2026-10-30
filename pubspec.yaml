@@ -58,6 +58,10 @@ dependencies:
   url_launcher: ^6.3.0
   package_info_plus: ^10.2.2
   icons_launcher: ^3.1.0
+  google_mlkit_face_detection: ^0.15.1
+  google_mlkit_subject_segmentation: ^0.2.1
+  pdf: ^3.13.1
+  video_player: ^2.14.1
 
 dev_dependencies:
   flutter_test:

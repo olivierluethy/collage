@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:photo_manager/photo_manager.dart';
 
 import '../config.dart';
+import '../widgets/photo_image.dart';
 
 /// One image handed to the model: a base64 JPEG plus optional EXIF-derived
 /// context (place/date) so it can group photos by trip/scene.
@@ -120,6 +122,23 @@ class AiCollageService {
       ],
     };
 
+    final data = await _send(body);
+    final parsed = jsonDecode(_text(data)) as Map<String, dynamic>;
+    final groups = (parsed['groups'] as List).cast<Map<String, dynamic>>();
+
+    return groups.map((g) {
+      final idx = (g['photos'] as List).map((e) => e as int).toList();
+      final ids = idx
+          .where((i) => i >= 0 && i < batch.length)
+          .map((i) => batch[i].assetId)
+          .toList();
+      return AiGroup(title: g['title'] as String? ?? 'Trip', assetIds: ids);
+    }).where((g) => g.assetIds.isNotEmpty).toList();
+  }
+
+  /// POST a Messages API [body] (directly, or through the proxy) and return
+  /// the decoded response, after checking it finished normally.
+  Future<Map<String, dynamic>> _send(Map<String, dynamic> body) async {
     final res = Config.hasAiProxy
         ? await http.post(
             Uri.parse(Config.aiProxyUrl),
@@ -146,21 +165,81 @@ class AiCollageService {
     final stop = data['stop_reason'];
     if (stop == 'refusal') throw Exception('AI declined this request.');
     if (stop == 'max_tokens') throw Exception('AI answer was cut off.');
-    final blocks = (data['content'] as List).cast<Map<String, dynamic>>();
-    final text = blocks
-        .where((b) => b['type'] == 'text')
-        .map((b) => b['text'] as String)
-        .join();
-    final parsed = jsonDecode(text) as Map<String, dynamic>;
-    final groups = (parsed['groups'] as List).cast<Map<String, dynamic>>();
+    return data;
+  }
 
-    return groups.map((g) {
-      final idx = (g['photos'] as List).map((e) => e as int).toList();
-      final ids = idx
-          .where((i) => i >= 0 && i < batch.length)
-          .map((i) => batch[i].assetId)
-          .toList();
-      return AiGroup(title: g['title'] as String? ?? 'Trip', assetIds: ids);
-    }).where((g) => g.assetIds.isNotEmpty).toList();
+  static String _text(Map<String, dynamic> data) => (data['content'] as List)
+      .cast<Map<String, dynamic>>()
+      .where((b) => b['type'] == 'text')
+      .map((b) => b['text'] as String)
+      .join();
+
+  /// Three short title ideas for a collage of [images], written in
+  /// [language] (an English language name, e.g. "German").
+  Future<List<String>> suggestTitles(List<AiImageInput> images, {required String language}) async {
+    if (!available) throw const AiUnavailable();
+    if (images.isEmpty) return const [];
+    final content = <Map<String, dynamic>>[
+      {
+        'type': 'text',
+        'text': 'These photos are going into one photo collage. Suggest three short, '
+            'warm titles for it (at most 5 words each, no quotation marks, no emoji), '
+            'written in $language. Use the place and time hints when they help.',
+      },
+      for (final img in images.take(9)) ...[
+        if (img.hint != null) {'type': 'text', 'text': img.hint},
+        {
+          'type': 'image',
+          'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': img.jpegBase64},
+        },
+      ],
+    ];
+    final data = await _send({
+      'model': Config.aiModel,
+      'max_tokens': 4000,
+      'fallbacks': 'default',
+      'output_config': {
+        'effort': 'low',
+        'format': {
+          'type': 'json_schema',
+          'schema': {
+            'type': 'object',
+            'additionalProperties': false,
+            'properties': {
+              'titles': {'type': 'array', 'items': {'type': 'string'}},
+            },
+            'required': ['titles'],
+          },
+        },
+      },
+      'messages': [
+        {'role': 'user', 'content': content},
+      ],
+    });
+    final parsed = jsonDecode(_text(data)) as Map<String, dynamic>;
+    return (parsed['titles'] as List).map((t) => '$t'.trim()).where((t) => t.isNotEmpty).take(3).toList();
+  }
+
+  /// Downscaled photos with "taken … near …" hints, ready to send.
+  static Future<List<AiImageInput>> buildInputs(List<String> ids) async {
+    final inputs = <AiImageInput>[];
+    for (final id in ids) {
+      final bytes = await PhotoImage.bytes(id, thumbPx: 256);
+      if (bytes == null) continue;
+      final asset = await AssetEntity.fromId(id);
+      String? hint;
+      if (asset != null) {
+        final lat = asset.latitude;
+        final lng = asset.longitude;
+        final d = asset.createDateTime;
+        final parts = <String>['taken ${d.year}-${d.month.toString().padLeft(2, '0')}'];
+        if (lat != null && lng != null && (lat != 0 || lng != 0)) {
+          parts.add('near ${lat.toStringAsFixed(2)},${lng.toStringAsFixed(2)}');
+        }
+        hint = parts.join(' ');
+      }
+      inputs.add(AiImageInput(assetId: id, jpegBase64: base64Encode(bytes), hint: hint));
+    }
+    return inputs;
   }
 }

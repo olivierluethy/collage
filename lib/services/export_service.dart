@@ -1,10 +1,15 @@
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'dart:io';
+
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 /// File format of an exported collage.
 enum ExportFormat {
@@ -12,7 +17,16 @@ enum ExportFormat {
   jpg('jpg', 'image/jpeg'),
 
   /// Animated: only offered when the collage contains GIF stickers.
-  gif('gif', 'image/gif');
+  gif('gif', 'image/gif'),
+
+  /// Printable document; A4 collages get an exact A4 page.
+  pdf('pdf', 'application/pdf'),
+
+  /// Video: only offered when the collage contains video cells.
+  mp4('mp4', 'video/mp4');
+
+  /// Formats a phone gallery can hold as a picture.
+  bool get isImage => this == png || this == jpg || this == gif;
 
   const ExportFormat(this.extension, this.mimeType);
   final String extension;
@@ -49,11 +63,15 @@ class ExportOptions {
       );
 }
 
-/// Encoded image bytes plus the format they are in.
+/// Encoded bytes plus the format they are in. PDF and MP4 carry a PNG
+/// [preview] for the result screen; for images the bytes are the preview.
 class ExportResult {
-  const ExportResult(this.bytes, this.format);
+  const ExportResult(this.bytes, this.format, {this.previewBytes});
   final Uint8List bytes;
   final ExportFormat format;
+  final Uint8List? previewBytes;
+
+  Uint8List get preview => previewBytes ?? bytes;
 }
 
 /// Captures the collage canvas (wrapped in a RepaintBoundary) to a high-res
@@ -74,8 +92,22 @@ class ExportService {
   /// Render the boundary behind [key] in the chosen format and size. JPG is
   /// encoded off the UI isolate; it has no alpha, so transparent pixels are
   /// flattened onto white.
-  Future<ExportResult?> captureAs(GlobalKey key, ExportOptions options) async {
+  /// [a4Page] puts a PDF onto an exact A4 sheet (portrait or [landscape]);
+  /// otherwise the page takes the collage's own proportions.
+  Future<ExportResult?> captureAs(
+    GlobalKey key,
+    ExportOptions options, {
+    bool a4Page = false,
+    bool landscape = false,
+  }) async {
     if (options.format == ExportFormat.gif) return _captureGif(key, options.size.width);
+    if (options.format == ExportFormat.mp4) return _captureVideo(key, options.size.width);
+    if (options.format == ExportFormat.pdf) {
+      final png = await capture(key, targetWidth: options.size.width);
+      if (png == null) return null;
+      final doc = await Isolate.run(() => buildPdf([png], a4: a4Page, landscape: landscape));
+      return ExportResult(doc, ExportFormat.pdf, previewBytes: png);
+    }
     if (options.format == ExportFormat.png) {
       final png = await capture(key, targetWidth: options.size.width);
       return png == null ? null : ExportResult(png, ExportFormat.png);
@@ -118,6 +150,46 @@ class ExportService {
     final delay = gifFrameDelay.inMilliseconds ~/ 10;
     final gif = await Isolate.run(() => encodeGif(frames, w, h, delay));
     return gif == null ? null : ExportResult(gif, ExportFormat.gif);
+  }
+
+  /// Video collages: frames sampled from the live canvas while its video
+  /// cells play, encoded to H.264 by the platform (see VideoEncoder.kt).
+  static const videoMaxWidth = 1080.0;
+  static const videoSeconds = 6;
+  static const videoFps = 15;
+  static const _encoder = MethodChannel('collage/video_encoder');
+
+  Future<ExportResult?> _captureVideo(GlobalKey key, double targetWidth) async {
+    final width = targetWidth < videoMaxWidth ? targetWidth : videoMaxWidth;
+    final first = await _render(key, width);
+    if (first == null) return null;
+    // Encoders want sizes in multiples of 16.
+    final w = first.width ~/ 16 * 16;
+    final h = first.height ~/ 16 * 16;
+    final previewData = await first.toByteData(format: ui.ImageByteFormat.png);
+    first.dispose();
+    final path = '${(await getTemporaryDirectory()).path}/collage_${DateTime.now().millisecondsSinceEpoch}.mp4';
+    await _encoder.invokeMethod('start', {'path': path, 'width': w, 'height': h, 'fps': videoFps});
+    final frameTime = Duration(microseconds: 1000000 ~/ videoFps);
+    final clock = Stopwatch()..start();
+    try {
+      for (var i = 0; i < videoSeconds * videoFps; i++) {
+        final due = frameTime * i;
+        if (clock.elapsed < due) await Future.delayed(due - clock.elapsed);
+        final image = await _render(key, width);
+        if (image == null) break;
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final iw = image.width;
+        image.dispose();
+        if (data == null) break;
+        await _encoder.invokeMethod('frame', {'rgba': cropRgba(data.buffer.asUint8List(), iw, w, h)});
+      }
+    } finally {
+      await _encoder.invokeMethod('finish');
+    }
+    final file = File(path);
+    if (!await file.exists()) return null;
+    return ExportResult(await file.readAsBytes(), ExportFormat.mp4, previewBytes: previewData?.buffer.asUint8List());
   }
 
   Future<ui.Image?> _render(GlobalKey key, double targetWidth) async {
@@ -178,4 +250,51 @@ List<Uint8List> splitCarousel(Uint8List bytes, int slides, ExportFormat format) 
         return format == ExportFormat.png ? img.encodePng(piece) : img.encodeJpg(piece, quality: 92);
       }(),
   ];
+}
+
+/// The top-left [w]×[h] pixels of an RGBA image that is [srcWidth] wide.
+Uint8List cropRgba(Uint8List rgba, int srcWidth, int w, int h) {
+  if (srcWidth == w && rgba.length == w * h * 4) return rgba;
+  final out = Uint8List(w * h * 4);
+  for (var y = 0; y < h; y++) {
+    out.setRange(y * w * 4, (y + 1) * w * 4, rgba, y * srcWidth * 4);
+  }
+  return out;
+}
+
+/// Cut an image into a [rows]×[cols] grid for an Instagram profile, returned
+/// in posting order: Instagram shows the newest post top-left, so the
+/// bottom-right tile has to be posted first.
+List<Uint8List> splitGrid(Uint8List bytes, int rows, int cols, ExportFormat format) {
+  final src = img.decodeImage(bytes);
+  if (src == null || rows * cols < 2) return [bytes];
+  final w = src.width ~/ cols, h = src.height ~/ rows;
+  final tiles = <Uint8List>[];
+  for (var r = rows - 1; r >= 0; r--) {
+    for (var c = cols - 1; c >= 0; c--) {
+      final piece = img.copyCrop(src, x: c * w, y: r * h, width: w, height: h);
+      tiles.add(format == ExportFormat.png ? img.encodePng(piece) : img.encodeJpg(piece, quality: 92));
+    }
+  }
+  return tiles;
+}
+
+/// A PDF with one page per image (PNG or JPG bytes). With [a4], each page is
+/// an A4 sheet (landscape if asked) with the image fitted onto it; otherwise
+/// each page takes its image's proportions at A4 width.
+Future<Uint8List> buildPdf(List<Uint8List> images, {bool a4 = false, bool landscape = false}) async {
+  final doc = pw.Document();
+  for (final bytes in images) {
+    final image = pw.MemoryImage(bytes);
+    final ratio = (image.width ?? 1) / (image.height ?? 1);
+    final format = a4
+        ? (landscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4)
+        : PdfPageFormat(PdfPageFormat.a4.width, PdfPageFormat.a4.width / ratio);
+    doc.addPage(pw.Page(
+      pageFormat: format,
+      margin: pw.EdgeInsets.zero,
+      build: (_) => pw.Center(child: pw.Image(image, fit: pw.BoxFit.contain)),
+    ));
+  }
+  return doc.save();
 }

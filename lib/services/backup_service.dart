@@ -35,16 +35,33 @@ class BackupService {
 
   static const _format = 1;
 
-  /// Write a backup archive to a temporary file and return it.
-  Future<File> create() async {
-    final projects = await drafts.list();
+  /// Write a backup archive to a temporary file and return it. With
+  /// [onlyId], the archive holds just that collage: a ".collage" file to send
+  /// to someone else to edit. Its id is kept, so importing the edited file
+  /// back replaces the original.
+  Future<File> create({String? onlyId}) async {
+    final all = await drafts.list();
+    final projects = onlyId == null ? all : all.where((p) => p.id == onlyId).toList();
     final tmp = await getTemporaryDirectory();
     final stamp = DateTime.now().toIso8601String().substring(0, 10);
-    final path = '${tmp.path}/collage-backup-$stamp.zip';
+    final path = onlyId == null
+        ? '${tmp.path}/collage-backup-$stamp.zip'
+        : '${tmp.path}/${_fileName(projects.isEmpty ? 'collage' : projects.first.title)}.collage';
     final zip = ZipFileEncoder()..create(path);
 
     final photoNames = <String, String>{}; // assetId -> file name in archive
+    final videos = <String>{}; // assetIds that are videos
+    final cutouts = <String, String>{}; // local sticker file -> name in archive
     for (final p in projects) {
+      videos.addAll(p.fills.values.where((f) => f.isVideo).map((f) => f.assetId));
+      for (final e in p.elements) {
+        if (e is! StickerElement || !e.assetPath.startsWith('/') || cutouts.containsKey(e.assetPath)) continue;
+        final f = File(e.assetPath);
+        if (!await f.exists()) continue;
+        final name = 'cutouts/${cutouts.length}.png';
+        await zip.addFile(f, name);
+        cutouts[e.assetPath] = name;
+      }
       for (final id in _assetIds(p)) {
         if (photoNames.containsKey(id)) continue;
         final asset = await AssetEntity.fromId(id);
@@ -67,6 +84,8 @@ class BackupService {
         'format': _format,
         'created': DateTime.now().millisecondsSinceEpoch,
         'photos': photoNames,
+        'videos': videos.where(photoNames.containsKey).toList(),
+        'cutouts': cutouts,
       }),
     ));
     await zip.close();
@@ -82,6 +101,22 @@ class BackupService {
     final manifest = jsonDecode(utf8.decode(manifestFile.content)) as Map<String, dynamic>;
     if ((manifest['format'] as num?)?.toInt() != _format) throw const BackupFormatException();
     final photos = (manifest['photos'] as Map<String, dynamic>).cast<String, String>();
+    final videos = ((manifest['videos'] as List?) ?? const []).cast<String>().toSet();
+    final cutouts = ((manifest['cutouts'] as Map<String, dynamic>?) ?? const {}).cast<String, String>();
+
+    // Cut-out stickers go back into this device's cut-outs folder.
+    final stickerPaths = <String, String>{};
+    if (cutouts.isNotEmpty) {
+      final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/cutouts');
+      if (!await dir.exists()) await dir.create(recursive: true);
+      for (final MapEntry(key: oldPath, value: name) in cutouts.entries) {
+        final f = archive.findFile(name);
+        if (f == null) continue;
+        final out = File('${dir.path}/restored_${DateTime.now().microsecondsSinceEpoch}.png');
+        await out.writeAsBytes(f.content);
+        stickerPaths[oldPath] = out.path;
+      }
+    }
 
     // Map every backed-up photo to an id that exists on this device.
     final remap = <String, String>{};
@@ -94,10 +129,19 @@ class BackupService {
       final f = archive.findFile(name);
       if (f == null) continue;
       try {
-        final saved = await PhotoManager.editor.saveImage(
-          f.content,
-          filename: 'collage_restored_${name.split('/').last}',
-        );
+        final AssetEntity saved;
+        if (videos.contains(oldId)) {
+          // Videos are saved from a file, not from bytes.
+          final tmp = File('${(await getTemporaryDirectory()).path}/restore_${name.split('/').last}');
+          await tmp.writeAsBytes(f.content);
+          saved = await PhotoManager.editor.saveVideo(tmp, title: 'collage_restored_${name.split('/').last}');
+          await tmp.delete();
+        } else {
+          saved = await PhotoManager.editor.saveImage(
+            f.content,
+            filename: 'collage_restored_${name.split('/').last}',
+          );
+        }
         remap[oldId] = saved.id;
         readded++;
       } catch (_) {
@@ -111,7 +155,7 @@ class BackupService {
       try {
         final map = jsonDecode(utf8.decode(f.content)) as Map<String, dynamic>;
         final project = CollageProject.fromJson(map)..thumbnailPath = null;
-        _remapAssets(project, remap);
+        _remapAssets(project, remap, stickerPaths);
         final thumb = archive.findFile(f.name.replaceAll('.json', '.png'));
         await drafts.save(project, thumbnail: thumb?.content);
         restored++;
@@ -122,6 +166,11 @@ class BackupService {
     return RestoreSummary(collages: restored, photos: readded);
   }
 
+  static String _fileName(String title) {
+    final s = title.replaceAll(RegExp(r'[^\w\- ]'), '').trim();
+    return s.isEmpty ? 'collage' : s;
+  }
+
   /// Every gallery photo a collage refers to.
   static Set<String> _assetIds(CollageProject p) => {
         ...p.fills.values.map((f) => f.assetId),
@@ -130,7 +179,7 @@ class BackupService {
         if (p.background.imageAssetId != null) p.background.imageAssetId!,
       };
 
-  static void _remapAssets(CollageProject p, Map<String, String> remap) {
+  static void _remapAssets(CollageProject p, Map<String, String> remap, Map<String, String> stickers) {
     for (final f in p.fills.values) {
       f.assetId = remap[f.assetId] ?? f.assetId;
     }
@@ -138,6 +187,8 @@ class BackupService {
       for (final e in p.elements)
         if (e is ImageElement && remap.containsKey(e.assetId))
           CanvasElement.fromJson(e.toJson()..['assetId'] = remap[e.assetId])
+        else if (e is StickerElement && stickers.containsKey(e.assetPath))
+          CanvasElement.fromJson(e.toJson()..['assetPath'] = stickers[e.assetPath])
         else
           e,
     ];
