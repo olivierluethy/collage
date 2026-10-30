@@ -88,6 +88,42 @@ void main() {
     });
   });
 
+  group('polygon splits', () {
+    // A diagonal split: left cell (0,0)-(0.6,0)-(0.4,1)-(0,1), right cell the rest.
+    final diag = [
+      LayoutSlot.poly('L', const [Offset(0, 0), Offset(0.6, 0), Offset(0.4, 1), Offset(0, 1)]),
+      LayoutSlot.poly('R', const [Offset(0.6, 0), Offset(1, 0), Offset(1, 1), Offset(0.4, 1)]),
+    ];
+
+    test('finds the shared diagonal edge only', () {
+      final splits = findPolySplits(diag);
+      expect(splits, hasLength(1));
+      expect(splits.single.slots, {'L', 'R'});
+      expect(findSplits(diag), isEmpty);
+    });
+
+    test('shifting the edge slides its ends along the borders', () {
+      final sp = findPolySplits(diag).single;
+      final moved = movePolySplit(diag, sp, 0.1 * (sp.normal.dx.sign))!;
+      final l = moved.firstWhere((s) => s.id == 'L').points!;
+      // Both ends stay on the top and bottom borders and move by the same x.
+      expect(l[1].dy, 0);
+      expect(l[2].dy, 1);
+      expect(l[1].dx - 0.6, closeTo(l[2].dx - 0.4, 1e-9));
+      expect(l[1].dx, isNot(closeTo(0.6, 1e-6)));
+      // The neighbour moved with it.
+      final r = moved.firstWhere((s) => s.id == 'R').points!;
+      expect(r[0], l[1]);
+      expect(r[3], l[2]);
+    });
+
+    test('a move that would collapse a cell is rejected', () {
+      final sp = findPolySplits(diag).single;
+      expect(movePolySplit(diag, sp, 5), isNull);
+      expect(movePolySplit(diag, sp, -5), isNull);
+    });
+  });
+
   group('face framing', () {
     test('pans a wide photo towards a face on the right', () {
       // Square cell, 2:1 photo: half the width is visible.

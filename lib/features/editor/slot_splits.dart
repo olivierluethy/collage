@@ -123,3 +123,135 @@ List<LayoutSlot> moveSplit(List<LayoutSlot> slots, SlotSplit split, double pos, 
         s,
   ];
 }
+
+// ---------------------------------------------------------------------------
+// Polygon (diagonal / mosaic) layouts
+// ---------------------------------------------------------------------------
+
+/// A shared edge [p]–[q] between polygon cells (layout fractions). Dragging
+/// shifts the edge along its normal; endpoints on the outer border slide
+/// along it, inner endpoints move for every cell that shares them.
+class PolySplit {
+  const PolySplit({required this.p, required this.q, required this.slots});
+  final Offset p;
+  final Offset q;
+  final Set<String> slots;
+
+  /// Unit normal of the edge, in layout fractions.
+  Offset get normal {
+    final d = q - p;
+    final len = d.distance;
+    return len == 0 ? Offset.zero : Offset(-d.dy / len, d.dx / len);
+  }
+}
+
+/// Corners of a slot as a polygon (rectangles become four points).
+List<Offset> slotPoints(LayoutSlot s) => s.isPolygon
+    ? s.points!
+    : [s.rect.topLeft, s.rect.topRight, s.rect.bottomRight, s.rect.bottomLeft];
+
+bool _near(Offset a, Offset b) => (a - b).distance <= _eps * 2;
+
+bool _onSameBorder(Offset a, Offset b) =>
+    (a.dx < _eps && b.dx < _eps) ||
+    (a.dx > 1 - _eps && b.dx > 1 - _eps) ||
+    (a.dy < _eps && b.dy < _eps) ||
+    (a.dy > 1 - _eps && b.dy > 1 - _eps);
+
+/// Every interior edge shared by two or more cells. Only for layouts that
+/// contain polygon cells; rectangular grids use [findSplits].
+List<PolySplit> findPolySplits(List<LayoutSlot> slots) {
+  if (!slots.any((s) => s.isPolygon)) return const [];
+  final found = <PolySplit>[];
+  for (final s in slots) {
+    final pts = slotPoints(s);
+    for (var i = 0; i < pts.length; i++) {
+      final a = pts[i], b = pts[(i + 1) % pts.length];
+      if (_onSameBorder(a, b) || (a - b).distance < 0.02) continue;
+      final existing = found.indexWhere(
+          (e) => (_near(e.p, a) && _near(e.q, b)) || (_near(e.p, b) && _near(e.q, a)));
+      if (existing >= 0) {
+        found[existing] = PolySplit(p: found[existing].p, q: found[existing].q, slots: {...found[existing].slots, s.id});
+      } else {
+        found.add(PolySplit(p: a, q: b, slots: {s.id}));
+      }
+    }
+  }
+  return [for (final e in found) if (e.slots.length >= 2) e];
+}
+
+/// Where [pt] ends up when its edge shifts by [d] along [n]: corners stay,
+/// border points slide along their border, inner points move with the edge.
+Offset _slide(Offset pt, Offset n, double d) {
+  final onX = pt.dx < _eps || pt.dx > 1 - _eps; // on the left/right border
+  final onY = pt.dy < _eps || pt.dy > 1 - _eps; // on the top/bottom border
+  if (onX && onY) return pt;
+  final c = n.dx * pt.dx + n.dy * pt.dy + d; // shifted line: n·x = c
+  if (onY) {
+    if (n.dx.abs() < 1e-6) return pt;
+    return Offset(((c - n.dy * pt.dy) / n.dx).clamp(0.0, 1.0), pt.dy);
+  }
+  if (onX) {
+    if (n.dy.abs() < 1e-6) return pt;
+    return Offset(pt.dx, ((c - n.dx * pt.dx) / n.dy).clamp(0.0, 1.0));
+  }
+  return pt + n * d;
+}
+
+double _signedArea(List<Offset> pts) {
+  var a = 0.0;
+  for (var i = 0; i < pts.length; i++) {
+    final p = pts[i], q = pts[(i + 1) % pts.length];
+    a += p.dx * q.dy - q.dx * p.dy;
+  }
+  return a / 2;
+}
+
+bool _convex(List<Offset> pts) {
+  var sign = 0;
+  for (var i = 0; i < pts.length; i++) {
+    final a = pts[i], b = pts[(i + 1) % pts.length], c = pts[(i + 2) % pts.length];
+    final cross = (b.dx - a.dx) * (c.dy - b.dy) - (b.dy - a.dy) * (c.dx - b.dx);
+    if (cross.abs() < 1e-9) continue;
+    final s = cross > 0 ? 1 : -1;
+    if (sign == 0) sign = s;
+    if (s != sign) return false;
+  }
+  return true;
+}
+
+/// [slots] with [split] shifted by [d] along its normal, or null when that
+/// would leave a cell too small, concave, flipped or outside the layout.
+List<LayoutSlot>? movePolySplit(List<LayoutSlot> slots, PolySplit split, double d, {double minArea = 0.01}) {
+  final n = split.normal;
+  if (n == Offset.zero) return null;
+  final p2 = _slide(split.p, n, d);
+  final q2 = _slide(split.q, n, d);
+  final out = <LayoutSlot>[];
+  for (final s in slots) {
+    final pts = slotPoints(s);
+    var changed = false;
+    final moved = <Offset>[];
+    for (final pt in pts) {
+      if (_near(pt, split.p)) {
+        moved.add(p2);
+        changed = true;
+      } else if (_near(pt, split.q)) {
+        moved.add(q2);
+        changed = true;
+      } else {
+        moved.add(pt);
+      }
+    }
+    if (!changed) {
+      out.add(s);
+      continue;
+    }
+    final before = _signedArea(pts);
+    final after = _signedArea(moved);
+    final inside = moved.every((m) => m.dx >= -_eps && m.dx <= 1 + _eps && m.dy >= -_eps && m.dy <= 1 + _eps);
+    if (!inside || after.abs() < minArea || before.sign != after.sign || !_convex(moved)) return null;
+    out.add(LayoutSlot.poly(s.id, moved));
+  }
+  return out;
+}

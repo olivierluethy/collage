@@ -7,6 +7,7 @@ import '../../data/shape_catalog.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
+import '../../models/layout_template.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -197,6 +198,13 @@ class CollageCanvas extends StatelessWidget {
           split: sp,
           content: content,
         ),
+      for (final sp in c.polySplits)
+        _PolySplitHandle(
+          key: ValueKey('poly:${(sp.slots.toList()..sort()).join(',')}'),
+          controller: c,
+          split: sp,
+          content: content,
+        ),
     ];
   }
 
@@ -340,6 +348,72 @@ class _SplitHandleState extends State<_SplitHandle> {
   }
 }
 
+/// Drag handle on a shared edge between polygon cells. It sits at the edge's
+/// midpoint, turned along the edge, and shifts the edge along its normal.
+class _PolySplitHandle extends StatefulWidget {
+  const _PolySplitHandle({super.key, required this.controller, required this.split, required this.content});
+  final EditorController controller;
+  final PolySplit split;
+  final Rect content; // the layout area in canvas pixels
+
+  @override
+  State<_PolySplitHandle> createState() => _PolySplitHandleState();
+}
+
+class _PolySplitHandleState extends State<_PolySplitHandle> {
+  PolySplit? _active; // the edge as it was when the drag started
+  List<LayoutSlot> _startSlots = const [];
+  double _travel = 0; // layout fractions along the edge normal
+
+  @override
+  Widget build(BuildContext context) {
+    final sp = widget.split;
+    final r = widget.content;
+    Offset px(Offset f) => Offset(r.left + f.dx * r.width, r.top + f.dy * r.height);
+    final a = px(sp.p), b = px(sp.q);
+    final mid = (a + b) / 2;
+    final angle = (b - a).direction;
+    const hit = 36.0;
+    return Positioned(
+      left: mid.dx - hit / 2,
+      top: mid.dy - hit / 2,
+      width: hit,
+      height: hit,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) {
+          _active = sp;
+          _startSlots = widget.controller.project.layout.slots;
+          _travel = 0;
+        },
+        onPanUpdate: (d) {
+          final s = _active;
+          if (s == null || r.isEmpty) return;
+          final n = s.normal;
+          _travel += d.delta.dx / r.width * n.dx + d.delta.dy / r.height * n.dy;
+          widget.controller.movePolySplitBy(_startSlots, s, _travel);
+        },
+        onPanEnd: (_) => _active = null,
+        child: Center(
+          child: Transform.rotate(
+            angle: angle,
+            child: Container(
+              width: 30,
+              height: 12,
+              decoration: BoxDecoration(
+                color: context.colors.amber,
+                borderRadius: BorderRadius.circular(Radii.pill),
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: Shadows.e2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Captures finger strokes in draw mode and shows them live. Points are kept
 /// as canvas fractions so they map onto any render size.
 class _DrawLayer extends StatelessWidget {
@@ -470,21 +544,124 @@ class _Vignette extends StatelessWidget {
   }
 }
 
-/// Shadow under a polygon cell; paints nothing at zero elevation.
+/// Shadow under a polygon cell, plus the Polaroid card when [cardColor] is
+/// set; paints nothing when neither is on.
 class _PolyShadowPainter extends CustomPainter {
-  _PolyShadowPainter({required this.points, required this.elevation});
+  _PolyShadowPainter({required this.points, required this.elevation, this.cardColor});
   final List<Offset> points;
   final double elevation;
+  final Color? cardColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (elevation <= 0 || points.length < 3) return;
+    if (points.length < 3) return;
     final path = Path()..addPolygon(points, true);
-    canvas.drawShadow(path, Colors.black, elevation, false);
+    if (elevation > 0) canvas.drawShadow(path, Colors.black, elevation, false);
+    if (cardColor != null) canvas.drawPath(path, Paint()..color = cardColor!);
   }
 
   @override
-  bool shouldRepaint(_PolyShadowPainter old) => old.elevation != elevation || old.points != points;
+  bool shouldRepaint(_PolyShadowPainter old) =>
+      old.elevation != elevation || old.points != points || old.cardColor != cardColor;
+}
+
+/// Clips a polygon cell's photo: the polygon itself, a shape mask centred in
+/// it (and cut to the polygon), ragged torn-paper edges, or the polygon inset
+/// by [inset] for the Polaroid card.
+class _PolyCellClipper extends CustomClipper<Path> {
+  _PolyCellClipper({
+    required this.points,
+    required this.mask,
+    required this.torn,
+    required this.inset,
+    required this.seed,
+  });
+  final List<Offset> points;
+  final String mask;
+  final bool torn;
+  final double inset;
+  final int seed;
+
+  @override
+  Path getClip(Size size) {
+    final poly = polygonPath(points);
+    if (mask != 'none') {
+      final c = polygonCentroid(points);
+      final side = math.min(size.width, size.height) * 0.85;
+      final shape = ShapeCatalog.pathFor(mask, Size(side, side)).shift(c - Offset(side / 2, side / 2));
+      return Path.combine(PathOperation.intersect, poly, shape);
+    }
+    if (torn) return _tornPolygon(points, seed, math.min(size.width, size.height));
+    if (inset > 0) return polygonPath(insetConvexPolygon(points, inset));
+    return poly;
+  }
+
+  /// The polygon's outline with small random bites taken towards its centre.
+  static Path _tornPolygon(List<Offset> pts, int seed, double extent) {
+    final rnd = math.Random(seed);
+    final c = polygonCentroid(pts);
+    final depth = extent * 0.025;
+    final step = math.max(6.0, extent / 28);
+    Offset bite(Offset p) {
+      final toCentre = c - p;
+      final len = toCentre.distance;
+      return len == 0 ? p : p + toCentre / len * (rnd.nextDouble() * depth);
+    }
+
+    final path = Path();
+    for (var i = 0; i < pts.length; i++) {
+      final a = pts[i], b = pts[(i + 1) % pts.length];
+      final n = math.max(1, ((b - a).distance / step).floor());
+      for (var k = 0; k < n; k++) {
+        final p = bite(Offset.lerp(a, b, k / n)!);
+        if (i == 0 && k == 0) {
+          path.moveTo(p.dx, p.dy);
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+    }
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(_PolyCellClipper old) =>
+      old.points != points || old.mask != mask || old.torn != torn || old.inset != inset || old.seed != seed;
+}
+
+/// Two strips of tape over the two top-most corners of a polygon cell.
+class _PolyTape extends StatelessWidget {
+  const _PolyTape({required this.points, required this.unit});
+  final List<Offset> points;
+  final double unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = [...points]..sort((a, b) => a.dy.compareTo(b.dy));
+    final corners = top.take(2).toList()..sort((a, b) => a.dx.compareTo(b.dx));
+    final w = 90 * unit, h = 26 * unit;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        for (var i = 0; i < corners.length; i++)
+          Positioned(
+            left: corners[i].dx - w / 2,
+            top: corners[i].dy - h / 2,
+            child: Transform.rotate(
+              angle: i == 0 ? -0.7 : 0.7,
+              child: Container(
+                width: w,
+                height: h,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3E7C9).withValues(alpha: 0.82),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 3 * unit)],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// Thin guide lines at the canvas fractions an element is snapped to.
@@ -1013,7 +1190,15 @@ class _PolySlotView extends StatelessWidget {
     final selected = controller.selectedSlotId == slotId;
     final swapTarget = controller.swapSource != null && controller.swapSource != slotId;
     final centroid = polygonCentroid(polygon);
-    final clipper = PolygonClipper(polygon);
+    final polaroid = fill != null && fill.frameStyle == FrameStyle.polaroid;
+    final card = polaroid ? math.max(fill.frameWidth, 10.0) * unit : 0.0;
+    final clipper = _PolyCellClipper(
+      points: polygon,
+      mask: fill?.mask ?? 'none',
+      torn: fill != null && fill.frameStyle == FrameStyle.torn,
+      inset: card,
+      seed: slotId.hashCode,
+    );
 
     final visual = _innerVisual(context, fill);
 
@@ -1074,7 +1259,10 @@ class _PolySlotView extends StatelessWidget {
       ),
     );
 
-    final frame = (fill?.frameWidth ?? 0) * unit;
+    // The frame line belongs to the plain style without a shape mask.
+    final frame = fill != null && fill.frameStyle == FrameStyle.plain && fill.mask == 'none'
+        ? fill.frameWidth * unit
+        : 0.0;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -1086,11 +1274,16 @@ class _PolySlotView extends StatelessWidget {
               painter: _PolyShadowPainter(
                 points: polygon,
                 elevation: fill != null && fill.shadow ? 10 * unit : 0,
+                // Polaroid: the card shows around the inset photo.
+                cardColor: polaroid ? (fill.frameWidth > 0 ? fill.frameColor : const Color(0xFFFDFBF7)) : null,
               ),
             ),
           ),
         ),
         Positioned.fill(child: core),
+        // Scrapbook tape over the cell's top-most corners.
+        if (fill != null && fill.frameStyle == FrameStyle.tape)
+          Positioned.fill(child: IgnorePointer(child: _PolyTape(points: polygon, unit: unit))),
         // This photo's own frame.
         if (frame > 0)
           Positioned.fill(

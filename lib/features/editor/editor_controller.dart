@@ -357,17 +357,28 @@ class EditorController extends ChangeNotifier {
   /// Edges between rectangular cells that can be dragged to resize them.
   List<SlotSplit> get splits => findSplits(project.layout.slots);
 
-  /// Move [split] to [pos] (layout fraction). The layout becomes the user's
-  /// own copy, so the change is saved with the collage.
-  void moveSplitTo(SlotSplit split, double pos) {
+  /// Shared edges between diagonal / mosaic (polygon) cells.
+  List<PolySplit> get polySplits => findPolySplits(project.layout.slots);
+
+  /// Move [split] to [pos] (layout fraction).
+  void moveSplitTo(SlotSplit split, double pos) =>
+      _setSlots(moveSplit(project.layout.slots, split, pos));
+
+  /// Shift a polygon edge by [distance] (layout fractions along its normal),
+  /// starting from [startSlots] — the layout as it was when the drag began.
+  /// Returns false when the move would break a cell, leaving it unchanged.
+  bool movePolySplitBy(List<LayoutSlot> startSlots, PolySplit split, double distance) {
+    final moved = movePolySplit(startSlots, split, distance);
+    if (moved == null) return false;
+    _setSlots(moved);
+    return true;
+  }
+
+  /// Replace the layout's cells. The layout becomes the user's own copy, so
+  /// the change is saved with the collage.
+  void _setSlots(List<LayoutSlot> slots) {
     final l = project.layout;
-    project.layout = LayoutTemplate(
-      id: l.id,
-      name: l.name,
-      family: l.family,
-      slots: moveSplit(l.slots, split, pos),
-      custom: true,
-    );
+    project.layout = LayoutTemplate(id: l.id, name: l.name, family: l.family, slots: slots, custom: true);
     _touch();
   }
 
