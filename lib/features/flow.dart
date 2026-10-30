@@ -10,16 +10,8 @@ import '../services/permission_service.dart';
 import '../services/user_template_service.dart';
 import '../state/providers.dart';
 import 'editor/editor_screen.dart';
-import 'layout/layout_picker_screen.dart';
 import 'permission/permission_screen.dart';
 import 'picker/photo_picker_screen.dart';
-
-/// The result of the layout picker: which template and canvas ratio.
-class LayoutChoice {
-  const LayoutChoice(this.template, this.ratioLabel);
-  final LayoutTemplate template;
-  final String ratioLabel;
-}
 
 /// Ensures gallery access, prompting the guided permission flow if needed.
 Future<bool> ensureGalleryAccess(BuildContext context, WidgetRef ref) async {
@@ -34,54 +26,26 @@ Future<bool> ensureGalleryAccess(BuildContext context, WidgetRef ref) async {
   return granted;
 }
 
-/// Full "New collage" flow: permission → pick photos → choose layout → editor.
+/// Full "New collage" flow: permission → pick photos → editor. The layout is
+/// chosen automatically to fit the photo count; the editor's Layout tool
+/// changes it (and the canvas shape) in place, so there's no extra step.
 Future<void> startNewCollage(BuildContext context, WidgetRef ref) async {
   if (!await ensureGalleryAccess(context, ref)) return;
   if (!context.mounted) return;
 
   final picked = await Navigator.of(context).push<List<String>>(
-    MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 9)),
+    MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 9, newCollage: true)),
   );
   if (picked == null || picked.isEmpty || !context.mounted) return;
 
-  final choice = await Navigator.of(context).push<LayoutChoice>(
-    MaterialPageRoute(builder: (_) => LayoutPickerScreen(count: picked.length)),
-  );
-  if (choice == null || !context.mounted) return;
-
-  final now = DateTime.now().millisecondsSinceEpoch;
-  final project = CollageProject(
-    id: const Uuid().v4(),
-    title: 'Collage',
-    createdAt: now,
-    updatedAt: now,
-    ratioLabel: choice.ratioLabel,
-    layout: choice.template,
-    fills: {},
-    elements: [],
-    border: BorderSettings(),
-    background: BackgroundSettings(),
-  );
-
-  await Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => EditorScreen(project: project, pool: picked)),
-  );
-  await ref.read(draftsProvider.notifier).reload();
+  await openPhotosAsCollage(context, ref, picked);
 }
 
-/// Open a set of photos directly as a new, editable collage with a sensible
-/// auto-layout (used by Discover moments and AI suggestions).
-Future<void> openPhotosAsCollage(
-  BuildContext context,
-  WidgetRef ref,
-  List<String> assetIds, {
-  String title = 'Collage',
-}) async {
-  final pool = assetIds.take(9).toList();
-  if (pool.isEmpty) return;
-  final layout = LayoutTemplates.forCount(pool.length.clamp(1, 9)).first;
+/// A fresh project for [pool] with the first layout that fits its size.
+CollageProject autoLayoutProject(List<String> pool, {String title = 'Collage'}) {
+  final LayoutTemplate layout = LayoutTemplates.forCount(pool.length.clamp(1, 9)).first;
   final now = DateTime.now().millisecondsSinceEpoch;
-  final project = CollageProject(
+  return CollageProject(
     id: const Uuid().v4(),
     title: title,
     createdAt: now,
@@ -93,6 +57,19 @@ Future<void> openPhotosAsCollage(
     border: BorderSettings(),
     background: BackgroundSettings(),
   );
+}
+
+/// Open a set of photos directly as a new, editable collage with a sensible
+/// auto-layout (new-collage flow, Discover moments and AI suggestions).
+Future<void> openPhotosAsCollage(
+  BuildContext context,
+  WidgetRef ref,
+  List<String> assetIds, {
+  String title = 'Collage',
+}) async {
+  final pool = assetIds.take(9).toList();
+  if (pool.isEmpty) return;
+  final project = autoLayoutProject(pool, title: title);
   await Navigator.of(context).push(
     MaterialPageRoute(builder: (_) => EditorScreen(project: project, pool: pool)),
   );

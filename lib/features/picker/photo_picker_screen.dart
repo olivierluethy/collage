@@ -7,6 +7,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../services/gallery_service.dart';
+import '../../services/permission_service.dart';
 import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
@@ -16,8 +17,13 @@ import '../../widgets/ui.dart';
 /// Browse device albums and multi-select photos, with the maximum shown up
 /// front and a live "3 / 9" counter so the user always knows the limit.
 class PhotoPickerScreen extends ConsumerStatefulWidget {
-  const PhotoPickerScreen({super.key, this.maxImages = 9});
+  const PhotoPickerScreen({super.key, this.maxImages = 9, this.newCollage = false});
   final int maxImages;
+
+  /// Picking the photos for a brand-new collage: the button then says what
+  /// happens next ("Create collage with 3 photos") and a one-time hint explains
+  /// that tap order fills the slots.
+  final bool newCollage;
 
   @override
   ConsumerState<PhotoPickerScreen> createState() => _PhotoPickerScreenState();
@@ -34,6 +40,9 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
   int _page = 0;
   bool _loading = false;
   bool _end = false;
+  bool _noPhotos = false; // the library is empty (or nothing was shared)
+  bool _limited = false; // only some photos were shared with the app
+  bool _showOrderHint = false;
   final _scroll = ScrollController();
 
   @override
@@ -48,8 +57,16 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
   }
 
   Future<void> _init() async {
+    final prefs = ref.read(prefsProvider);
+    _showOrderHint = widget.newCollage && !prefs.coachSeen('picker_order');
+    final access = await ref.read(permissionServiceProvider).current();
     final albums = await _gallery.albums();
-    if (!mounted || albums.isEmpty) return;
+    if (!mounted) return;
+    setState(() => _limited = access == GalleryAccess.limited);
+    if (albums.isEmpty) {
+      setState(() => _noPhotos = true);
+      return;
+    }
     setState(() {
       _albums = albums;
       _album = albums.first;
@@ -109,16 +126,28 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
         _selected.remove(a.id);
         if (_focusedId == a.id) _focusedId = null;
       } else if (_selected.length >= widget.maxImages) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(
-            content: Text(context.l10n
-                .a('pickUpTo', {'count': '${widget.maxImages}'})),
-          ));
+        showAppSnack(context, context.l10n.a('pickUpTo', {'count': '${widget.maxImages}'}));
       } else {
         _selected.add(a.id);
+        if (_showOrderHint) {
+          _showOrderHint = false;
+          ref.read(prefsProvider).setCoachSeen('picker_order');
+        }
       }
     });
+  }
+
+  /// Let the user widen a "selected photos only" grant, then reload.
+  Future<void> _shareMore() async {
+    await ref.read(permissionServiceProvider).presentLimited();
+    if (!mounted) return;
+    setState(() {
+      _noPhotos = false;
+      _assets.clear();
+      _page = 0;
+      _end = false;
+    });
+    await _init();
   }
 
   @override
@@ -149,28 +178,60 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
           ),
         ],
       ),
-      body: _assets.isEmpty && _loading
-          ? const Center(child: CircularProgressIndicator())
-          : GridView.builder(
-              controller: _scroll,
-              padding: const EdgeInsets.all(2),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 2,
-                crossAxisSpacing: 2,
-              ),
-              itemCount: _assets.length,
-              itemBuilder: (_, i) {
-                final a = _assets[i];
-                final order = _selected.indexOf(a.id);
-                return _Tile(
-                  asset: a,
-                  gallery: _gallery,
-                  order: order,
-                  onTap: () => _toggle(a),
-                );
-              },
+      body: Column(
+        children: [
+          if (_limited)
+            _Banner(
+              icon: Icons.photo_library_outlined,
+              text: context.l10n.t('pickerLimited'),
+              actionLabel: context.l10n.t('pickerShareMore'),
+              onAction: _shareMore,
             ),
+          if (_showOrderHint && _selected.isEmpty)
+            _Banner(
+              icon: Icons.touch_app_outlined,
+              text: context.l10n.t('pickerOrderHint'),
+            ),
+          Expanded(
+            child: _noPhotos
+                ? EmptyState(
+                    icon: Icons.no_photography_outlined,
+                    title: context.l10n.t('pickerEmptyTitle'),
+                    message: context.l10n.t('pickerEmptyMessage'),
+                    action: _limited
+                        ? PrimaryButton(
+                            label: context.l10n.t('pickerShareMore'),
+                            icon: Icons.add_photo_alternate_outlined,
+                            expand: false,
+                            onPressed: _shareMore,
+                          )
+                        : null,
+                  )
+                : _assets.isEmpty && _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : GridView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.all(2),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 2,
+                          crossAxisSpacing: 2,
+                        ),
+                        itemCount: _assets.length,
+                        itemBuilder: (_, i) {
+                          final a = _assets[i];
+                          final order = _selected.indexOf(a.id);
+                          return _Tile(
+                            asset: a,
+                            gallery: _gallery,
+                            order: order,
+                            onTap: () => _toggle(a),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -190,9 +251,13 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
               child: PrimaryButton(
                 label: _selected.isEmpty
                     ? context.l10n.t('pickPhotosToContinue')
-                    : (_selected.length == 1
-                        ? context.l10n.t('useOnePhoto')
-                        : context.l10n.a('useNPhotos', {'count': '${_selected.length}'})),
+                    : widget.newCollage
+                        ? (_selected.length == 1
+                            ? context.l10n.t('createWithOnePhoto')
+                            : context.l10n.a('createWithNPhotos', {'count': '${_selected.length}'}))
+                        : (_selected.length == 1
+                            ? context.l10n.t('useOnePhoto')
+                            : context.l10n.a('useNPhotos', {'count': '${_selected.length}'})),
                 icon: Icons.arrow_forward_rounded,
                 onPressed: _selected.isEmpty
                     ? null
@@ -200,6 +265,37 @@ class _PhotoPickerScreenState extends ConsumerState<PhotoPickerScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A quiet one-line notice above the grid, with an optional amber action.
+class _Banner extends StatelessWidget {
+  const _Banner({required this.icon, required this.text, this.actionLabel, this.onAction});
+  final IconData icon;
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.sm, Space.sm),
+      decoration: BoxDecoration(
+        color: c.surfaceHigh,
+        border: Border(bottom: BorderSide(color: c.line)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: c.textMid),
+          const SizedBox(width: Space.md),
+          Expanded(child: Text(text, style: context.text.bodyMd.copyWith(color: c.textHi))),
+          if (actionLabel != null)
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
         ],
       ),
     );
