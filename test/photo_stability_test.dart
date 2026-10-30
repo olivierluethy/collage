@@ -5,6 +5,7 @@ import 'package:collage/features/editor/collage_canvas.dart';
 import 'package:collage/features/editor/editor_controller.dart';
 import 'package:collage/models/collage_project.dart';
 import 'package:collage/models/layout_template.dart';
+import 'package:collage/widgets/photo_image.dart';
 
 CollageProject _project() => CollageProject(
       id: 'p1',
@@ -43,12 +44,12 @@ void main() {
     await tester.pumpWidget(_host(c, interactive: true));
     await tester.pump();
 
-    final before = tester.element(find.byType(ClipRRect).first);
+    final before = tester.element(find.byType(PhotoImage).first);
 
     await tester.pumpWidget(_host(c, interactive: false));
     await tester.pump();
 
-    final after = tester.element(find.byType(ClipRRect).first);
+    final after = tester.element(find.byType(PhotoImage).first);
     expect(identical(before, after), isTrue,
         reason: 'switching to the export render must not rebuild the photo, or '
             'its decoded frame is lost and it can come out blank');
@@ -60,17 +61,17 @@ void main() {
     await tester.pumpWidget(_host(c, interactive: true));
     await tester.pump();
 
-    final unselected = tester.element(find.byType(ClipRRect).first);
+    final unselected = tester.element(find.byType(PhotoImage).first);
 
     c.selectSlot('s1');
     await tester.pump();
-    final selected = tester.element(find.byType(ClipRRect).first);
+    final selected = tester.element(find.byType(PhotoImage).first);
     expect(identical(unselected, selected), isTrue,
         reason: 'the selection ring / chips must not rebuild the photo');
 
     c.clearSelection();
     await tester.pump();
-    final cleared = tester.element(find.byType(ClipRRect).first);
+    final cleared = tester.element(find.byType(PhotoImage).first);
     expect(identical(selected, cleared), isTrue,
         reason: 'clearing the selection (as Save does) must not rebuild the photo');
   });
