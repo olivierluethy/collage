@@ -25,8 +25,8 @@ const Map<String, String> id = {
   'aiAutoCollage': 'Kolase otomatis AI',
   'noCollagesTitle': 'Belum ada kolase',
   'noCollagesMessage': 'Buat kolase pertamamu — pilih foto, pilih tata letak, dan tentukan sendiri letak setiap foto.',
-  'deleteCollageTitle': 'Hapus kolase ini?',
-  'deleteCollageMessage': 'Ini akan menghapusnya dari Kolase saya. Foto yang sudah tersimpan di galeri tidak terpengaruh.',
+  'deleteCollageTitle': 'Pindahkan kolase ini ke sampah?',
+  'deleteCollageMessage': 'Kamu bisa memulihkannya dari sampah selama 30 hari. Foto yang sudah tersimpan di galeri tidak terpengaruh.',
 
   // Discover
   'discoverTitle': 'Temukan momenmu',
@@ -40,7 +40,7 @@ const Map<String, String> id = {
 
   // Permission
   'permissionTitle': 'Izinkan Collage melihat fotomu',
-  'permissionBody': 'Untuk membuat kolase, Collage perlu membuka pustaka fotomu agar kamu bisa memilih gambar yang diinginkan. Collage juga perlu izin untuk menyimpan kolase yang sudah jadi ke galerimu.\n\nMengizinkan akses foto juga memungkinkan Collage membaca waktu dan tempat fotomu diambil, sehingga bisa menyarankan kolase siap pakai seperti "kamu ada di Roma pada 12 Jun".\n\nFotomu tetap di perangkatmu. Tidak ada yang diunggah.',
+  'permissionBody': 'Untuk membuat kolase, Collage perlu membuka pustaka fotomu agar kamu bisa memilih gambar yang diinginkan. Collage juga perlu izin untuk menyimpan kolase yang sudah jadi ke galerimu.\n\nMengizinkan akses foto juga memungkinkan Collage membaca waktu dan tempat fotomu diambil, sehingga bisa menyarankan kolase siap pakai seperti "kamu ada di Roma pada 12 Jun".\n\nFotomu tetap di perangkatmu. Foto hanya dikirim ke luar jika kamu sendiri memulai saran AI.',
   'permissionBlockedSnack': 'Collage tidak bisa lanjut tanpa akses foto. Ketuk "Izinkan akses" dan pilih Izinkan.',
   'permissionOffSnack': 'Akses foto dimatikan. Buka Pengaturan, aktifkan Foto untuk Collage, lalu kembali.',
   'openSettings': 'Buka Pengaturan',
@@ -172,6 +172,7 @@ const Map<String, String> id = {
 
   // Filter presets
   'filterOriginal': 'Asli',
+  'filterAuto': 'Otomatis',
   'filterMono': 'Mono',
   'filterSepia': 'Sephia',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> id = {
   'renameCollage': 'Ganti nama',
   'duplicateCollage': 'Duplikat',
   'copyOfTitle': '{title} (salinan)',
+
+  // v1.4 additions
+  'chipStyle': 'Gaya',
+  'vignette': 'Vinyet',
+  'sharpen': 'Pertajam',
+  'blur': 'Buram',
+  'textCurve': 'Lengkung',
+  'textGradient': 'Gradien',
+  'photoFrame': 'Bingkai',
+  'frameColour': 'Warna bingkai',
+  'photoShadow': 'Bayangan',
+  'panelPhotoStyle': 'Gaya foto',
+  'panelDraw': 'Gambar',
+  'toolDraw': 'Gambar',
+  'drawHint': 'Gambar di kolase dengan jarimu. Ketuk Selesai untuk menyimpannya sebagai satu elemen yang bisa kamu pindahkan dan ubah ukurannya.',
+  'brushSize': 'Ukuran kuas',
+  'undoStroke': 'Urungkan goresan',
+  'layerDrawing': 'Gambar',
+  'saveAsTemplate': 'Simpan sebagai templat',
+  'templateName': 'Nama templat',
+  'templateSaved': 'Tersimpan di Templat saya.',
+  'myTemplates': 'Templat saya',
+  'deleteTemplateTitle': 'Hapus templat ini?',
+  'exportGifHint': 'Animasi, stiker GIF tetap bergerak. Maks. 720 px, warna lebih sedikit.',
+  'carouselSave': 'Simpan {count} slide',
+  'carouselShare': 'Bagikan slide',
+  'carouselSaved': '{count} slide tersimpan di galerimu.',
+
+  // Trash
+  'trashTitle': 'Sampah',
+  'trashEmptyTitle': 'Sampah kosong',
+  'trashEmptyMessage': 'Kolase yang dihapus disimpan di sini selama {days} hari sebelum dihapus permanen.',
+  'trashDaysLeft': 'Sisa {days} hari',
+  'restore': 'Pulihkan',
+  'deleteForever': 'Hapus permanen',
+  'emptyTrash': 'Kosongkan',
+  'emptyTrashTitle': 'Kosongkan sampah?',
+  'emptyTrashMessage': 'Semua kolase di sampah akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.',
+
+  // Backup
+  'backupCreate': 'Cadangkan kolase',
+  'backupRestore': 'Pulihkan dari cadangan',
+  'backupCreating': 'Membuat cadangan…',
+  'backupRestoring': 'Memulihkan…',
+  'backupShareText': 'Cadangan Collage',
+  'backupFailed': 'Terjadi kesalahan. Coba lagi.',
+  'backupInvalid': 'File ini bukan cadangan Collage.',
+  'backupRestored': '{count} kolase dipulihkan, {photos} foto ditambahkan kembali ke galerimu.',
 };

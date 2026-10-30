@@ -25,8 +25,8 @@ const Map<String, String> en = {
   'aiAutoCollage': 'AI auto-collage',
   'noCollagesTitle': 'No collages yet',
   'noCollagesMessage': 'Make your first collage — pick photos, choose a layout, and decide exactly where each photo goes.',
-  'deleteCollageTitle': 'Delete this collage?',
-  'deleteCollageMessage': 'This removes it from My Collages. Photos already saved to your gallery are not affected.',
+  'deleteCollageTitle': 'Move this collage to the trash?',
+  'deleteCollageMessage': 'You can restore it from the trash for 30 days. Photos already saved to your gallery are not affected.',
 
   // Discover
   'discoverTitle': 'Discover your moments',
@@ -40,7 +40,7 @@ const Map<String, String> en = {
 
   // Permission
   'permissionTitle': 'Let Collage see your photos',
-  'permissionBody': 'To build a collage, Collage needs to open your photo library so you can pick the pictures you want. It also needs permission to save your finished collage back to your gallery.\n\nAllowing photo access also lets Collage read when and where your photos were taken, so it can suggest ready-made collages like "you were in Rome on 12 Jun".\n\nYour photos stay on your device. Nothing is uploaded.',
+  'permissionBody': 'To build a collage, Collage needs to open your photo library so you can pick the pictures you want. It also needs permission to save your finished collage back to your gallery.\n\nAllowing photo access also lets Collage read when and where your photos were taken, so it can suggest ready-made collages like "you were in Rome on 12 Jun".\n\nYour photos stay on your device. They are only sent anywhere if you start an AI suggestion yourself.',
   'permissionBlockedSnack': 'Collage can\'t continue without photo access. Please tap "Allow access" and choose Allow.',
   'permissionOffSnack': 'Photo access is turned off. Open Settings, then turn on Photos for Collage, and come back.',
   'openSettings': 'Open Settings',
@@ -172,6 +172,7 @@ const Map<String, String> en = {
 
   // Filter presets
   'filterOriginal': 'Original',
+  'filterAuto': 'Auto',
   'filterMono': 'Mono',
   'filterSepia': 'Sepia',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> en = {
   'renameCollage': 'Rename',
   'duplicateCollage': 'Duplicate',
   'copyOfTitle': '{title} (copy)',
+
+  // v1.4 additions
+  'chipStyle': 'Style',
+  'vignette': 'Vignette',
+  'sharpen': 'Sharpen',
+  'blur': 'Blur',
+  'textCurve': 'Curve',
+  'textGradient': 'Gradient',
+  'photoFrame': 'Frame',
+  'frameColour': 'Frame colour',
+  'photoShadow': 'Shadow',
+  'panelPhotoStyle': 'Photo style',
+  'panelDraw': 'Draw',
+  'toolDraw': 'Draw',
+  'drawHint': 'Draw on the collage with your finger. Tap Done to keep it as one element you can move and resize.',
+  'brushSize': 'Brush size',
+  'undoStroke': 'Undo stroke',
+  'layerDrawing': 'Drawing',
+  'saveAsTemplate': 'Save as template',
+  'templateName': 'Template name',
+  'templateSaved': 'Saved to My templates.',
+  'myTemplates': 'My templates',
+  'deleteTemplateTitle': 'Delete this template?',
+  'exportGifHint': 'Animated, keeps GIF stickers moving. Max 720 px, fewer colours.',
+  'carouselSave': 'Save {count} slides',
+  'carouselShare': 'Share slides',
+  'carouselSaved': '{count} slides saved to your gallery.',
+
+  // Trash
+  'trashTitle': 'Trash',
+  'trashEmptyTitle': 'Trash is empty',
+  'trashEmptyMessage': 'Deleted collages stay here for {days} days before they are removed for good.',
+  'trashDaysLeft': '{days} days left',
+  'restore': 'Restore',
+  'deleteForever': 'Delete forever',
+  'emptyTrash': 'Empty',
+  'emptyTrashTitle': 'Empty the trash?',
+  'emptyTrashMessage': 'All collages in the trash are deleted for good. This cannot be undone.',
+
+  // Backup
+  'backupCreate': 'Back up collages',
+  'backupRestore': 'Restore from backup',
+  'backupCreating': 'Creating backup…',
+  'backupRestoring': 'Restoring…',
+  'backupShareText': 'Collage backup',
+  'backupFailed': 'Something went wrong. Please try again.',
+  'backupInvalid': 'This file is not a Collage backup.',
+  'backupRestored': '{count} collages restored, {photos} photos re-added to your gallery.',
 };

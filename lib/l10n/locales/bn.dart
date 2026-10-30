@@ -25,8 +25,8 @@ const Map<String, String> bn = {
   'aiAutoCollage': 'AI অটো-কোলাজ',
   'noCollagesTitle': 'এখনও কোনো কোলাজ নেই',
   'noCollagesMessage': 'আপনার প্রথম কোলাজ তৈরি করুন — ছবি বাছুন, লেআউট বেছে নিন, আর কোন ছবি কোথায় যাবে তা ঠিক করুন।',
-  'deleteCollageTitle': 'এই কোলাজ মুছবেন?',
-  'deleteCollageMessage': 'এতে এটি "আমার কোলাজ" থেকে সরে যাবে। গ্যালারিতে আগে থেকে সংরক্ষিত ছবিতে কোনো প্রভাব পড়বে না।',
+  'deleteCollageTitle': 'এই কোলাজ ট্র্যাশে সরাবেন?',
+  'deleteCollageMessage': 'আপনি ৩০ দিন পর্যন্ত ট্র্যাশ থেকে এটি ফেরাতে পারবেন। গ্যালারিতে আগে থেকে সংরক্ষিত ছবিতে কোনো প্রভাব পড়বে না।',
 
   // Discover
   'discoverTitle': 'আপনার মুহূর্তগুলো খুঁজুন',
@@ -40,7 +40,7 @@ const Map<String, String> bn = {
 
   // Permission
   'permissionTitle': 'Collage-কে আপনার ছবি দেখতে দিন',
-  'permissionBody': 'কোলাজ বানাতে Collage-এর আপনার ছবির লাইব্রেরি খোলা দরকার, যাতে আপনি পছন্দের ছবি বাছতে পারেন। তৈরি কোলাজ গ্যালারিতে সংরক্ষণ করতেও অনুমতি দরকার।\n\nছবির অ্যাক্সেস দিলে Collage আপনার ছবি কখন ও কোথায় তোলা হয়েছে তাও পড়তে পারে, ফলে "আপনি ১২ জুন রোমে ছিলেন" বলে তৈরি কোলাজ সাজাতে পারে।\n\nআপনার ছবি আপনার ডিভাইসেই থাকে। কিছুই আপলোড হয় না।',
+  'permissionBody': 'কোলাজ বানাতে Collage-এর আপনার ছবির লাইব্রেরি খোলা দরকার, যাতে আপনি পছন্দের ছবি বাছতে পারেন। তৈরি কোলাজ গ্যালারিতে সংরক্ষণ করতেও অনুমতি দরকার।\n\nছবির অ্যাক্সেস দিলে Collage আপনার ছবি কখন ও কোথায় তোলা হয়েছে তাও পড়তে পারে, ফলে "আপনি ১২ জুন রোমে ছিলেন" বলে তৈরি কোলাজ সাজাতে পারে।\n\nআপনার ছবি আপনার ডিভাইসেই থাকে। আপনি নিজে কোনো AI সাজেশন শুরু করলেই কেবল সেগুলো কোথাও পাঠানো হয়।',
   'permissionBlockedSnack': 'ছবির অ্যাক্সেস ছাড়া Collage এগোতে পারবে না। অনুগ্রহ করে "অ্যাক্সেস দিন"-এ ট্যাপ করে অনুমতি বেছে নিন।',
   'permissionOffSnack': 'ছবির অ্যাক্সেস বন্ধ আছে। সেটিংস খুলুন, Collage-এর জন্য ছবি চালু করুন, তারপর ফিরে আসুন।',
   'openSettings': 'সেটিংস খুলুন',
@@ -172,6 +172,7 @@ const Map<String, String> bn = {
 
   // Filter presets
   'filterOriginal': 'আসল',
+  'filterAuto': 'অটো',
   'filterMono': 'মনো',
   'filterSepia': 'সেপিয়া',
   'filterVintage': 'ভিন্টেজ',
@@ -253,10 +254,10 @@ const Map<String, String> bn = {
   'styleSummer': 'গ্রীষ্ম',
   'styleWinter': 'শীত',
   'styleSocial': 'সোশ্যাল',
-  'styleAesthetic': 'অ্যাথেটিক',
+  'styleAesthetic': 'অ্যাসথেটিক',
 
   // v1.3 editor additions
-  'undo': 'পূর্বাবস্থা',
+  'undo': 'পূর্বাবস্থায় ফেরান',
   'redo': 'আবার করুন',
   'chipRotate': 'ঘোরান',
   'ctxDuplicate': 'ডুপ্লিকেট',
@@ -296,4 +297,52 @@ const Map<String, String> bn = {
   'renameCollage': 'নাম বদলান',
   'duplicateCollage': 'ডুপ্লিকেট',
   'copyOfTitle': '{title} (কপি)',
+
+  // v1.4 additions
+  'chipStyle': 'স্টাইল',
+  'vignette': 'ভিনিয়েট',
+  'sharpen': 'তীক্ষ্ণতা',
+  'blur': 'ব্লার',
+  'textCurve': 'বাঁক',
+  'textGradient': 'গ্রেডিয়েন্ট',
+  'photoFrame': 'ফ্রেম',
+  'frameColour': 'ফ্রেমের রং',
+  'photoShadow': 'ছায়া',
+  'panelPhotoStyle': 'ছবির স্টাইল',
+  'panelDraw': 'আঁকুন',
+  'toolDraw': 'আঁকুন',
+  'drawHint': 'আঙুল দিয়ে কোলাজের ওপর আঁকুন। এটিকে সরানো ও আকার বদলানো যায় এমন একটি উপাদান হিসেবে রাখতে সম্পন্ন-এ ট্যাপ করুন।',
+  'brushSize': 'ব্রাশের আকার',
+  'undoStroke': 'স্ট্রোক পূর্বাবস্থায় ফেরান',
+  'layerDrawing': 'আঁকা',
+  'saveAsTemplate': 'টেমপ্লেট হিসেবে সংরক্ষণ',
+  'templateName': 'টেমপ্লেটের নাম',
+  'templateSaved': 'আমার টেমপ্লেটে সংরক্ষিত।',
+  'myTemplates': 'আমার টেমপ্লেট',
+  'deleteTemplateTitle': 'এই টেমপ্লেট মুছবেন?',
+  'exportGifHint': 'অ্যানিমেটেড, GIF স্টিকার চলতে থাকে। সর্বোচ্চ 720 px, কম রং।',
+  'carouselSave': '{count}টি স্লাইড সংরক্ষণ',
+  'carouselShare': 'স্লাইড শেয়ার',
+  'carouselSaved': '{count}টি স্লাইড আপনার গ্যালারিতে সংরক্ষিত।',
+
+  // Trash
+  'trashTitle': 'ট্র্যাশ',
+  'trashEmptyTitle': 'ট্র্যাশ খালি',
+  'trashEmptyMessage': 'মুছে ফেলা কোলাজ স্থায়ীভাবে সরানোর আগে {days} দিন এখানে থাকে।',
+  'trashDaysLeft': '{days} দিন বাকি',
+  'restore': 'ফেরান',
+  'deleteForever': 'চিরতরে মুছুন',
+  'emptyTrash': 'খালি করুন',
+  'emptyTrashTitle': 'ট্র্যাশ খালি করবেন?',
+  'emptyTrashMessage': 'ট্র্যাশের সব কোলাজ স্থায়ীভাবে মুছে যাবে। এটি আর ফেরানো যাবে না।',
+
+  // Backup
+  'backupCreate': 'কোলাজ ব্যাকআপ করুন',
+  'backupRestore': 'ব্যাকআপ থেকে ফেরান',
+  'backupCreating': 'ব্যাকআপ তৈরি হচ্ছে…',
+  'backupRestoring': 'ফেরানো হচ্ছে…',
+  'backupShareText': 'Collage ব্যাকআপ',
+  'backupFailed': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
+  'backupInvalid': 'এই ফাইলটি Collage ব্যাকআপ নয়।',
+  'backupRestored': '{count}টি কোলাজ ফেরানো হয়েছে, {photos}টি ছবি আবার গ্যালারিতে যোগ হয়েছে।',
 };

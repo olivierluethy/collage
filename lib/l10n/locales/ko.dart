@@ -25,8 +25,8 @@ const Map<String, String> ko = {
   'aiAutoCollage': 'AI 자동 콜라주',
   'noCollagesTitle': '아직 콜라주가 없어요',
   'noCollagesMessage': '첫 콜라주를 만들어 보세요 — 사진을 고르고 레이아웃을 선택한 뒤, 각 사진이 들어갈 자리를 정확히 정할 수 있어요.',
-  'deleteCollageTitle': '이 콜라주를 삭제할까요?',
-  'deleteCollageMessage': '내 콜라주에서 삭제됩니다. 이미 갤러리에 저장한 사진은 영향을 받지 않아요.',
+  'deleteCollageTitle': '이 콜라주를 휴지통으로 옮길까요?',
+  'deleteCollageMessage': '30일 동안 휴지통에서 복원할 수 있어요. 이미 갤러리에 저장한 사진은 영향을 받지 않아요.',
 
   // Discover
   'discoverTitle': '나의 순간을 찾아보세요',
@@ -40,7 +40,7 @@ const Map<String, String> ko = {
 
   // Permission
   'permissionTitle': 'Collage가 사진을 볼 수 있게 허용',
-  'permissionBody': '콜라주를 만들려면 원하는 사진을 고를 수 있도록 Collage가 사진 보관함을 열어야 해요. 완성한 콜라주를 갤러리에 저장할 권한도 필요해요.\n\n사진 접근을 허용하면 Collage가 사진을 찍은 시간과 장소를 읽을 수 있어 "6월 12일에 로마에 있었어요" 같은 콜라주를 제안할 수 있어요.\n\n사진은 기기에 그대로 남아 있으며, 어디에도 업로드되지 않아요.',
+  'permissionBody': '콜라주를 만들려면 원하는 사진을 고를 수 있도록 Collage가 사진 보관함을 열어야 해요. 완성한 콜라주를 갤러리에 저장할 권한도 필요해요.\n\n사진 접근을 허용하면 Collage가 사진을 찍은 시간과 장소를 읽을 수 있어 "6월 12일에 로마에 있었어요" 같은 콜라주를 제안할 수 있어요.\n\n사진은 기기에 그대로 남아 있으며, 직접 AI 제안을 시작할 때만 외부로 전송돼요.',
   'permissionBlockedSnack': '사진 접근 없이는 Collage를 계속할 수 없어요. "접근 허용"을 탭한 뒤 "허용"을 선택해 주세요.',
   'permissionOffSnack': '사진 접근이 꺼져 있어요. 설정을 열어 Collage의 사진 접근을 켠 뒤 다시 돌아와 주세요.',
   'openSettings': '설정 열기',
@@ -172,6 +172,7 @@ const Map<String, String> ko = {
 
   // Filter presets
   'filterOriginal': '원본',
+  'filterAuto': '자동',
   'filterMono': '모노',
   'filterSepia': '세피아',
   'filterVintage': '빈티지',
@@ -296,4 +297,52 @@ const Map<String, String> ko = {
   'renameCollage': '이름 변경',
   'duplicateCollage': '복제',
   'copyOfTitle': '{title} (사본)',
+
+  // v1.4 additions
+  'chipStyle': '스타일',
+  'vignette': '비네팅',
+  'sharpen': '선명하게',
+  'blur': '흐리게',
+  'textCurve': '곡선',
+  'textGradient': '그라데이션',
+  'photoFrame': '프레임',
+  'frameColour': '프레임 색',
+  'photoShadow': '그림자',
+  'panelPhotoStyle': '사진 스타일',
+  'panelDraw': '그리기',
+  'toolDraw': '그리기',
+  'drawHint': '손가락으로 콜라주 위에 그려 보세요. 완료를 탭하면 이동하고 크기를 바꿀 수 있는 하나의 요소로 남아요.',
+  'brushSize': '브러시 크기',
+  'undoStroke': '획 실행 취소',
+  'layerDrawing': '그림',
+  'saveAsTemplate': '템플릿으로 저장',
+  'templateName': '템플릿 이름',
+  'templateSaved': '내 템플릿에 저장했어요.',
+  'myTemplates': '내 템플릿',
+  'deleteTemplateTitle': '이 템플릿을 삭제할까요?',
+  'exportGifHint': '애니메이션이 적용되어 GIF 스티커가 계속 움직여요. 최대 720 px, 색상 수가 줄어요.',
+  'carouselSave': '슬라이드 {count}장 저장',
+  'carouselShare': '슬라이드 공유',
+  'carouselSaved': '슬라이드 {count}장을 갤러리에 저장했어요.',
+
+  // Trash
+  'trashTitle': '휴지통',
+  'trashEmptyTitle': '휴지통이 비어 있어요',
+  'trashEmptyMessage': '삭제한 콜라주는 영구 삭제되기 전까지 {days}일 동안 여기에 보관돼요.',
+  'trashDaysLeft': '{days}일 남음',
+  'restore': '복원',
+  'deleteForever': '영구 삭제',
+  'emptyTrash': '비우기',
+  'emptyTrashTitle': '휴지통을 비울까요?',
+  'emptyTrashMessage': '휴지통의 모든 콜라주가 영구 삭제돼요. 이 작업은 되돌릴 수 없어요.',
+
+  // Backup
+  'backupCreate': '콜라주 백업',
+  'backupRestore': '백업에서 복원',
+  'backupCreating': '백업 만드는 중…',
+  'backupRestoring': '복원 중…',
+  'backupShareText': 'Collage 백업',
+  'backupFailed': '문제가 발생했어요. 다시 시도해 주세요.',
+  'backupInvalid': '이 파일은 Collage 백업이 아니에요.',
+  'backupRestored': '콜라주 {count}개를 복원하고 사진 {photos}장을 갤러리에 다시 추가했어요.',
 };

@@ -25,8 +25,8 @@ const Map<String, String> ja = {
   'aiAutoCollage': 'AI 自動コラージュ',
   'noCollagesTitle': 'まだコラージュがありません',
   'noCollagesMessage': '最初のコラージュを作りましょう — 写真を選び、レイアウトを決め、どの写真をどこに置くか細かく指定できます。',
-  'deleteCollageTitle': 'このコラージュを削除しますか？',
-  'deleteCollageMessage': 'マイコラージュから削除されます。すでにギャラリーに保存した写真には影響しません。',
+  'deleteCollageTitle': 'このコラージュをゴミ箱に移動しますか？',
+  'deleteCollageMessage': 'ゴミ箱から 30 日間は復元できます。すでにギャラリーに保存した写真には影響しません。',
 
   // Discover
   'discoverTitle': '思い出を見つけよう',
@@ -40,7 +40,7 @@ const Map<String, String> ja = {
 
   // Permission
   'permissionTitle': 'Collage に写真の利用を許可',
-  'permissionBody': 'コラージュを作るには、使いたい写真を選べるよう Collage が写真ライブラリを開く必要があります。完成したコラージュをギャラリーに保存する許可も必要です。\n\n写真へのアクセスを許可すると、Collage が撮影した日時と場所を読み取れるようになり、「6月12日にローマにいた」といった既製のコラージュを提案できます。\n\n写真は端末内に保存されたままで、アップロードされることはありません。',
+  'permissionBody': 'コラージュを作るには、使いたい写真を選べるよう Collage が写真ライブラリを開く必要があります。完成したコラージュをギャラリーに保存する許可も必要です。\n\n写真へのアクセスを許可すると、Collage が撮影した日時と場所を読み取れるようになり、「6月12日にローマにいた」といった既製のコラージュを提案できます。\n\n写真は端末内に保存されたままです。ご自身で AI の提案を開始した場合にのみ、外部に送信されます。',
   'permissionBlockedSnack': '写真へのアクセスがないと Collage を続けられません。「アクセスを許可」をタップして「許可」を選んでください。',
   'permissionOffSnack': '写真へのアクセスがオフになっています。「設定」を開いて Collage の写真をオンにしてから戻ってください。',
   'openSettings': '設定を開く',
@@ -172,6 +172,7 @@ const Map<String, String> ja = {
 
   // Filter presets
   'filterOriginal': 'オリジナル',
+  'filterAuto': '自動',
   'filterMono': 'モノ',
   'filterSepia': 'セピア',
   'filterVintage': 'ヴィンテージ',
@@ -296,4 +297,52 @@ const Map<String, String> ja = {
   'renameCollage': '名前を変更',
   'duplicateCollage': '複製',
   'copyOfTitle': '{title}（コピー）',
+
+  // v1.4 additions
+  'chipStyle': 'スタイル',
+  'vignette': 'ビネット',
+  'sharpen': 'シャープ',
+  'blur': 'ぼかし',
+  'textCurve': 'カーブ',
+  'textGradient': 'グラデーション',
+  'photoFrame': 'フレーム',
+  'frameColour': 'フレームの色',
+  'photoShadow': '影',
+  'panelPhotoStyle': '写真スタイル',
+  'panelDraw': '描画',
+  'toolDraw': '描画',
+  'drawHint': '指でコラージュに描けます。「完了」をタップすると、移動やサイズ変更ができる1つの要素として残ります。',
+  'brushSize': 'ブラシのサイズ',
+  'undoStroke': 'ストロークを取り消す',
+  'layerDrawing': '手描き',
+  'saveAsTemplate': 'テンプレートとして保存',
+  'templateName': 'テンプレート名',
+  'templateSaved': 'マイテンプレートに保存しました。',
+  'myTemplates': 'マイテンプレート',
+  'deleteTemplateTitle': 'このテンプレートを削除しますか？',
+  'exportGifHint': 'アニメーション付きで、GIF ステッカーも動きます。最大 720 px、色数は少なめ。',
+  'carouselSave': '{count} 枚のスライドを保存',
+  'carouselShare': 'スライドを共有',
+  'carouselSaved': '{count} 枚のスライドをギャラリーに保存しました。',
+
+  // Trash
+  'trashTitle': 'ゴミ箱',
+  'trashEmptyTitle': 'ゴミ箱は空です',
+  'trashEmptyMessage': '削除したコラージュは、完全に削除されるまで {days} 日間ここに保管されます。',
+  'trashDaysLeft': '残り {days} 日',
+  'restore': '復元',
+  'deleteForever': '完全に削除',
+  'emptyTrash': '空にする',
+  'emptyTrashTitle': 'ゴミ箱を空にしますか？',
+  'emptyTrashMessage': 'ゴミ箱内のすべてのコラージュが完全に削除されます。この操作は取り消せません。',
+
+  // Backup
+  'backupCreate': 'コラージュをバックアップ',
+  'backupRestore': 'バックアップから復元',
+  'backupCreating': 'バックアップを作成中…',
+  'backupRestoring': '復元中…',
+  'backupShareText': 'Collage のバックアップ',
+  'backupFailed': '問題が発生しました。もう一度お試しください。',
+  'backupInvalid': 'このファイルは Collage のバックアップではありません。',
+  'backupRestored': '{count} 件のコラージュを復元し、{photos} 枚の写真をギャラリーに再追加しました。',
 };

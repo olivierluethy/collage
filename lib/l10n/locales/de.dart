@@ -25,8 +25,8 @@ const Map<String, String> de = {
   'aiAutoCollage': 'AI-Auto-Collage',
   'noCollagesTitle': 'Noch keine Collagen',
   'noCollagesMessage': 'Erstelle deine erste Collage — wähle Fotos, wähle ein Layout und lege fest, wohin jedes Foto kommt.',
-  'deleteCollageTitle': 'Diese Collage löschen?',
-  'deleteCollageMessage': 'Sie wird aus „Meine Collagen" entfernt. Fotos, die bereits in deiner Galerie gespeichert sind, bleiben erhalten.',
+  'deleteCollageTitle': 'Diese Collage in den Papierkorb verschieben?',
+  'deleteCollageMessage': 'Du kannst sie 30 Tage lang aus dem Papierkorb wiederherstellen. Fotos, die bereits in deiner Galerie gespeichert sind, bleiben erhalten.',
 
   // Discover
   'discoverTitle': 'Entdecke deine Momente',
@@ -40,7 +40,7 @@ const Map<String, String> de = {
 
   // Permission
   'permissionTitle': 'Lass Collage deine Fotos sehen',
-  'permissionBody': 'Um eine Collage zu erstellen, muss Collage auf deine Fotomediathek zugreifen, damit du die Bilder auswählen kannst. Außerdem wird die Berechtigung benötigt, um die fertige Collage in deiner Galerie zu speichern.\n\nMit dem Fotozugriff kann Collage auch lesen, wann und wo deine Fotos aufgenommen wurden, und so fertige Collagen vorschlagen wie „du warst am 12. Juni in Rom".\n\nDeine Fotos bleiben auf deinem Gerät. Nichts wird hochgeladen.',
+  'permissionBody': 'Um eine Collage zu erstellen, muss Collage auf deine Fotomediathek zugreifen, damit du die Bilder auswählen kannst. Ausserdem wird die Berechtigung benötigt, um die fertige Collage in deiner Galerie zu speichern.\n\nMit dem Fotozugriff kann Collage auch lesen, wann und wo deine Fotos aufgenommen wurden, und so fertige Collagen vorschlagen wie „du warst am 12. Juni in Rom".\n\nDeine Fotos bleiben auf deinem Gerät. Sie werden nur verschickt, wenn du selbst einen KI-Vorschlag startest.',
   'permissionBlockedSnack': 'Ohne Fotozugriff kann Collage nicht fortfahren. Tippe auf „Zugriff erlauben" und wähle „Erlauben".',
   'permissionOffSnack': 'Der Fotozugriff ist aus. Öffne die Einstellungen, aktiviere Fotos für Collage und komm wieder zurück.',
   'openSettings': 'Einstellungen öffnen',
@@ -172,6 +172,7 @@ const Map<String, String> de = {
 
   // Filter presets
   'filterOriginal': 'Original',
+  'filterAuto': 'Auto',
   'filterMono': 'Mono',
   'filterSepia': 'Sepia',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> de = {
   'renameCollage': 'Umbenennen',
   'duplicateCollage': 'Duplizieren',
   'copyOfTitle': '{title} (Kopie)',
+
+  // v1.4 additions
+  'chipStyle': 'Stil',
+  'vignette': 'Vignette',
+  'sharpen': 'Schärfen',
+  'blur': 'Unschärfe',
+  'textCurve': 'Biegung',
+  'textGradient': 'Verlauf',
+  'photoFrame': 'Rahmen',
+  'frameColour': 'Rahmenfarbe',
+  'photoShadow': 'Schatten',
+  'panelPhotoStyle': 'Foto-Stil',
+  'panelDraw': 'Zeichnen',
+  'toolDraw': 'Zeichnen',
+  'drawHint': 'Zeichne mit dem Finger auf die Collage. Tippe auf Fertig, um die Zeichnung als ein Element zu behalten, das du verschieben und skalieren kannst.',
+  'brushSize': 'Pinselgrösse',
+  'undoStroke': 'Strich zurück',
+  'layerDrawing': 'Zeichnung',
+  'saveAsTemplate': 'Als Vorlage speichern',
+  'templateName': 'Name der Vorlage',
+  'templateSaved': 'Unter „Meine Vorlagen“ gespeichert.',
+  'myTemplates': 'Meine Vorlagen',
+  'deleteTemplateTitle': 'Diese Vorlage löschen?',
+  'exportGifHint': 'Animiert, GIF-Sticker bewegen sich. Max. 720 px, weniger Farben.',
+  'carouselSave': '{count} Bilder speichern',
+  'carouselShare': 'Bilder teilen',
+  'carouselSaved': '{count} Bilder in deiner Galerie gespeichert.',
+
+  // Trash
+  'trashTitle': 'Papierkorb',
+  'trashEmptyTitle': 'Papierkorb ist leer',
+  'trashEmptyMessage': 'Gelöschte Collagen bleiben {days} Tage hier, bevor sie endgültig entfernt werden.',
+  'trashDaysLeft': 'Noch {days} Tage',
+  'restore': 'Wiederherstellen',
+  'deleteForever': 'Endgültig löschen',
+  'emptyTrash': 'Leeren',
+  'emptyTrashTitle': 'Papierkorb leeren?',
+  'emptyTrashMessage': 'Alle Collagen im Papierkorb werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.',
+
+  // Backup
+  'backupCreate': 'Collagen sichern',
+  'backupRestore': 'Aus Backup wiederherstellen',
+  'backupCreating': 'Backup wird erstellt…',
+  'backupRestoring': 'Wird wiederhergestellt…',
+  'backupShareText': 'Collage-Backup',
+  'backupFailed': 'Etwas ist schiefgelaufen. Bitte versuche es nochmals.',
+  'backupInvalid': 'Diese Datei ist kein Collage-Backup.',
+  'backupRestored': '{count} Collagen wiederhergestellt, {photos} Fotos wieder in deiner Galerie.',
 };
