@@ -11,24 +11,28 @@ Future<ExportOptions?> showExportSheet(
   BuildContext context,
   ExportOptions initial, {
   bool allowGif = false,
+  bool allowVideo = false,
 }) {
   return showModalBottomSheet<ExportOptions>(
     context: context,
     showDragHandle: true,
     builder: (_) => _ExportSheet(
       // A remembered GIF choice doesn't apply to a collage without GIFs.
-      initial: !allowGif && initial.format == ExportFormat.gif
+      initial: (!allowGif && initial.format == ExportFormat.gif) ||
+              (!allowVideo && initial.format == ExportFormat.mp4)
           ? initial.copyWith(format: ExportFormat.png)
           : initial,
       allowGif: allowGif,
+      allowVideo: allowVideo,
     ),
   );
 }
 
 class _ExportSheet extends StatefulWidget {
-  const _ExportSheet({required this.initial, required this.allowGif});
+  const _ExportSheet({required this.initial, required this.allowGif, required this.allowVideo});
   final ExportOptions initial;
   final bool allowGif;
+  final bool allowVideo;
 
   @override
   State<_ExportSheet> createState() => _ExportSheetState();
@@ -63,6 +67,9 @@ class _ExportSheetState extends State<_ExportSheet> {
                 ButtonSegment(value: ExportFormat.jpg, label: const Text('JPG'), tooltip: l.t('exportJpgHint')),
                 if (widget.allowGif)
                   ButtonSegment(value: ExportFormat.gif, label: const Text('GIF'), tooltip: l.t('exportGifHint')),
+                if (widget.allowVideo)
+                  ButtonSegment(value: ExportFormat.mp4, label: const Text('MP4'), tooltip: l.t('exportMp4Hint')),
+                ButtonSegment(value: ExportFormat.pdf, label: const Text('PDF'), tooltip: l.t('exportPdfHint')),
               ],
               selected: {_o.format},
               onSelectionChanged: (s) => setState(() => _o = _o.copyWith(format: s.first)),
@@ -73,6 +80,8 @@ class _ExportSheetState extends State<_ExportSheet> {
                 ExportFormat.png => l.t('exportPngHint'),
                 ExportFormat.jpg => l.t('exportJpgHint'),
                 ExportFormat.gif => l.t('exportGifHint'),
+                ExportFormat.pdf => l.t('exportPdfHint'),
+                ExportFormat.mp4 => l.t('exportMp4Hint'),
               },
               style: context.text.caption,
             ),

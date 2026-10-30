@@ -35,7 +35,14 @@ class CanvasRatio {
   static const carousel2 = CanvasRatio('2:1', 2, 1, 'Carousel ×2');
   static const carousel3 = CanvasRatio('3:1', 3, 1, 'Carousel ×3');
 
-  static const all = [square, portrait, story, landscape, wide, classic, tall, carousel2, carousel3];
+  /// Print sizes (ISO A paper, 1:√2), exported to PDF at the exact page size.
+  static const a4 = CanvasRatio('A4', 210, 297, 'A4 Print');
+  static const a4Landscape = CanvasRatio('A4 ↔', 297, 210, 'A4 Landscape');
+
+  static const all = [square, portrait, story, landscape, wide, classic, tall, carousel2, carousel3, a4, a4Landscape];
+
+  /// True for the A-paper print canvases.
+  bool get isPrint => this == a4 || this == a4Landscape;
 
   /// How many square slides this ratio splits into (1 = not a carousel).
   int get carouselSlides {
@@ -45,6 +52,14 @@ class CanvasRatio {
 
   static CanvasRatio byLabel(String label) =>
       all.firstWhere((r) => r.label == label, orElse: () => square);
+}
+
+/// Decorative treatment of a single slot photo, on top of its frame width.
+enum FrameStyle {
+  plain, // just the frame line (if any)
+  polaroid, // instant-photo border with a deeper bottom edge
+  tape, // two strips of tape across the top corners
+  torn, // ragged, torn-paper edges
 }
 
 /// How a single picked photo sits inside its grid slot: which photo, and its
@@ -62,6 +77,9 @@ class SlotFill {
     this.frameWidth = 0,
     this.frameColor = const Color(0xFFFFFFFF),
     this.shadow = false,
+    this.mask = 'none',
+    this.frameStyle = FrameStyle.plain,
+    this.isVideo = false,
     PhotoFilter? filter,
   }) : filter = filter ?? PhotoFilter();
 
@@ -76,6 +94,14 @@ class SlotFill {
   double frameWidth; // 0..30, "canvas units per 1000"; this photo's own frame
   Color frameColor;
   bool shadow; // drop shadow under this cell
+
+  /// Clip the photo to a shape inside its cell: 'none' or a [ShapeCatalog]
+  /// kind such as 'circle', 'heart', 'star', 'hexagon'.
+  String mask;
+  FrameStyle frameStyle;
+
+  /// [assetId] is a gallery video (played muted and looped) instead of a photo.
+  bool isVideo;
   PhotoFilter filter; // per-cell colour treatment (see PhotoFilter)
 
   bool get isFlipped => flipX || flipY;
@@ -92,6 +118,9 @@ class SlotFill {
         frameWidth: frameWidth,
         frameColor: frameColor,
         shadow: shadow,
+        mask: mask,
+        frameStyle: frameStyle,
+        isVideo: isVideo,
         filter: filter.clone(),
       );
 
@@ -107,6 +136,9 @@ class SlotFill {
         if (frameWidth > 0) 'frameWidth': frameWidth,
         if (frameWidth > 0) 'frameColor': _c(frameColor),
         if (shadow) 'shadow': true,
+        if (mask != 'none') 'mask': mask,
+        if (frameStyle != FrameStyle.plain) 'frameStyle': frameStyle.name,
+        if (isVideo) 'video': true,
         if (!filter.isIdentity) 'filter': filter.toJson(),
       };
 
@@ -122,6 +154,9 @@ class SlotFill {
         frameWidth: (j['frameWidth'] as num?)?.toDouble() ?? 0,
         frameColor: j['frameColor'] == null ? const Color(0xFFFFFFFF) : _uc(j['frameColor'] as int),
         shadow: j['shadow'] as bool? ?? false,
+        mask: j['mask'] as String? ?? 'none',
+        frameStyle: FrameStyle.values.asNameMap()[j['frameStyle'] as String?] ?? FrameStyle.plain,
+        isVideo: j['video'] as bool? ?? false,
         filter: j['filter'] == null
             ? null
             : PhotoFilter.fromJson(j['filter'] as Map<String, dynamic>),

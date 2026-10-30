@@ -14,6 +14,8 @@ import '../../widgets/ui.dart';
 import '../ai/ai_screen.dart';
 import '../discover/discover_screen.dart';
 import '../flow.dart';
+import '../books/books_screen.dart';
+import '../info/backup_actions.dart';
 import '../info/info_screen.dart';
 import '../templates/templates_tab.dart';
 import '../trash/trash_screen.dart';
@@ -41,6 +43,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: Text(title, style: context.text.displayMd),
         actions: [
+          if (_index == 0)
+            IconButton(
+              tooltip: context.l10n.t('booksTitle'),
+              icon: const Icon(Icons.menu_book_rounded),
+              color: context.colors.textMid,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BooksScreen()),
+              ),
+            ),
           if (_index == 0)
             IconButton(
               tooltip: context.l10n.t('trashTitle'),
@@ -212,6 +223,11 @@ class _CollageCard extends ConsumerWidget {
               onTap: () => Navigator.pop(sheet, 'duplicate'),
             ),
             ListTile(
+              leading: const Icon(Icons.people_outline_rounded),
+              title: Text(context.l10n.t('shareForEditing')),
+              onTap: () => Navigator.pop(sheet, 'collab'),
+            ),
+            ListTile(
               leading: Icon(Icons.delete_outline_rounded, color: context.colors.danger),
               title: Text(context.l10n.t('delete'), style: TextStyle(color: context.colors.danger)),
               onTap: () => Navigator.pop(sheet, 'delete'),
@@ -229,6 +245,8 @@ class _CollageCard extends ConsumerWidget {
               project.id,
               title: context.l10n.a('copyOfTitle', {'title': project.title}),
             );
+      case 'collab':
+        await shareCollageForEditing(context, ref, project.id);
       case 'delete':
         await _confirmDelete(context, ref);
     }

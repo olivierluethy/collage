@@ -5,6 +5,7 @@ import '../models/collage_project.dart';
 import '../models/remote_catalog.dart';
 import '../services/ai_collage_service.dart';
 import '../services/backup_service.dart';
+import '../services/book_service.dart';
 import '../services/catalog_service.dart';
 import '../services/draft_service.dart';
 import '../services/export_service.dart';
@@ -14,6 +15,7 @@ import '../services/moments_service.dart';
 import '../services/permission_service.dart';
 import '../services/prefs_service.dart';
 import '../services/user_template_service.dart';
+import '../services/vision_service.dart';
 
 /// Overridden in main() once SharedPreferences has loaded.
 final prefsProvider = Provider<PrefsService>((ref) {
@@ -126,5 +128,27 @@ class TrashNotifier extends AsyncNotifier<List<(CollageProject, int)>> {
   Future<void> empty() async {
     await ref.read(draftServiceProvider).emptyTrash();
     await reload();
+  }
+}
+
+final visionServiceProvider = Provider((_) => const VisionService());
+
+final bookServiceProvider = Provider((_) => const BookService());
+
+/// Photo books, most recently changed first.
+final booksProvider = AsyncNotifierProvider<BooksNotifier, List<PhotoBook>>(BooksNotifier.new);
+
+class BooksNotifier extends AsyncNotifier<List<PhotoBook>> {
+  @override
+  Future<List<PhotoBook>> build() => ref.read(bookServiceProvider).list();
+
+  Future<void> save(PhotoBook book) async {
+    await ref.read(bookServiceProvider).save(book);
+    state = await AsyncValue.guard(() => ref.read(bookServiceProvider).list());
+  }
+
+  Future<void> remove(String id) async {
+    await ref.read(bookServiceProvider).delete(id);
+    state = await AsyncValue.guard(() => ref.read(bookServiceProvider).list());
   }
 }

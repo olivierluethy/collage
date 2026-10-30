@@ -13,11 +13,22 @@ device, and why.
   you use the optional AI feature described below.
 - **Photo location metadata** (`ACCESS_MEDIA_LOCATION`), used only by the
   Discover tab to group photos by place and day.
-- **Saving to your gallery**, so finished collages can be stored as images.
+- **Your videos** (`READ_MEDIA_VIDEO`), only if you put a video into a collage
+  cell.
+- **Saving to your gallery**, so finished collages can be stored as images or
+  videos.
+
+**Face centring and subject cut-out** run on your device with Google ML Kit.
+The photos are analysed locally and not uploaded. The cut-out feature uses a
+model provided by Google Play services, which may download it the first time
+it is used.
 
 Collages you save in "My Collages" are stored in the app's private storage on
 your device. Deleted collages stay in the app's trash for 30 days. Uninstalling
 the app deletes all of them. Images you saved to your gallery stay there.
+
+**Sending a collage for editing** works like a one-collage backup: a file with
+that collage and its photos, handed to the share sheet for you to send.
 
 **Backups.** If you create a backup, the app writes one .zip file with your
 collages and the photos they use, and hands it to the Android share sheet.
@@ -33,7 +44,7 @@ happen for the following features:
 | Feature | What is sent | Sent to |
 |---|---|---|
 | Discover (place names) | The coordinates stored in your photos, to turn them into a place name | Your phone's built-in geocoding service (on Android usually Google) |
-| AI auto-collage (optional, only when you start it) | Downscaled copies of the photos you selected, plus their date and approximate place | Anthropic's Claude API, directly or through the app publisher's proxy server |
+| AI auto-collage and AI title ideas (optional, only when you start them) | Downscaled copies of the photos you selected, plus their date and approximate place | Anthropic's Claude API, directly or through the app publisher's proxy server |
 | GIF search (only in builds with a Giphy key) | Your search words | Giphy |
 | Extra fonts and stickers (only in builds with a remote catalog) | A request for the catalog and the font/sticker files | The catalog server configured by the app publisher |
 

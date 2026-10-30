@@ -115,6 +115,28 @@ class DraftService {
     return copy;
   }
 
+  // ---- full-size renders (for photo books) --------------------------------
+  /// Keep the last full-size export of a collage (PNG or JPG), so photo books
+  /// can print it without re-rendering.
+  Future<void> saveRender(String id, Uint8List bytes, String ext) async {
+    final dir = await _dir();
+    for (final old in ['png', 'jpg']) {
+      final f = File('${dir.path}/$id.render.$old');
+      if (await f.exists()) await f.delete();
+    }
+    await File('${dir.path}/$id.render.$ext').writeAsBytes(bytes);
+  }
+
+  /// The saved full-size render of a collage, else its thumbnail, else null.
+  Future<Uint8List?> renderOf(String id) async {
+    final dir = await _dir();
+    for (final name in ['$id.render.png', '$id.render.jpg', '$id.png']) {
+      final f = File('${dir.path}/$name');
+      if (await f.exists()) return f.readAsBytes();
+    }
+    return null;
+  }
+
   // ---- trash ----------------------------------------------------------------
   /// How long a deleted collage stays restorable.
   static const trashDays = 30;
@@ -190,12 +212,23 @@ class DraftService {
 
   Future<void> emptyTrash() async {
     final trash = await _trashDir();
+    for (final f in trash.listSync().whereType<File>().where((f) => f.path.endsWith('.json'))) {
+      final id = f.uri.pathSegments.last.replaceAll('.json', '');
+      await _purge(id);
+    }
     if (await trash.exists()) await trash.delete(recursive: true);
   }
 
   Future<void> _purge(String id) async {
     final trash = await _trashDir();
-    for (final f in [File('${trash.path}/$id.json'), File('${trash.path}/$id.png')]) {
+    final dir = await _dir();
+    for (final f in [
+      File('${trash.path}/$id.json'),
+      File('${trash.path}/$id.png'),
+      // The full-size render stays beside the drafts until the collage is gone.
+      File('${dir.path}/$id.render.png'),
+      File('${dir.path}/$id.render.jpg'),
+    ]) {
       if (await f.exists()) await f.delete();
     }
   }

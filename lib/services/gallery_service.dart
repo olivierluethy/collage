@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 /// Reads device albums/photos and saves the finished collage back to the
@@ -44,5 +46,19 @@ class GalleryService {
   /// failure.
   Future<AssetEntity?> saveImage(Uint8List bytes, {required String filename}) {
     return PhotoManager.editor.saveImage(bytes, filename: filename, title: filename);
+  }
+
+  /// Save an exported MP4 to the gallery (written to a temp file first, as
+  /// the gallery imports videos from files). Returns null on failure.
+  Future<AssetEntity?> saveVideo(Uint8List bytes, {required String filename}) async {
+    final file = File('${(await getTemporaryDirectory()).path}/$filename');
+    await file.writeAsBytes(bytes);
+    try {
+      return await PhotoManager.editor.saveVideo(file, title: filename);
+    } catch (_) {
+      return null;
+    } finally {
+      if (await file.exists()) await file.delete();
+    }
   }
 }

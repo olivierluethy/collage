@@ -33,7 +33,8 @@ android {
         applicationId = "net.olivierluethy.collage"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // ML Kit subject segmentation needs Android 7.0 (API 24) or newer.
+        minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName

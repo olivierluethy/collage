@@ -35,11 +35,16 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   bool _busy = false;
 
   Future<void> _saveToGallery() async {
+    final format = widget.result.format;
+    // A PDF can't live in the gallery: hand it to the share sheet, where
+    // "Save to Files" / Drive are offered.
+    if (format == ExportFormat.pdf) return _share();
     setState(() => _busy = true);
-    final asset = await ref.read(galleryServiceProvider).saveImage(
-          widget.bytes,
-          filename: 'collage_${DateTime.now().millisecondsSinceEpoch}.${widget.result.format.extension}',
-        );
+    final gallery = ref.read(galleryServiceProvider);
+    final filename = 'collage_${DateTime.now().millisecondsSinceEpoch}.${format.extension}';
+    final asset = format == ExportFormat.mp4
+        ? await gallery.saveVideo(widget.bytes, filename: filename)
+        : await gallery.saveImage(widget.bytes, filename: filename);
     setState(() {
       _busy = false;
       _saved = asset != null;
@@ -63,9 +68,47 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     );
   }
 
+  bool get _isStill =>
+      widget.result.format == ExportFormat.png || widget.result.format == ExportFormat.jpg;
+
   /// Number of square slides this collage splits into (1 = no carousel).
-  int get _slides =>
-      widget.result.format == ExportFormat.gif ? 1 : widget.project.ratio.carouselSlides;
+  int get _slides => _isStill ? widget.project.ratio.carouselSlides : 1;
+
+  /// Rows of a 3-wide Instagram profile grid that fit this collage (0 = none).
+  int get _gridRows {
+    if (!_isStill || _slides > 1) return 0;
+    final rows = (3 / widget.project.ratio.value).round();
+    return rows >= 2 && rows <= 5 ? rows : 0;
+  }
+
+  /// Cut the export into a 3-wide profile grid and save the tiles in the
+  /// order they have to be posted.
+  Future<void> _grid() async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final bytes = widget.bytes;
+      final rows = _gridRows;
+      final format = widget.result.format;
+      final tiles = await Isolate.run(() => splitGrid(bytes, rows, 3, format));
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      var ok = 0;
+      for (var i = 0; i < tiles.length; i++) {
+        final a = await ref.read(galleryServiceProvider).saveImage(
+              tiles[i],
+              filename: 'collage_${stamp}_post${i + 1}.${format.extension}',
+            );
+        if (a != null) ok++;
+      }
+      messenger.showSnackBar(SnackBar(
+        duration: const Duration(seconds: 6),
+        content: Text(ok == tiles.length ? l.a('gridSaved', {'count': '$ok'}) : l.t('couldNotSave')),
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   /// Cut the export into its carousel slides, then save them to the gallery
   /// in posting order, or share them all at once.
@@ -126,7 +169,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(Radii.card),
-                    child: Image.memory(widget.bytes, fit: BoxFit.contain),
+                    child: Image.memory(widget.result.preview, fit: BoxFit.contain),
                   ),
                 ),
               ),
@@ -152,7 +195,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   PrimaryButton(
                     label: _saved
                         ? context.l10n.t('saved')
-                        : context.l10n.t('saveToGallery'),
+                        : widget.result.format == ExportFormat.pdf
+                            ? context.l10n.t('savePdf')
+                            : context.l10n.t('saveToGallery'),
                     icon: _saved ? Icons.check_rounded : Icons.download_rounded,
                     busy: _busy,
                     onPressed: _saved ? null : _saveToGallery,
@@ -177,6 +222,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                       ),
                     ],
                   ),
+                  if (_gridRows > 0) ...[
+                    const SizedBox(height: Space.sm),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _grid,
+                      icon: const Icon(Icons.grid_on_rounded, size: 18),
+                      label: Text(context.l10n.a('gridSave', {'rows': '$_gridRows'})),
+                    ),
+                  ],
                   if (_slides > 1) ...[
                     const SizedBox(height: Space.sm),
                     Row(

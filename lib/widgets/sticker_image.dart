@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -9,18 +11,24 @@ import 'package:flutter_svg/flutter_svg.dart';
 class StickerImage extends StatelessWidget {
   const StickerImage({super.key, required this.source, this.fit = BoxFit.contain});
 
-  /// Asset path or http(s) URL.
+  /// Asset path, http(s) URL, or an absolute file path (cut-outs the user
+  /// made, stored in the app's documents directory).
   final String source;
   final BoxFit fit;
 
   static bool isRemote(String source) =>
       source.startsWith('http://') || source.startsWith('https://');
 
+  static bool isFile(String source) => source.startsWith('/');
+
   static bool isSvg(String source) =>
       source.toLowerCase().split('?').first.endsWith('.svg');
 
   @override
   Widget build(BuildContext context) {
+    if (isFile(source)) {
+      return Image.file(File(source), fit: fit, gaplessPlayback: true);
+    }
     if (isRemote(source)) {
       return isSvg(source)
           ? SvgPicture.network(source, fit: fit)

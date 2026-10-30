@@ -8,6 +8,8 @@ import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
 import '../../models/photo_filter.dart';
+import '../../services/vision_service.dart';
+import 'slot_splits.dart';
 
 /// Holds the collage being edited plus selection state, and exposes every
 /// mutation the editor UI performs. A plain [ChangeNotifier] so the canvas and
@@ -351,6 +353,61 @@ class EditorController extends ChangeNotifier {
     _touch();
   }
 
+  // ---- drag-to-resize cells ------------------------------------------------
+  /// Edges between rectangular cells that can be dragged to resize them.
+  List<SlotSplit> get splits => findSplits(project.layout.slots);
+
+  /// Shared edges between diagonal / mosaic (polygon) cells.
+  List<PolySplit> get polySplits => findPolySplits(project.layout.slots);
+
+  /// Move [split] to [pos] (layout fraction).
+  void moveSplitTo(SlotSplit split, double pos) =>
+      _setSlots(moveSplit(project.layout.slots, split, pos));
+
+  /// Shift a polygon edge by [distance] (layout fractions along its normal),
+  /// starting from [startSlots] — the layout as it was when the drag began.
+  /// Returns false when the move would break a cell, leaving it unchanged.
+  bool movePolySplitBy(List<LayoutSlot> startSlots, PolySplit split, double distance) {
+    final moved = movePolySplit(startSlots, split, distance);
+    if (moved == null) return false;
+    _setSlots(moved);
+    return true;
+  }
+
+  /// Replace the layout's cells. The layout becomes the user's own copy, so
+  /// the change is saved with the collage.
+  void _setSlots(List<LayoutSlot> slots) {
+    final l = project.layout;
+    project.layout = LayoutTemplate(id: l.id, name: l.name, family: l.family, slots: slots, custom: true);
+    _touch();
+  }
+
+  // ---- face-aware framing -------------------------------------------------------
+  /// Pan a slot photo so the faces at [focus] (0..1 of the photo) sit as close
+  /// to the cell centre as the photo allows. [imgAspect] is the photo's
+  /// upright width / height.
+  void frameOnFocus(String slotId, Offset focus, double imgAspect) {
+    final f = project.fills[slotId];
+    LayoutSlot? slot;
+    for (final s in project.layout.slots) {
+      if (s.id == slotId) slot = s;
+    }
+    if (f == null || slot == null || slot.rect.height <= 0) return;
+    final cellAspect = slot.rect.width / slot.rect.height * project.ratio.value;
+    final pan = panForFocus(focus, cellAspect, imgAspect);
+    f.offsetX = pan.dx;
+    f.offsetY = pan.dy;
+    f.imgAspect = imgAspect;
+    _touch();
+  }
+
+  // ---- video slots ---------------------------------------------------------------
+  /// Put a gallery video into a slot (played muted and looped).
+  void setSlotVideo(String slotId, String assetId) {
+    project.fills[slotId] = SlotFill(assetId: assetId, isVideo: true);
+    _touch();
+  }
+
   // ---- per-cell frame & shadow -----------------------------------------------
   /// Change one slot photo's own look (frame width/colour, shadow).
   void updateSlotStyle(String slotId, void Function(SlotFill f) fn) {
@@ -530,6 +587,16 @@ class EditorController extends ChangeNotifier {
         cy: 0.5,
         shapeKind: kind,
         fill: Color(fill),
+        z: _nextZ,
+      ));
+
+  /// A cut-out subject saved as a transparent PNG at [path].
+  void addCutout(String path) => _add(StickerElement(
+        id: _uuid.v4(),
+        cx: 0.5,
+        cy: 0.5,
+        assetPath: path,
+        scale: 1.4,
         z: _nextZ,
       ));
 

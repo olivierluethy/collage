@@ -1,6 +1,8 @@
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../data/fonts.dart';
 import '../../data/layout_templates.dart';
@@ -12,7 +14,11 @@ import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
 import '../../models/photo_filter.dart';
+import '../../config.dart' as app;
+import '../../services/ai_collage_service.dart';
 import '../../services/giphy_service.dart';
+import '../../services/stamp_service.dart';
+import '../../services/vision_service.dart';
 import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
@@ -679,6 +685,83 @@ class _TextPanelState extends ConsumerState<TextPanel> {
     setState(() {});
   }
 
+  bool _busy = false;
+
+  void _setText(String t) {
+    _text.text = t;
+    _mut((x) => x.text = t);
+  }
+
+  List<String> get _photoIds =>
+      [for (final f in widget.c.project.fills.values) if (!f.isVideo) f.assetId];
+
+  /// Fill the text with the photos' place and date.
+  Future<void> _dateStamp() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
+    final locale = Localizations.localeOf(context).toString();
+    setState(() => _busy = true);
+    try {
+      final stamp = await const StampService().dateAndPlace(_photoIds, localeName: locale);
+      if (stamp == null) {
+        messenger.showSnackBar(SnackBar(content: Text(l.t('noPhotoInfo'))));
+      } else {
+        _setText(stamp);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Ask Claude for three title ideas and let the user pick one.
+  Future<void> _aiTitle() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
+    final code = Localizations.localeOf(context).languageCode;
+    final language = _languageNames[code] ?? 'English';
+    setState(() => _busy = true);
+    List<String> titles;
+    try {
+      final inputs = await AiCollageService.buildInputs(_photoIds.take(9).toList());
+      titles = await ref.read(aiServiceProvider).suggestTitles(inputs, language: language);
+    } catch (_) {
+      titles = const [];
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    if (titles.isEmpty) {
+      messenger.showSnackBar(SnackBar(content: Text(l.t('aiTitlesFailed'))));
+      return;
+    }
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final t in titles)
+              ListTile(
+                leading: const Icon(Icons.auto_awesome_rounded),
+                title: Text(t),
+                onTap: () => Navigator.pop(sheet, t),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (pick != null) _setText(pick);
+  }
+
+  /// English names of the app's languages, for the AI prompt.
+  static const _languageNames = {
+    'en': 'English', 'zh': 'Simplified Chinese', 'hi': 'Hindi', 'es': 'Spanish',
+    'ar': 'Arabic', 'bn': 'Bengali', 'fr': 'French', 'ru': 'Russian',
+    'pt': 'Portuguese', 'id': 'Indonesian', 'de': 'German', 'ja': 'Japanese',
+    'tr': 'Turkish', 'it': 'Italian', 'ko': 'Korean',
+  };
+
   @override
   Widget build(BuildContext context) {
     // Rebuild when the remote font catalog arrives so extra fonts appear.
@@ -694,6 +777,23 @@ class _TextPanelState extends ConsumerState<TextPanel> {
           maxLines: 2,
           onChanged: (v) => _mut((x) => x.text = v),
           decoration: InputDecoration(hintText: context.l10n.t('typeYourText')),
+        ),
+        if (_busy) const LinearProgressIndicator(minHeight: 2),
+        Wrap(
+          spacing: Space.sm,
+          children: [
+            TextButton.icon(
+              onPressed: _busy || _photoIds.isEmpty ? null : _dateStamp,
+              icon: const Icon(Icons.place_outlined, size: 18),
+              label: Text(context.l10n.t('insertDatePlace')),
+            ),
+            if (app.Config.hasAi)
+              TextButton.icon(
+                onPressed: _busy || _photoIds.isEmpty ? null : _aiTitle,
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: Text(context.l10n.t('aiTitleSuggest')),
+              ),
+          ],
         ),
         const SizedBox(height: Space.sm),
         Row(
@@ -1105,34 +1205,138 @@ String _presetKey(FilterPreset p) => switch (p) {
       FilterPreset.fade => 'filterFade',
     };
 
-/// One slot photo's own frame and shadow, live.
-class PhotoStylePanel extends StatelessWidget {
-  const PhotoStylePanel({super.key, required this.c, required this.slotId});
+/// One slot photo's own look: shape, frame style, frame colour and shadow,
+/// plus on-device helpers to frame faces and cut the subject out.
+class PhotoStylePanel extends StatefulWidget {
+  const PhotoStylePanel({super.key, required this.c, required this.slotId, required this.onCutout});
   final EditorController c;
   final String slotId;
+
+  /// Called after a cut-out sticker was added (the host closes the panel).
+  final VoidCallback onCutout;
+
+  @override
+  State<PhotoStylePanel> createState() => _PhotoStylePanelState();
+}
+
+class _PhotoStylePanelState extends State<PhotoStylePanel> {
+  static const _masks = ['none', 'circle', 'heart', 'star', 'hexagon', 'diamond', 'rounded'];
+  bool _busy = false;
+
+  EditorController get c => widget.c;
+
+  Future<void> _frameFaces({required bool all}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
+    setState(() => _busy = true);
+    var found = 0;
+    try {
+      final ids = all ? c.project.fills.keys.toList() : [widget.slotId];
+      for (final id in ids) {
+        final f = c.fillFor(id);
+        if (f == null || f.isVideo) continue;
+        final focus = await const VisionService().faceFocus(f.assetId);
+        if (focus == null) continue;
+        final asset = await AssetEntity.fromId(f.assetId);
+        if (asset == null || asset.orientatedHeight == 0) continue;
+        c.frameOnFocus(id, focus, asset.orientatedWidth / asset.orientatedHeight);
+        found++;
+      }
+    } catch (_) {
+      // Detection unavailable: fall through to the "no faces" message.
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    messenger.showSnackBar(SnackBar(
+      content: Text(found > 0 ? l.a('facesFramed', {'count': '$found'}) : l.t('noFacesFound')),
+    ));
+  }
+
+  Future<void> _cutout() async {
+    final f = c.fillFor(widget.slotId);
+    if (f == null || f.isVideo) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
+    setState(() => _busy = true);
+    String? path;
+    try {
+      path = await const VisionService().cutout(f.assetId, id: const Uuid().v4());
+    } catch (_) {
+      path = null;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (path == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l.t('cutoutFailed'))));
+      return;
+    }
+    c.addCutout(path);
+    widget.onCutout();
+  }
+
+  String _maskLabel(BuildContext context, String m) => switch (m) {
+        'none' => context.l10n.t('maskNone'),
+        'circle' => context.l10n.t('maskCircle'),
+        'heart' => context.l10n.t('maskHeart'),
+        'star' => context.l10n.t('maskStar'),
+        'hexagon' => context.l10n.t('maskHexagon'),
+        'diamond' => context.l10n.t('maskDiamond'),
+        _ => context.l10n.t('maskRounded'),
+      };
+
+  String _styleLabel(BuildContext context, FrameStyle s) => switch (s) {
+        FrameStyle.plain => context.l10n.t('frameStylePlain'),
+        FrameStyle.polaroid => context.l10n.t('frameStylePolaroid'),
+        FrameStyle.tape => context.l10n.t('frameStyleTape'),
+        FrameStyle.torn => context.l10n.t('frameStyleTorn'),
+      };
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: c,
       builder: (context, _) {
-        final f = c.fillFor(slotId);
+        final f = c.fillFor(widget.slotId);
         if (f == null) return const SizedBox.shrink();
+        void up(void Function(SlotFill x) fn) => c.updateSlotStyle(widget.slotId, fn);
         return ListView(
           padding: const EdgeInsets.only(bottom: Space.md),
           children: [
+            if (_busy) const LinearProgressIndicator(minHeight: 2),
+            SectionHeader(context.l10n.t('photoShape')),
+            _ChoiceRow(
+              children: [
+                for (final m in _masks)
+                  ChoiceChip(
+                    label: Text(_maskLabel(context, m)),
+                    selected: f.mask == m,
+                    onSelected: (_) => up((x) => x.mask = m),
+                  ),
+              ],
+            ),
+            SectionHeader(context.l10n.t('frameStyle')),
+            _ChoiceRow(
+              children: [
+                for (final st in FrameStyle.values)
+                  ChoiceChip(
+                    label: Text(_styleLabel(context, st)),
+                    selected: f.frameStyle == st,
+                    onSelected: (_) => up((x) => x.frameStyle = st),
+                  ),
+              ],
+            ),
             LabeledSlider(
               label: context.l10n.t('photoFrame'),
               value: f.frameWidth,
               min: 0,
               max: 30,
-              onChanged: (v) => c.updateSlotStyle(slotId, (x) => x.frameWidth = v),
+              onChanged: (v) => up((x) => x.frameWidth = v),
             ),
             SectionHeader(context.l10n.t('frameColour')),
             SwatchRow(
               colors: Palette.swatches,
               selected: f.frameColor,
-              onPick: (col) => c.updateSlotStyle(slotId, (x) {
+              onPick: (col) => up((x) {
                 x.frameColor = col;
                 if (x.frameWidth == 0) x.frameWidth = 8;
               }),
@@ -1140,11 +1344,58 @@ class PhotoStylePanel extends StatelessWidget {
             SwitchListTile(
               title: Text(context.l10n.t('photoShadow')),
               value: f.shadow,
-              onChanged: (on) => c.updateSlotStyle(slotId, (x) => x.shadow = on),
+              onChanged: (on) => up((x) => x.shadow = on),
             ),
+            if (!f.isVideo) ...[
+              SectionHeader(context.l10n.t('smartTools')),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                child: Wrap(
+                  spacing: Space.sm,
+                  runSpacing: Space.sm,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _frameFaces(all: false),
+                      icon: const Icon(Icons.face_retouching_natural_rounded, size: 18),
+                      label: Text(context.l10n.t('frameFaces')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _frameFaces(all: true),
+                      icon: const Icon(Icons.groups_rounded, size: 18),
+                      label: Text(context.l10n.t('frameFacesAll')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _cutout,
+                      icon: const Icon(Icons.content_cut_rounded, size: 18),
+                      label: Text(context.l10n.t('cutoutSubject')),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         );
       },
+    );
+  }
+}
+
+/// A horizontally scrolling row of chips.
+class _ChoiceRow extends StatelessWidget {
+  const _ChoiceRow({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+        itemCount: children.length,
+        separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
+        itemBuilder: (_, i) => children[i],
+      ),
     );
   }
 }
