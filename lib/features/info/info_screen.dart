@@ -156,21 +156,24 @@ class _Group extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(Space.xl, Space.xl, Space.xl, Space.sm),
           child: Text(title, style: context.text.labelMd.copyWith(color: c.textMid)),
         ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: Space.lg),
-          decoration: BoxDecoration(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          // A Material (not a decorated box) so the rows' ink splashes show.
+          child: Material(
             color: c.surface,
-            borderRadius: BorderRadius.circular(Radii.card),
-            border: Border.all(color: c.line),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) Divider(height: 1, indent: 56, color: c.line),
-                children[i],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.card),
+              side: BorderSide(color: c.line),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0) Divider(height: 1, indent: 56, color: c.line),
+                  children[i],
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ],

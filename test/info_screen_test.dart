@@ -29,10 +29,15 @@ Future<PrefsService> _pump(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('Info screen lists all sections', (tester) async {
+  testWidgets('More tab lists all groups and rows', (tester) async {
     await _pump(tester);
-    expect(find.text('Information'), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
+    for (final group in ['Library', 'Backup', 'Settings']) {
+      expect(find.text(group), findsOneWidget);
+    }
+    // "About" is both the last group's title and the row inside it.
+    expect(find.widgetWithText(ListTile, 'About'), findsOneWidget);
+    expect(find.text('Photo books'), findsOneWidget);
+    expect(find.text('Trash'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
     expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Privacy Policy'), findsOneWidget);
@@ -65,7 +70,10 @@ void main() {
 
   testWidgets('About opens and shows the app name', (tester) async {
     await _pump(tester);
-    await tester.tap(find.text('About'));
+    final about = find.widgetWithText(ListTile, 'About');
+    await tester.ensureVisible(about);
+    await tester.pumpAndSettle();
+    await tester.tap(about);
     await tester.pumpAndSettle();
     expect(find.text('Collage'), findsOneWidget);
   });
