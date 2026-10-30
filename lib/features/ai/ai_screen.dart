@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -86,27 +84,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     });
   }
 
-  Future<List<AiImageInput>> _buildInputs(List<String> ids) async {
-    final inputs = <AiImageInput>[];
-    for (final id in ids) {
-      final bytes = await PhotoImage.bytes(id, thumbPx: 256);
-      if (bytes == null) continue;
-      final asset = await AssetEntity.fromId(id);
-      String? hint;
-      if (asset != null) {
-        final lat = asset.latitude;
-        final lng = asset.longitude;
-        final d = asset.createDateTime;
-        final parts = <String>['taken ${d.year}-${d.month.toString().padLeft(2, '0')}'];
-        if (lat != null && lng != null && (lat != 0 || lng != 0)) {
-          parts.add('near ${lat.toStringAsFixed(2)},${lng.toStringAsFixed(2)}');
-        }
-        hint = parts.join(' ');
-      }
-      inputs.add(AiImageInput(assetId: id, jpegBase64: base64Encode(bytes), hint: hint));
-    }
-    return inputs;
-  }
+  Future<List<AiImageInput>> _buildInputs(List<String> ids) => AiCollageService.buildInputs(ids);
 
   Future<List<_SuggestedCollage>> _clusterByPlaceAndDay(
       List<String> ids, String Function(int n) name) async {

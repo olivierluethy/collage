@@ -14,6 +14,7 @@ import '../../theme/typography.dart';
 import '../../widgets/sharpened.dart';
 import '../flow.dart';
 import '../picker/photo_picker_screen.dart';
+import '../picker/video_picker_screen.dart';
 import '../result/result_screen.dart';
 import 'collage_canvas.dart';
 import 'editor_controller.dart';
@@ -99,6 +100,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _styleSlotId = slotId;
       _panel = _Panel.photoStyle;
     });
+  }
+
+  Future<void> _pickVideo(String slotId) async {
+    _closePanel();
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const VideoPickerScreen()),
+    );
+    if (id != null) _c.setSlotVideo(slotId, id);
   }
 
   void _openDraw() {
@@ -220,6 +229,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       context,
       _lastExportOptions(),
       allowGif: _c.project.elements.any((e) => e is GifElement),
+      allowVideo: _c.project.fills.values.any((f) => f.isVideo),
     );
     if (options == null || !mounted) return;
     await ref.read(prefsProvider).setExportChoice(format: options.format.name, size: options.size.name);
@@ -233,7 +243,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     try {
       await Future.delayed(Motion.fast);
       final export = ref.read(exportServiceProvider);
-      final result = await export.captureAs(_boundaryKey, options);
+      final ratio = _c.project.ratio;
+      final result = await export.captureAs(
+        _boundaryKey,
+        options,
+        a4Page: ratio.isPrint,
+        landscape: ratio == CanvasRatio.a4Landscape,
+      );
       final thumb = await export.capture(_boundaryKey, targetWidth: 500);
       if (result == null) {
         if (mounted) {
@@ -243,6 +259,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         return;
       }
       await ref.read(draftServiceProvider).save(_c.project, thumbnail: thumb);
+      // Keep a full-size still for photo books.
+      if (result.format == ExportFormat.png || result.format == ExportFormat.jpg) {
+        await ref.read(draftServiceProvider).saveRender(_c.project.id, result.bytes, result.format.extension);
+      } else if (result.format == ExportFormat.pdf) {
+        await ref.read(draftServiceProvider).saveRender(_c.project.id, result.preview, 'png');
+      }
       await ref.read(draftsProvider.notifier).reload();
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, result: result)));
@@ -326,6 +348,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       interactive: !_exporting,
                       onRequestReplace: _openReplace,
                       onRequestStyle: _openStyle,
+                      onRequestVideo: _pickVideo,
                     ),
                   ),
                 ),
@@ -385,7 +408,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _Panel.gif => (context.l10n.t('panelGif'), GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.layers => (context.l10n.t('panelLayers'), LayersPanel(c: _c), (h * 0.40).clamp(280, 420)),
       _Panel.crop => (context.l10n.t('panelCrop'), CropPanel(c: _c, elementId: _cropElementId ?? ''), 290.0),
-      _Panel.photoStyle => (context.l10n.t('panelPhotoStyle'), PhotoStylePanel(c: _c, slotId: _styleSlotId ?? ''), 280.0),
+      _Panel.photoStyle => (
+          context.l10n.t('panelPhotoStyle'),
+          PhotoStylePanel(c: _c, slotId: _styleSlotId ?? '', onCutout: _closePanel),
+          (h * 0.5).clamp(360, 500),
+        ),
       _Panel.draw => (context.l10n.t('panelDraw'), DrawPanel(c: _c, onDone: _closePanel), 250.0),
       _Panel.replace => (context.l10n.t('panelChoosePhoto'), ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.none => ('', const SizedBox.shrink(), 0.0),
