@@ -31,7 +31,17 @@ class CanvasRatio {
   static const classic = CanvasRatio('4:3', 4, 3, 'Classic');
   static const tall = CanvasRatio('2:3', 2, 3, 'Tall');
 
-  static const all = [square, portrait, story, landscape, wide, classic, tall];
+  /// Panoramas made to be cut into square Instagram carousel slides.
+  static const carousel2 = CanvasRatio('2:1', 2, 1, 'Carousel ×2');
+  static const carousel3 = CanvasRatio('3:1', 3, 1, 'Carousel ×3');
+
+  static const all = [square, portrait, story, landscape, wide, classic, tall, carousel2, carousel3];
+
+  /// How many square slides this ratio splits into (1 = not a carousel).
+  int get carouselSlides {
+    final r = w / h;
+    return r >= 2 && r == r.roundToDouble() ? r.round() : 1;
+  }
 
   static CanvasRatio byLabel(String label) =>
       all.firstWhere((r) => r.label == label, orElse: () => square);
@@ -49,6 +59,9 @@ class SlotFill {
     this.flipX = false,
     this.flipY = false,
     this.rotation = 0,
+    this.frameWidth = 0,
+    this.frameColor = const Color(0xFFFFFFFF),
+    this.shadow = false,
     PhotoFilter? filter,
   }) : filter = filter ?? PhotoFilter();
 
@@ -60,6 +73,9 @@ class SlotFill {
   bool flipX; // mirror left↔right
   bool flipY; // mirror top↔bottom
   double rotation; // radians, -π..π; the photo is enlarged to keep the cell covered
+  double frameWidth; // 0..30, "canvas units per 1000"; this photo's own frame
+  Color frameColor;
+  bool shadow; // drop shadow under this cell
   PhotoFilter filter; // per-cell colour treatment (see PhotoFilter)
 
   bool get isFlipped => flipX || flipY;
@@ -73,6 +89,9 @@ class SlotFill {
         flipX: flipX,
         flipY: flipY,
         rotation: rotation,
+        frameWidth: frameWidth,
+        frameColor: frameColor,
+        shadow: shadow,
         filter: filter.clone(),
       );
 
@@ -85,6 +104,9 @@ class SlotFill {
         if (flipX) 'flipX': true,
         if (flipY) 'flipY': true,
         if (rotation != 0) 'rotation': rotation,
+        if (frameWidth > 0) 'frameWidth': frameWidth,
+        if (frameWidth > 0) 'frameColor': _c(frameColor),
+        if (shadow) 'shadow': true,
         if (!filter.isIdentity) 'filter': filter.toJson(),
       };
 
@@ -97,6 +119,9 @@ class SlotFill {
         flipX: j['flipX'] as bool? ?? false,
         flipY: j['flipY'] as bool? ?? false,
         rotation: (j['rotation'] as num?)?.toDouble() ?? 0,
+        frameWidth: (j['frameWidth'] as num?)?.toDouble() ?? 0,
+        frameColor: j['frameColor'] == null ? const Color(0xFFFFFFFF) : _uc(j['frameColor'] as int),
+        shadow: j['shadow'] as bool? ?? false,
         filter: j['filter'] == null
             ? null
             : PhotoFilter.fromJson(j['filter'] as Map<String, dynamic>),
@@ -161,6 +186,7 @@ class BackgroundSettings {
     this.patternBg = const Color(0xFF1A1714),
     this.imageAssetId,
     this.imageDim = 0.0,
+    this.imageBlur = 0.0,
   });
 
   BackgroundKind kind;
@@ -173,6 +199,7 @@ class BackgroundSettings {
   Color patternBg;
   String? imageAssetId;
   double imageDim; // 0..0.7 darken overlay
+  double imageBlur; // 0..30 blur sigma, as "canvas units per 1000"
 
   BackgroundSettings clone() => BackgroundSettings(
         kind: kind,
@@ -185,6 +212,7 @@ class BackgroundSettings {
         patternBg: patternBg,
         imageAssetId: imageAssetId,
         imageDim: imageDim,
+        imageBlur: imageBlur,
       );
 
   Map<String, dynamic> toJson() => {
@@ -198,6 +226,7 @@ class BackgroundSettings {
         'patternBg': _c(patternBg),
         'imageAssetId': imageAssetId,
         'imageDim': imageDim,
+        if (imageBlur > 0) 'imageBlur': imageBlur,
       };
 
   factory BackgroundSettings.fromJson(Map<String, dynamic> j) =>
@@ -212,6 +241,7 @@ class BackgroundSettings {
         patternBg: _uc(j['patternBg'] as int),
         imageAssetId: j['imageAssetId'] as String?,
         imageDim: (j['imageDim'] as num?)?.toDouble() ?? 0.0,
+        imageBlur: (j['imageBlur'] as num?)?.toDouble() ?? 0.0,
       );
 }
 

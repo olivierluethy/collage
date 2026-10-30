@@ -2,6 +2,7 @@
 /// the result, so a preset is just a sensible starting matrix.
 enum FilterPreset {
   none('Original'),
+  auto('Auto'),
   grayscale('Mono'),
   sepia('Sepia'),
   vintage('Vintage'),
@@ -24,6 +25,8 @@ class PhotoFilter {
     this.contrast = 0,
     this.saturation = 0,
     this.warmth = 0,
+    this.vignette = 0,
+    this.sharpen = 0,
   });
 
   FilterPreset preset;
@@ -32,6 +35,14 @@ class PhotoFilter {
   double saturation; // −1..1
   double warmth; // −1..1 (cool → warm)
 
+  /// Darkened edges, 0 (off) .. 1 (strong). Not part of the colour matrix: the
+  /// canvas paints it as a radial overlay on the cell.
+  double vignette;
+
+  /// Sharpening, 0 (off) .. 1 (strong). Also outside the colour matrix: the
+  /// canvas applies it with a fragment shader.
+  double sharpen;
+
   /// True when this filter would leave the image untouched, so callers can skip
   /// wrapping the photo in a [ColorFiltered] at all.
   bool get isIdentity =>
@@ -39,10 +50,26 @@ class PhotoFilter {
       brightness == 0 &&
       contrast == 0 &&
       saturation == 0 &&
+      warmth == 0 &&
+      vignette == 0 &&
+      sharpen == 0;
+
+  /// True when the colour matrix is the identity (vignette aside), so the
+  /// photo needs no [ColorFiltered] wrapper.
+  bool get isColorIdentity =>
+      preset == FilterPreset.none &&
+      brightness == 0 &&
+      contrast == 0 &&
+      saturation == 0 &&
       warmth == 0;
 
   bool get hasAdjustments =>
-      brightness != 0 || contrast != 0 || saturation != 0 || warmth != 0;
+      brightness != 0 ||
+      contrast != 0 ||
+      saturation != 0 ||
+      warmth != 0 ||
+      vignette != 0 ||
+      sharpen != 0;
 
   PhotoFilter clone() => PhotoFilter(
         preset: preset,
@@ -50,6 +77,8 @@ class PhotoFilter {
         contrast: contrast,
         saturation: saturation,
         warmth: warmth,
+        vignette: vignette,
+        sharpen: sharpen,
       );
 
   void resetAdjustments() {
@@ -57,6 +86,8 @@ class PhotoFilter {
     contrast = 0;
     saturation = 0;
     warmth = 0;
+    vignette = 0;
+    sharpen = 0;
   }
 
   /// The composed 4×5 colour matrix (20 values) for `ColorFilter.matrix`.
@@ -77,6 +108,8 @@ class PhotoFilter {
         'contrast': contrast,
         'saturation': saturation,
         'warmth': warmth,
+        if (vignette != 0) 'vignette': vignette,
+        if (sharpen != 0) 'sharpen': sharpen,
       };
 
   factory PhotoFilter.fromJson(Map<String, dynamic> j) => PhotoFilter(
@@ -86,6 +119,8 @@ class PhotoFilter {
         contrast: (j['contrast'] as num?)?.toDouble() ?? 0,
         saturation: (j['saturation'] as num?)?.toDouble() ?? 0,
         warmth: (j['warmth'] as num?)?.toDouble() ?? 0,
+        vignette: (j['vignette'] as num?)?.toDouble() ?? 0,
+        sharpen: (j['sharpen'] as num?)?.toDouble() ?? 0,
       );
 
   // --- matrix primitives ---------------------------------------------------
@@ -170,6 +205,12 @@ class PhotoFilter {
     switch (p) {
       case FilterPreset.none:
         return List<double>.of(_identity);
+      case FilterPreset.auto:
+        // A gentle all-round lift: a touch brighter, crisper and livelier.
+        var m = _brightness(0.03);
+        m = _mul(_contrast(0.12), m);
+        m = _mul(_saturation(0.15), m);
+        return m;
       case FilterPreset.grayscale:
         return _saturation(-1); // sat 0
       case FilterPreset.sepia:

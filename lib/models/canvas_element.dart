@@ -7,7 +7,7 @@ import 'dart:ui';
 /// screen size: [cx]/[cy] are the element centre as a fraction (0..1) of the
 /// canvas, [scale] multiplies the element's natural size, [rotation] is in
 /// radians. [z] is the stacking order (higher = in front).
-enum ElementType { sticker, shape, text, emoji, gif, image }
+enum ElementType { sticker, shape, text, emoji, gif, image, drawing }
 
 int _colorToInt(Color c) => c.toARGB32();
 Color _colorFromInt(int v) => Color(v);
@@ -61,6 +61,7 @@ sealed class CanvasElement {
       ElementType.emoji => EmojiElement.fromJson(j),
       ElementType.gif => GifElement.fromJson(j),
       ElementType.image => ImageElement.fromJson(j),
+      ElementType.drawing => DrawingElement.fromJson(j),
     };
   }
 }
@@ -195,6 +196,8 @@ class TextElement extends CanvasElement {
     this.outlineWidth = 0,
     this.shadow = false,
     this.letterSpacing = 0,
+    this.curve = 0,
+    this.gradientEnd,
     super.scale,
     super.rotation,
     super.z,
@@ -215,6 +218,12 @@ class TextElement extends CanvasElement {
   double outlineWidth; // 0..12, in "canvas units per 1000" like borders
   bool shadow; // soft drop shadow behind the glyphs
   double letterSpacing; // -2..20, relative to a 100-unit font size
+
+  /// Bend of the baseline, -1 (arch down) .. 1 (arch up); 0 is straight.
+  double curve;
+
+  /// When set, the text fills with a left-to-right gradient from [color].
+  Color? gradientEnd;
 
   @override
   ElementType get type => ElementType.text;
@@ -239,6 +248,8 @@ class TextElement extends CanvasElement {
         outlineWidth: outlineWidth,
         shadow: shadow,
         letterSpacing: letterSpacing,
+        curve: curve,
+        gradientEnd: gradientEnd,
         scale: scale,
         rotation: rotation,
         z: z,
@@ -258,6 +269,8 @@ class TextElement extends CanvasElement {
         if (outlineWidth > 0) 'outlineWidth': outlineWidth,
         if (shadow) 'shadow': true,
         if (letterSpacing != 0) 'letterSpacing': letterSpacing,
+        if (curve != 0) 'curve': curve,
+        if (gradientEnd != null) 'gradientEnd': _colorToInt(gradientEnd!),
       };
 
   factory TextElement.fromJson(Map<String, dynamic> j) => TextElement(
@@ -276,6 +289,8 @@ class TextElement extends CanvasElement {
         outlineWidth: (j['outlineWidth'] as num?)?.toDouble() ?? 0,
         shadow: j['shadow'] as bool? ?? false,
         letterSpacing: (j['letterSpacing'] as num?)?.toDouble() ?? 0,
+        curve: (j['curve'] as num?)?.toDouble() ?? 0,
+        gradientEnd: j['gradientEnd'] == null ? null : _colorFromInt(j['gradientEnd'] as int),
         scale: (j['scale'] as num).toDouble(),
         rotation: (j['rotation'] as num).toDouble(),
         z: j['z'] as int,
@@ -470,4 +485,101 @@ class ImageElement extends CanvasElement {
       z: j['z'] as int,
     );
   }
+}
+
+/// One freehand stroke: points normalised to the drawing's box (0..1 on each
+/// axis), with its colour and width as a fraction of the box width.
+class DrawStroke {
+  DrawStroke({required this.points, required this.color, required this.width});
+
+  final List<Offset> points;
+  final Color color;
+  final double width;
+
+  Map<String, dynamic> toJson() => {
+        'c': _colorToInt(color),
+        'w': width,
+        // Flat [x0, y0, x1, y1, ...], rounded to keep saved files small.
+        'p': [
+          for (final p in points) ...[
+            (p.dx * 10000).round() / 10000,
+            (p.dy * 10000).round() / 10000,
+          ],
+        ],
+      };
+
+  factory DrawStroke.fromJson(Map<String, dynamic> j) {
+    final flat = (j['p'] as List).map((v) => (v as num).toDouble()).toList();
+    return DrawStroke(
+      color: _colorFromInt(j['c'] as int),
+      width: (j['w'] as num).toDouble(),
+      points: [for (var i = 0; i + 1 < flat.length; i += 2) Offset(flat[i], flat[i + 1])],
+    );
+  }
+}
+
+/// A freehand drawing. Its strokes live in their own box so the drawing can
+/// be moved, scaled and rotated like any other element.
+class DrawingElement extends CanvasElement {
+  DrawingElement({
+    required super.id,
+    required super.cx,
+    required super.cy,
+    required this.strokes,
+    required this.widthFrac,
+    required this.boxAspect,
+    super.scale,
+    super.rotation,
+    super.z,
+  });
+
+  final List<DrawStroke> strokes;
+
+  /// Box width as a fraction of canvas width when drawn (before [scale]).
+  final double widthFrac;
+
+  /// Box width / height in pixels.
+  final double boxAspect;
+
+  @override
+  ElementType get type => ElementType.drawing;
+  @override
+  double get naturalWidthFrac => widthFrac;
+  @override
+  double get aspectRatio => boxAspect;
+
+  @override
+  DrawingElement clone() => DrawingElement(
+        id: id,
+        cx: cx,
+        cy: cy,
+        strokes: strokes,
+        widthFrac: widthFrac,
+        boxAspect: boxAspect,
+        scale: scale,
+        rotation: rotation,
+        z: z,
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+        ...baseJson(),
+        'widthFrac': widthFrac,
+        'boxAspect': boxAspect,
+        'strokes': strokes.map((s) => s.toJson()).toList(),
+      };
+
+  factory DrawingElement.fromJson(Map<String, dynamic> j) => DrawingElement(
+        id: j['id'] as String,
+        cx: (j['cx'] as num).toDouble(),
+        cy: (j['cy'] as num).toDouble(),
+        widthFrac: (j['widthFrac'] as num).toDouble(),
+        boxAspect: (j['boxAspect'] as num).toDouble(),
+        strokes: (j['strokes'] as List)
+            .map((s) => DrawStroke.fromJson(s as Map<String, dynamic>))
+            .toList(),
+        scale: (j['scale'] as num).toDouble(),
+        rotation: (j['rotation'] as num).toDouble(),
+        z: j['z'] as int,
+      );
 }

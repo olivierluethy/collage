@@ -6,6 +6,7 @@ import '../models/canvas_element.dart';
 import '../models/collage_project.dart';
 import '../models/collage_template.dart';
 import 'collage_background.dart';
+import 'drawing_painter.dart';
 import 'layout_miniature.dart';
 import 'sticker_image.dart';
 
@@ -87,6 +88,13 @@ class TemplateThumbnail extends StatelessWidget {
           width: size,
           height: size / im.aspectRatio,
           child: ColoredBox(color: Colors.white.withValues(alpha: 0.2)),
+        );
+      case DrawingElement d:
+        final size = d.naturalWidthFrac * w * d.scale;
+        child = SizedBox(
+          width: size,
+          height: size / d.aspectRatio,
+          child: CustomPaint(painter: DrawingPainter(d.strokes)),
         );
       case TextElement t:
         final fs = 0.09 * w * t.scale;
