@@ -48,10 +48,11 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 - Back up all collages (including their photos) to a .zip and restore them on any phone
 - Send a single collage as a file for someone else to edit and send back
 - AI auto-collage suggestions
-- First-run onboarding and coach-marks to get you started
+- First-run onboarding that goes straight into your first collage, and a short guided tour of the editor
+- Your work is never lost: leaving the editor saves the collage to "My Collages" automatically
 - Light and dark themes
 - 15 languages
-- Information screen: About, Privacy Policy, Terms of Service, language and theme
+- More tab: photo books, trash, backup, language, theme, tips, About, Privacy Policy and Terms of Service
 
 ## Install the APK on Android
 
@@ -100,9 +101,9 @@ flutter run --dart-define=AI_API_KEY=your_key
 Without either, the feature shows a clear message and everything else —
 including making collages by hand — works fully.
 
-## Information screen (About, legal, language, theme)
+## More tab (library, backup, settings, legal)
 
-The ⓘ button on the home screen opens an **Information** screen with About, Privacy Policy, Terms of Service, language and theme (light/dark/system). The app ships with 15 languages (English, 中文, हिन्दी, Español, العربية, বাংলা, Français, Русский, Português, Bahasa Indonesia, Deutsch, 日本語, Türkçe, Italiano, 한국어).
+The **More** tab on the home screen groups photo books and the trash, backup and restore, language, theme (light/dark/system), "Show tips again", About, Privacy Policy and Terms of Service. The app ships with 15 languages (English, 中文, हिन्दी, Español, العربية, বাংলা, Français, Русский, Português, Bahasa Indonesia, Deutsch, 日本語, Türkçe, Italiano, 한국어).
 
 Privacy Policy and Terms of Service open in the device browser. By default they
 point at [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/TERMS.md](docs/TERMS.md) in

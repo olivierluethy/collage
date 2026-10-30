@@ -270,6 +270,72 @@ removes it from the selection. Empty selection collapses the tray.
 
 ---
 
+## 9c. Flow patterns (v1.6 additions)
+
+The v1.6 overhaul made the app simpler to get around. It reuses existing tokens only and adds no new
+colour or font. The rule behind each pattern: show the common path first, keep the rare things one
+level down, and never lose work.
+
+**Mini collage (illustration)** — `MiniCollage` (`lib/widgets/mini_collage.dart`). Three drawn
+"prints" on a `surface` lightbox (`sheet` radius, `line` border, `e3`). Used in onboarding and the
+empty library instead of a lone icon, so the app shows what it makes. With `swap: true` two prints
+trade places on a loop and the moving one lifts with the amber ring and glow. This is the one
+decorative animation in the app and it stops under reduced motion. The print gradients are
+illustration content, not chrome.
+
+**Onboarding** — three pages: *what it makes* → *you decide what goes where* (animated swap) →
+*start*. A language chip sits top-left on every page. The last page asks for gallery access in place
+(**Pick photos** → straight into the picker) or lets the user **Look around first**. The primary
+button keeps the same position on every page.
+
+**Home navigation** — four tabs: Collages · Templates · Discover · More. The app bar carries only
+the title (`displayMd`), with no icon clutter. The **New collage** FAB (Collages, Discover) opens the
+*New collage sheet*: `ActionCard`s for Pick photos (primary: `amberTint` fill, `amber` border,
+`amber` icon tile) · Start from a template · AI suggestion (only when AI is configured: never
+offer a dead end).
+
+**Action card** — `ActionCard` in `ui.dart`: min height 72, `card` radius, 44dp icon tile, title in
+`labelLg`, one line in `bodyMd`/`textMid`, trailing chevron. For choices that start a flow.
+
+**More tab** — grouped surface cards (`card` radius, `line` border, inset dividers at 56). Group
+titles are `labelMd`/`textMid` in sentence case, not overline caps. A row's current value
+(language, theme) shows in `amber` under its title; a count (trash) as a `SpecChip`. External links
+end in `open_in_new`.
+
+**Cards with menus** — every collage card has a visible ⋯ `IconButton`; long-press stays as a
+shortcut. Moving to trash is never confirmed. Instead a snackbar offers **Undo**. Only actions that
+can't be undone (delete forever, empty trash, delete template/book) use `confirmDestructive`, whose
+danger button names the action.
+
+**Snackbars** — always via `showAppSnack` / `showAppSnackOn`: leading status icon (`success` ✓,
+`danger` !, `info` i), one line, at most one amber action. 4s, or 6s with an action.
+
+**Editor** — the back button **auto-saves** the draft (and the app saves on pause). A brief
+"Saved to My Collages" toast confirms it. The title in the app bar is tappable to rename. The
+primary action is **Finish** → export sheet. Tool rail = five equal, never-scrolling tools:
+Photos · Layout · Style · Add · Layers. The active tool gets an `amberTint` pill.
+- *Style* = one panel with a `SegmentedButton` Borders / Background / Filter; it reopens on the last tab.
+- *Add* = a 3-column grid of `surfaceHigh` tiles (Text, Stickers, Emoji, Shapes, GIF, Draw). The panel
+  a tile opens shows a back arrow to the grid.
+- *Context bar* = at most four equal actions (Edit/Crop · Duplicate · More · Delete). Flip, order and
+  straighten live in the More sheet.
+
+**Coach tour** — `showCoachTour` (`lib/widgets/coach_tour.dart`) implements §6 Coach-mark as a short
+sequence: `ink @72%` scrim with a rounded cut-out, `amber` 2px ring + `amberGlow` around the target,
+`surfaceHigh` bubble with `amber` hairline, a `spec` step counter (`2/3`), **Skip** + **Next/Got it**.
+Tapping anywhere advances. Shown once per tour id, and replayable from the menu or by
+More → Show tips again.
+
+**Picker hints** — one-line `_Banner` rows above the grid (`surfaceHigh`, bottom `line`): a one-time
+tap-order hint and, under limited access, "Share more". The primary button says what happens next
+("Create collage with 3 photos").
+
+**Result** — opening it already saves to the gallery; a live status line reports
+saving / saved / failed with **Try again**. Primary = **Share**; secondary = Keep editing · Done.
+Instagram grid and carousel exports collapse into one "For Instagram" group.
+
+---
+
 ## 10. How to use this file
 
 1. Read a token from the table; use the matching constant in `lib/theme/tokens.dart`.
