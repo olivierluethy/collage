@@ -7,6 +7,7 @@ import '../models/collage_project.dart';
 import '../models/collage_template.dart';
 import '../models/layout_template.dart';
 import '../services/permission_service.dart';
+import '../services/user_template_service.dart';
 import '../state/providers.dart';
 import 'editor/editor_screen.dart';
 import 'layout/layout_picker_screen.dart';
@@ -122,6 +123,22 @@ Future<void> openTemplate(
     id: const Uuid().v4(),
     now: DateTime.now().millisecondsSinceEpoch,
   );
+  await Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => EditorScreen(project: project, pool: const []),
+    ),
+  );
+  if (context.mounted) await ref.read(draftsProvider.notifier).reload();
+}
+
+/// Start a new collage from one of the user's own templates: the saved design
+/// with empty slots, ready for new photos.
+Future<void> openUserTemplate(
+  BuildContext context,
+  WidgetRef ref,
+  CollageProject template,
+) async {
+  final project = UserTemplateService.instantiate(template, id: const Uuid().v4());
   await Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => EditorScreen(project: project, pool: const []),

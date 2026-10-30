@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:ui' show Color;
+import 'dart:ui' show Color, Offset, Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -344,8 +344,19 @@ class EditorController extends ChangeNotifier {
         ..brightness = c.brightness
         ..contrast = c.contrast
         ..saturation = c.saturation
-        ..warmth = c.warmth;
+        ..warmth = c.warmth
+        ..vignette = c.vignette
+        ..sharpen = c.sharpen;
     }
+    _touch();
+  }
+
+  // ---- per-cell frame & shadow -----------------------------------------------
+  /// Change one slot photo's own look (frame width/colour, shadow).
+  void updateSlotStyle(String slotId, void Function(SlotFill f) fn) {
+    final f = project.fills[slotId];
+    if (f == null) return;
+    fn(f);
     _touch();
   }
 
@@ -631,6 +642,102 @@ class EditorController extends ChangeNotifier {
       _add(CanvasElement.fromJson(j));
       return;
     }
+  }
+
+  // ---- freehand drawing -----------------------------------------------------
+  /// True while the draw tool is open: the canvas captures strokes instead of
+  /// moving things.
+  bool drawing = false;
+
+  /// Strokes drawn in this session, in canvas fractions (points 0..1, width
+  /// as a fraction of canvas width). Turned into one [DrawingElement] on done.
+  final List<DrawStroke> draftStrokes = [];
+
+  Color drawColor = const Color(0xFFF5EFE7);
+  double drawWidth = 0.012; // fraction of canvas width
+
+  void startDrawing() {
+    drawing = true;
+    draftStrokes.clear();
+    clearSelection();
+  }
+
+  void setDrawStyle({Color? color, double? width}) {
+    if (color != null) drawColor = color;
+    if (width != null) drawWidth = width;
+    notifyListeners();
+  }
+
+  void beginStroke(Offset at) {
+    draftStrokes.add(DrawStroke(points: [at], color: drawColor, width: drawWidth));
+    notifyListeners();
+  }
+
+  void extendStroke(Offset at) {
+    if (draftStrokes.isEmpty) return;
+    draftStrokes.last.points.add(at);
+    notifyListeners();
+  }
+
+  void undoStroke() {
+    if (draftStrokes.isEmpty) return;
+    draftStrokes.removeLast();
+    notifyListeners();
+  }
+
+  /// Leave draw mode, keeping the strokes as one movable element. [canvas] is
+  /// the canvas size in pixels, needed to fit the drawing's own box.
+  void finishDrawing(Size canvas) {
+    drawing = false;
+    if (draftStrokes.isEmpty || canvas.isEmpty) {
+      draftStrokes.clear();
+      notifyListeners();
+      return;
+    }
+    final w = canvas.width, h = canvas.height;
+    var minX = double.infinity, minY = double.infinity;
+    var maxX = -double.infinity, maxY = -double.infinity;
+    var pad = 0.0;
+    for (final s in draftStrokes) {
+      final half = s.width * w / 2;
+      if (half > pad) pad = half;
+      for (final p in s.points) {
+        if (p.dx * w < minX) minX = p.dx * w;
+        if (p.dy * h < minY) minY = p.dy * h;
+        if (p.dx * w > maxX) maxX = p.dx * w;
+        if (p.dy * h > maxY) maxY = p.dy * h;
+      }
+    }
+    minX -= pad;
+    minY -= pad;
+    maxX += pad;
+    maxY += pad;
+    final bw = (maxX - minX).clamp(1.0, double.infinity);
+    final bh = (maxY - minY).clamp(1.0, double.infinity);
+    final strokes = [
+      for (final s in draftStrokes)
+        DrawStroke(
+          color: s.color,
+          width: s.width * w / bw,
+          points: [for (final p in s.points) Offset((p.dx * w - minX) / bw, (p.dy * h - minY) / bh)],
+        ),
+    ];
+    draftStrokes.clear();
+    _add(DrawingElement(
+      id: _uuid.v4(),
+      cx: (minX + bw / 2) / w,
+      cy: (minY + bh / 2) / h,
+      strokes: strokes,
+      widthFrac: bw / w,
+      boxAspect: bw / bh,
+      z: _nextZ,
+    ));
+  }
+
+  void cancelDrawing() {
+    drawing = false;
+    draftStrokes.clear();
+    notifyListeners();
   }
 
   // ---- borders / background ----------------------------------------------

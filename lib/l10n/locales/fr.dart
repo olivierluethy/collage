@@ -25,8 +25,8 @@ const Map<String, String> fr = {
   'aiAutoCollage': 'Auto-collage avec AI',
   'noCollagesTitle': 'Aucun collage pour l\'instant',
   'noCollagesMessage': 'Créez votre premier collage — choisissez des photos, un modèle et décidez où va chaque photo.',
-  'deleteCollageTitle': 'Supprimer ce collage ?',
-  'deleteCollageMessage': 'Il sera retiré de Mes collages. Les photos déjà enregistrées dans votre galerie ne sont pas affectées.',
+  'deleteCollageTitle': 'Placer ce collage dans la corbeille ?',
+  'deleteCollageMessage': 'Vous pouvez le restaurer depuis la corbeille pendant 30 jours. Les photos déjà enregistrées dans votre galerie ne sont pas affectées.',
 
   // Discover
   'discoverTitle': 'Découvrez vos moments',
@@ -40,7 +40,7 @@ const Map<String, String> fr = {
 
   // Permission
   'permissionTitle': 'Laissez Collage voir vos photos',
-  'permissionBody': 'Pour créer un collage, Collage doit accéder à votre photothèque afin que vous puissiez choisir les images. Il faut aussi une autorisation pour enregistrer le collage terminé dans votre galerie.\n\nL\'accès aux photos permet aussi à Collage de savoir quand et où elles ont été prises, pour proposer des collages tout prêts comme « vous étiez à Rome le 12 juin ».\n\nVos photos restent sur votre appareil. Rien n\'est envoyé.',
+  'permissionBody': 'Pour créer un collage, Collage doit accéder à votre photothèque afin que vous puissiez choisir les images. Il faut aussi une autorisation pour enregistrer le collage terminé dans votre galerie.\n\nL\'accès aux photos permet aussi à Collage de savoir quand et où elles ont été prises, pour proposer des collages tout prêts comme « vous étiez à Rome le 12 juin ».\n\nVos photos restent sur votre appareil. Elles ne sont envoyées nulle part, sauf si vous lancez vous-même une suggestion AI.',
   'permissionBlockedSnack': 'Collage ne peut pas continuer sans accès aux photos. Touchez « Autoriser l\'accès » et choisissez Autoriser.',
   'permissionOffSnack': 'L\'accès aux photos est désactivé. Ouvrez Réglages, activez Photos pour Collage, puis revenez.',
   'openSettings': 'Ouvrir les réglages',
@@ -172,6 +172,7 @@ const Map<String, String> fr = {
 
   // Filter presets
   'filterOriginal': 'Original',
+  'filterAuto': 'Auto',
   'filterMono': 'Mono',
   'filterSepia': 'Sépia',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> fr = {
   'renameCollage': 'Renommer',
   'duplicateCollage': 'Dupliquer',
   'copyOfTitle': '{title} (copie)',
+
+  // v1.4 additions
+  'chipStyle': 'Style',
+  'vignette': 'Vignette',
+  'sharpen': 'Netteté',
+  'blur': 'Flou',
+  'textCurve': 'Courbe',
+  'textGradient': 'Dégradé',
+  'photoFrame': 'Cadre',
+  'frameColour': 'Couleur du cadre',
+  'photoShadow': 'Ombre',
+  'panelPhotoStyle': 'Style photo',
+  'panelDraw': 'Dessin',
+  'toolDraw': 'Dessin',
+  'drawHint': 'Dessinez sur le collage avec le doigt. Touchez Terminé pour le garder comme un seul élément que vous pouvez déplacer et redimensionner.',
+  'brushSize': 'Taille du pinceau',
+  'undoStroke': 'Annuler le trait',
+  'layerDrawing': 'Dessin',
+  'saveAsTemplate': 'Enregistrer comme modèle',
+  'templateName': 'Nom du modèle',
+  'templateSaved': 'Enregistré dans Mes modèles.',
+  'myTemplates': 'Mes modèles',
+  'deleteTemplateTitle': 'Supprimer ce modèle ?',
+  'exportGifHint': 'Animé, garde les stickers GIF en mouvement. 720 px max., moins de couleurs.',
+  'carouselSave': 'Enregistrer {count} diapos',
+  'carouselShare': 'Partager les diapos',
+  'carouselSaved': '{count} diapos enregistrées dans votre galerie.',
+
+  // Trash
+  'trashTitle': 'Corbeille',
+  'trashEmptyTitle': 'La corbeille est vide',
+  'trashEmptyMessage': 'Les collages supprimés restent ici {days} jours avant d\'être effacés définitivement.',
+  'trashDaysLeft': '{days} jours restants',
+  'restore': 'Restaurer',
+  'deleteForever': 'Supprimer définitivement',
+  'emptyTrash': 'Vider',
+  'emptyTrashTitle': 'Vider la corbeille ?',
+  'emptyTrashMessage': 'Tous les collages de la corbeille seront supprimés définitivement. Cette action est irréversible.',
+
+  // Backup
+  'backupCreate': 'Sauvegarder les collages',
+  'backupRestore': 'Restaurer une sauvegarde',
+  'backupCreating': 'Création de la sauvegarde…',
+  'backupRestoring': 'Restauration…',
+  'backupShareText': 'Sauvegarde Collage',
+  'backupFailed': 'Un problème est survenu. Veuillez réessayer.',
+  'backupInvalid': 'Ce fichier n\'est pas une sauvegarde Collage.',
+  'backupRestored': '{count} collages restaurés, {photos} photos ajoutées à nouveau à votre galerie.',
 };

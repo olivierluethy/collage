@@ -25,8 +25,8 @@ const Map<String, String> it = {
   'aiAutoCollage': 'Collage automatico con AI',
   'noCollagesTitle': 'Ancora nessun collage',
   'noCollagesMessage': 'Crea il tuo primo collage: scegli le foto, un layout e decidi dove va ogni foto.',
-  'deleteCollageTitle': 'Eliminare questo collage?',
-  'deleteCollageMessage': 'Verrà rimosso da I miei collage. Le foto già salvate nella galleria non sono interessate.',
+  'deleteCollageTitle': 'Spostare questo collage nel cestino?',
+  'deleteCollageMessage': 'Puoi ripristinarlo dal cestino per 30 giorni. Le foto già salvate nella galleria non sono interessate.',
 
   // Discover
   'discoverTitle': 'Scopri i tuoi momenti',
@@ -40,7 +40,7 @@ const Map<String, String> it = {
 
   // Permission
   'permissionTitle': 'Lascia che Collage veda le tue foto',
-  'permissionBody': 'Per creare un collage, Collage deve accedere alla tua libreria foto così puoi scegliere le immagini. Serve anche il permesso per salvare il collage finito nella galleria.\n\nConsentire l\'accesso alle foto permette a Collage di leggere quando e dove sono state scattate, per proporti collage già pronti come «eri a Roma il 12 giugno».\n\nLe tue foto restano sul dispositivo. Nulla viene caricato.',
+  'permissionBody': 'Per creare un collage, Collage deve accedere alla tua libreria foto così puoi scegliere le immagini. Serve anche il permesso per salvare il collage finito nella galleria.\n\nConsentire l\'accesso alle foto permette a Collage di leggere quando e dove sono state scattate, per proporti collage già pronti come «eri a Roma il 12 giugno».\n\nLe tue foto restano sul dispositivo. Vengono inviate altrove solo se avvii tu un suggerimento AI.',
   'permissionBlockedSnack': 'Collage non può continuare senza accesso alle foto. Tocca «Consenti accesso» e scegli Consenti.',
   'permissionOffSnack': 'L\'accesso alle foto è disattivato. Apri Impostazioni, attiva Foto per Collage e torna qui.',
   'openSettings': 'Apri Impostazioni',
@@ -172,6 +172,7 @@ const Map<String, String> it = {
 
   // Filter presets
   'filterOriginal': 'Originale',
+  'filterAuto': 'Auto',
   'filterMono': 'Mono',
   'filterSepia': 'Seppia',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> it = {
   'renameCollage': 'Rinomina',
   'duplicateCollage': 'Duplica',
   'copyOfTitle': '{title} (copia)',
+
+  // v1.4 additions
+  'chipStyle': 'Stile',
+  'vignette': 'Vignettatura',
+  'sharpen': 'Nitidezza',
+  'blur': 'Sfocatura',
+  'textCurve': 'Curva',
+  'textGradient': 'Sfumatura',
+  'photoFrame': 'Cornice',
+  'frameColour': 'Colore cornice',
+  'photoShadow': 'Ombra',
+  'panelPhotoStyle': 'Stile foto',
+  'panelDraw': 'Disegna',
+  'toolDraw': 'Disegna',
+  'drawHint': 'Disegna sul collage con il dito. Tocca Fatto per tenerlo come un unico elemento da spostare e ridimensionare.',
+  'brushSize': 'Dimensione pennello',
+  'undoStroke': 'Annulla tratto',
+  'layerDrawing': 'Disegno',
+  'saveAsTemplate': 'Salva come modello',
+  'templateName': 'Nome del modello',
+  'templateSaved': 'Salvato in I miei modelli.',
+  'myTemplates': 'I miei modelli',
+  'deleteTemplateTitle': 'Eliminare questo modello?',
+  'exportGifHint': 'Animata, mantiene in movimento gli adesivi GIF. Max 720 px, meno colori.',
+  'carouselSave': 'Salva {count} slide',
+  'carouselShare': 'Condividi slide',
+  'carouselSaved': '{count} slide salvate nella tua galleria.',
+
+  // Trash
+  'trashTitle': 'Cestino',
+  'trashEmptyTitle': 'Il cestino è vuoto',
+  'trashEmptyMessage': 'I collage eliminati restano qui per {days} giorni prima di essere rimossi definitivamente.',
+  'trashDaysLeft': '{days} giorni rimasti',
+  'restore': 'Ripristina',
+  'deleteForever': 'Elimina per sempre',
+  'emptyTrash': 'Svuota',
+  'emptyTrashTitle': 'Svuotare il cestino?',
+  'emptyTrashMessage': 'Tutti i collage nel cestino verranno eliminati definitivamente. L\'operazione non può essere annullata.',
+
+  // Backup
+  'backupCreate': 'Backup dei collage',
+  'backupRestore': 'Ripristina da backup',
+  'backupCreating': 'Creazione del backup…',
+  'backupRestoring': 'Ripristino…',
+  'backupShareText': 'Backup di Collage',
+  'backupFailed': 'Qualcosa è andato storto. Riprova.',
+  'backupInvalid': 'Questo file non è un backup di Collage.',
+  'backupRestored': '{count} collage ripristinati, {photos} foto aggiunte di nuovo alla galleria.',
 };

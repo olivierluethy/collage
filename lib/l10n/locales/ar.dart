@@ -25,8 +25,8 @@ const Map<String, String> ar = {
   'aiAutoCollage': 'كولاج تلقائي بـ AI',
   'noCollagesTitle': 'لا يوجد كولاج بعد',
   'noCollagesMessage': 'أنشئ أول كولاج لك — اختر الصور، واختر التصميم، وحدّد بالضبط مكان كل صورة.',
-  'deleteCollageTitle': 'حذف هذا الكولاج؟',
-  'deleteCollageMessage': 'سيؤدي هذا إلى إزالته من "الكولاج الخاص بي". الصور المحفوظة مسبقًا في معرض الصور لن تتأثر.',
+  'deleteCollageTitle': 'نقل هذا الكولاج إلى سلة المهملات؟',
+  'deleteCollageMessage': 'يمكنك استعادته من سلة المهملات خلال 30 يومًا. الصور المحفوظة مسبقًا في معرض الصور لن تتأثر.',
 
   // Discover
   'discoverTitle': 'اكتشف لحظاتك',
@@ -40,7 +40,7 @@ const Map<String, String> ar = {
 
   // Permission
   'permissionTitle': 'اسمح لـ Collage بالاطلاع على صورك',
-  'permissionBody': 'لبناء كولاج، يحتاج Collage إلى فتح مكتبة صورك لتختار الصور التي تريدها. كما يحتاج إلى إذن لحفظ الكولاج النهائي في معرض الصور.\n\nيتيح السماح بالوصول إلى الصور لـ Collage قراءة وقت ومكان التقاط صورك، ليتمكن من اقتراح كولاجات جاهزة مثل "كنت في روما في 12 يونيو".\n\nصورك تبقى على جهازك. لا يتم رفع أي شيء.',
+  'permissionBody': 'لبناء كولاج، يحتاج Collage إلى فتح مكتبة صورك لتختار الصور التي تريدها. كما يحتاج إلى إذن لحفظ الكولاج النهائي في معرض الصور.\n\nيتيح السماح بالوصول إلى الصور لـ Collage قراءة وقت ومكان التقاط صورك، ليتمكن من اقتراح كولاجات جاهزة مثل "كنت في روما في 12 يونيو".\n\nصورك تبقى على جهازك. لا تُرسل إلى أي مكان إلا إذا بدأت اقتراح AI بنفسك.',
   'permissionBlockedSnack': 'لا يمكن لـ Collage المتابعة دون الوصول إلى الصور. يرجى الضغط على "السماح بالوصول" واختيار السماح.',
   'permissionOffSnack': 'الوصول إلى الصور متوقف. افتح الإعدادات، ثم فعّل الصور لـ Collage، وعُد مرة أخرى.',
   'openSettings': 'فتح الإعدادات',
@@ -172,6 +172,7 @@ const Map<String, String> ar = {
 
   // Filter presets
   'filterOriginal': 'الأصلي',
+  'filterAuto': 'تلقائي',
   'filterMono': 'أحادي',
   'filterSepia': 'سيبيا',
   'filterVintage': 'قديم',
@@ -296,4 +297,52 @@ const Map<String, String> ar = {
   'renameCollage': 'إعادة تسمية',
   'duplicateCollage': 'تكرار',
   'copyOfTitle': '{title} (نسخة)',
+
+  // v1.4 additions
+  'chipStyle': 'النمط',
+  'vignette': 'تظليل الحواف',
+  'sharpen': 'زيادة الحدة',
+  'blur': 'تمويه',
+  'textCurve': 'انحناء',
+  'textGradient': 'تدرّج',
+  'photoFrame': 'إطار',
+  'frameColour': 'لون الإطار',
+  'photoShadow': 'ظل',
+  'panelPhotoStyle': 'نمط الصورة',
+  'panelDraw': 'رسم',
+  'toolDraw': 'رسم',
+  'drawHint': 'ارسم على الكولاج بإصبعك. اضغط على "تم" للاحتفاظ به كعنصر واحد يمكنك تحريكه وتغيير حجمه.',
+  'brushSize': 'حجم الفرشاة',
+  'undoStroke': 'تراجع عن الخط',
+  'layerDrawing': 'رسم',
+  'saveAsTemplate': 'حفظ كقالب',
+  'templateName': 'اسم القالب',
+  'templateSaved': 'تم الحفظ في قوالبي.',
+  'myTemplates': 'قوالبي',
+  'deleteTemplateTitle': 'حذف هذا القالب؟',
+  'exportGifHint': 'متحرك، يحافظ على حركة ملصقات GIF. بحد أقصى 720 px، ألوان أقل.',
+  'carouselSave': 'حفظ {count} شرائح',
+  'carouselShare': 'مشاركة الشرائح',
+  'carouselSaved': 'تم حفظ {count} شرائح في معرض الصور.',
+
+  // Trash
+  'trashTitle': 'سلة المهملات',
+  'trashEmptyTitle': 'سلة المهملات فارغة',
+  'trashEmptyMessage': 'يبقى الكولاج المحذوف هنا {days} يومًا قبل حذفه نهائيًا.',
+  'trashDaysLeft': 'الأيام المتبقية: {days}',
+  'restore': 'استعادة',
+  'deleteForever': 'حذف نهائي',
+  'emptyTrash': 'إفراغ',
+  'emptyTrashTitle': 'إفراغ سلة المهملات؟',
+  'emptyTrashMessage': 'سيتم حذف جميع الكولاجات في سلة المهملات نهائيًا. لا يمكن التراجع عن ذلك.',
+
+  // Backup
+  'backupCreate': 'نسخ الكولاجات احتياطيًا',
+  'backupRestore': 'الاستعادة من نسخة احتياطية',
+  'backupCreating': 'جارٍ إنشاء نسخة احتياطية…',
+  'backupRestoring': 'جارٍ الاستعادة…',
+  'backupShareText': 'نسخة احتياطية من Collage',
+  'backupFailed': 'حدث خطأ ما. يُرجى المحاولة مرة أخرى.',
+  'backupInvalid': 'هذا الملف ليس نسخة احتياطية من Collage.',
+  'backupRestored': 'تمت استعادة {count} كولاج، وأُعيدت إضافة {photos} صورة إلى معرض الصور.',
 };

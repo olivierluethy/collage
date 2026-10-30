@@ -31,6 +31,9 @@ model the app uses.
 
 ## Minimal example (Cloudflare Worker)
 
+A complete, deployable version with request checks and rate limiting lives in
+[`proxy/`](../proxy/README.md). The core of it:
+
 ```js
 export default {
   async fetch(request, env) {

@@ -25,8 +25,8 @@ const Map<String, String> tr = {
   'aiAutoCollage': 'AI otomatik kolaj',
   'noCollagesTitle': 'Henüz kolaj yok',
   'noCollagesMessage': 'İlk kolajını yap — fotoğraf seç, bir düzen seç ve her fotoğrafın tam olarak nereye gideceğine sen karar ver.',
-  'deleteCollageTitle': 'Bu kolaj silinsin mi?',
-  'deleteCollageMessage': 'Bu, kolajı Kolajlarım\'dan kaldırır. Galerine kaydedilmiş fotoğraflar etkilenmez.',
+  'deleteCollageTitle': 'Bu kolaj çöp kutusuna taşınsın mı?',
+  'deleteCollageMessage': 'Onu 30 gün boyunca çöp kutusundan geri yükleyebilirsin. Galerine kaydedilmiş fotoğraflar etkilenmez.',
 
   // Discover
   'discoverTitle': 'Anlarını keşfet',
@@ -40,7 +40,7 @@ const Map<String, String> tr = {
 
   // Permission
   'permissionTitle': 'Collage fotoğraflarını görsün',
-  'permissionBody': 'Bir kolaj oluşturmak için Collage\'ın fotoğraf kitaplığını açması gerekir; böylece istediğin resimleri seçebilirsin. Ayrıca bitmiş kolajı galerine kaydetmek için de izin gerekir.\n\nFotoğraf erişimine izin vermek, Collage\'ın fotoğraflarının ne zaman ve nerede çekildiğini okumasını da sağlar; böylece "12 Haziran\'da Roma\'daydın" gibi hazır kolajlar önerebilir.\n\nFotoğrafların cihazında kalır. Hiçbir şey yüklenmez.',
+  'permissionBody': 'Bir kolaj oluşturmak için Collage\'ın fotoğraf kitaplığını açması gerekir; böylece istediğin resimleri seçebilirsin. Ayrıca bitmiş kolajı galerine kaydetmek için de izin gerekir.\n\nFotoğraf erişimine izin vermek, Collage\'ın fotoğraflarının ne zaman ve nerede çekildiğini okumasını da sağlar; böylece "12 Haziran\'da Roma\'daydın" gibi hazır kolajlar önerebilir.\n\nFotoğrafların cihazında kalır. Yalnızca bir AI önerisini kendin başlatırsan bir yere gönderilir.',
   'permissionBlockedSnack': 'Collage fotoğraf erişimi olmadan devam edemez. Lütfen "Erişime izin ver" seçeneğine dokun ve İzin Ver\'i seç.',
   'permissionOffSnack': 'Fotoğraf erişimi kapalı. Ayarlar\'ı aç, Collage için Fotoğraflar\'ı aç ve geri dön.',
   'openSettings': 'Ayarları aç',
@@ -172,6 +172,7 @@ const Map<String, String> tr = {
 
   // Filter presets
   'filterOriginal': 'Orijinal',
+  'filterAuto': 'Otomatik',
   'filterMono': 'Mono',
   'filterSepia': 'Sepya',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> tr = {
   'renameCollage': 'Yeniden adlandır',
   'duplicateCollage': 'Çoğalt',
   'copyOfTitle': '{title} (kopya)',
+
+  // v1.4 additions
+  'chipStyle': 'Stil',
+  'vignette': 'Vinyet',
+  'sharpen': 'Keskinlik',
+  'blur': 'Bulanıklık',
+  'textCurve': 'Kavis',
+  'textGradient': 'Gradyan',
+  'photoFrame': 'Çerçeve',
+  'frameColour': 'Çerçeve rengi',
+  'photoShadow': 'Gölge',
+  'panelPhotoStyle': 'Fotoğraf stili',
+  'panelDraw': 'Çizim',
+  'toolDraw': 'Çiz',
+  'drawHint': 'Parmağınla kolajın üzerine çiz. Taşıyıp boyutlandırabileceğin tek bir öğe olarak tutmak için Bitti\'ye dokun.',
+  'brushSize': 'Fırça boyutu',
+  'undoStroke': 'Çizgiyi geri al',
+  'layerDrawing': 'Çizim',
+  'saveAsTemplate': 'Şablon olarak kaydet',
+  'templateName': 'Şablon adı',
+  'templateSaved': 'Şablonlarım\'a kaydedildi.',
+  'myTemplates': 'Şablonlarım',
+  'deleteTemplateTitle': 'Bu şablon silinsin mi?',
+  'exportGifHint': 'Animasyonlu, GIF çıkartmalar hareket etmeye devam eder. En fazla 720 px, daha az renk.',
+  'carouselSave': '{count} slaytı kaydet',
+  'carouselShare': 'Slaytları paylaş',
+  'carouselSaved': '{count} slayt galerine kaydedildi.',
+
+  // Trash
+  'trashTitle': 'Çöp kutusu',
+  'trashEmptyTitle': 'Çöp kutusu boş',
+  'trashEmptyMessage': 'Silinen kolajlar kalıcı olarak kaldırılmadan önce {days} gün burada kalır.',
+  'trashDaysLeft': '{days} gün kaldı',
+  'restore': 'Geri yükle',
+  'deleteForever': 'Kalıcı olarak sil',
+  'emptyTrash': 'Boşalt',
+  'emptyTrashTitle': 'Çöp kutusu boşaltılsın mı?',
+  'emptyTrashMessage': 'Çöp kutusundaki tüm kolajlar kalıcı olarak silinir. Bu işlem geri alınamaz.',
+
+  // Backup
+  'backupCreate': 'Kolajları yedekle',
+  'backupRestore': 'Yedekten geri yükle',
+  'backupCreating': 'Yedek oluşturuluyor…',
+  'backupRestoring': 'Geri yükleniyor…',
+  'backupShareText': 'Collage yedeği',
+  'backupFailed': 'Bir şeyler ters gitti. Lütfen tekrar dene.',
+  'backupInvalid': 'Bu dosya bir Collage yedeği değil.',
+  'backupRestored': '{count} kolaj geri yüklendi, {photos} fotoğraf galerine yeniden eklendi.',
 };

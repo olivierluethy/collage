@@ -25,8 +25,8 @@ const Map<String, String> pt = {
   'aiAutoCollage': 'Colagem automática com IA',
   'noCollagesTitle': 'Nenhuma colagem ainda',
   'noCollagesMessage': 'Faça sua primeira colagem — escolha fotos, selecione um layout e decida exatamente onde cada foto fica.',
-  'deleteCollageTitle': 'Excluir esta colagem?',
-  'deleteCollageMessage': 'Isso remove a colagem de Minhas colagens. As fotos já salvas na sua galeria não são afetadas.',
+  'deleteCollageTitle': 'Mover esta colagem para a lixeira?',
+  'deleteCollageMessage': 'Você pode restaurá-la da lixeira por 30 dias. As fotos já salvas na sua galeria não são afetadas.',
 
   // Discover
   'discoverTitle': 'Descubra seus momentos',
@@ -40,7 +40,7 @@ const Map<String, String> pt = {
 
   // Permission
   'permissionTitle': 'Deixe o Collage ver suas fotos',
-  'permissionBody': 'Para montar uma colagem, o Collage precisa abrir sua biblioteca de fotos para você escolher as imagens que quiser. Também precisa de permissão para salvar a colagem pronta na sua galeria.\n\nPermitir o acesso às fotos também deixa o Collage ler quando e onde suas fotos foram tiradas, para sugerir colagens prontas como "você estava em Roma em 12 de junho".\n\nSuas fotos ficam no seu dispositivo. Nada é enviado.',
+  'permissionBody': 'Para montar uma colagem, o Collage precisa abrir sua biblioteca de fotos para você escolher as imagens que quiser. Também precisa de permissão para salvar a colagem pronta na sua galeria.\n\nPermitir o acesso às fotos também deixa o Collage ler quando e onde suas fotos foram tiradas, para sugerir colagens prontas como "você estava em Roma em 12 de junho".\n\nSuas fotos ficam no seu dispositivo. Elas só são enviadas para algum lugar se você iniciar uma sugestão de IA por conta própria.',
   'permissionBlockedSnack': 'O Collage não pode continuar sem acesso às fotos. Toque em "Permitir acesso" e escolha Permitir.',
   'permissionOffSnack': 'O acesso às fotos está desativado. Abra Configurações, ative Fotos para o Collage e volte.',
   'openSettings': 'Abrir Configurações',
@@ -172,6 +172,7 @@ const Map<String, String> pt = {
 
   // Filter presets
   'filterOriginal': 'Original',
+  'filterAuto': 'Auto',
   'filterMono': 'Mono',
   'filterSepia': 'Sépia',
   'filterVintage': 'Vintage',
@@ -296,4 +297,52 @@ const Map<String, String> pt = {
   'renameCollage': 'Renomear',
   'duplicateCollage': 'Duplicar',
   'copyOfTitle': '{title} (cópia)',
+
+  // v1.4 additions
+  'chipStyle': 'Estilo',
+  'vignette': 'Vinheta',
+  'sharpen': 'Nitidez',
+  'blur': 'Desfoque',
+  'textCurve': 'Curva',
+  'textGradient': 'Gradiente',
+  'photoFrame': 'Moldura',
+  'frameColour': 'Cor da moldura',
+  'photoShadow': 'Sombra',
+  'panelPhotoStyle': 'Estilo da foto',
+  'panelDraw': 'Desenhar',
+  'toolDraw': 'Desenhar',
+  'drawHint': 'Desenhe na colagem com o dedo. Toque em Concluído para manter o desenho como um elemento que você pode mover e redimensionar.',
+  'brushSize': 'Tamanho do pincel',
+  'undoStroke': 'Desfazer traço',
+  'layerDrawing': 'Desenho',
+  'saveAsTemplate': 'Salvar como modelo',
+  'templateName': 'Nome do modelo',
+  'templateSaved': 'Salvo em Meus modelos.',
+  'myTemplates': 'Meus modelos',
+  'deleteTemplateTitle': 'Excluir este modelo?',
+  'exportGifHint': 'Animado, mantém os adesivos GIF em movimento. Máx. 720 px, menos cores.',
+  'carouselSave': 'Salvar {count} slides',
+  'carouselShare': 'Compartilhar slides',
+  'carouselSaved': '{count} slides salvos na sua galeria.',
+
+  // Trash
+  'trashTitle': 'Lixeira',
+  'trashEmptyTitle': 'A lixeira está vazia',
+  'trashEmptyMessage': 'As colagens excluídas ficam aqui por {days} dias antes de serem removidas de vez.',
+  'trashDaysLeft': '{days} dias restantes',
+  'restore': 'Restaurar',
+  'deleteForever': 'Excluir para sempre',
+  'emptyTrash': 'Esvaziar',
+  'emptyTrashTitle': 'Esvaziar a lixeira?',
+  'emptyTrashMessage': 'Todas as colagens da lixeira serão excluídas de vez. Isso não pode ser desfeito.',
+
+  // Backup
+  'backupCreate': 'Fazer backup das colagens',
+  'backupRestore': 'Restaurar do backup',
+  'backupCreating': 'Criando backup…',
+  'backupRestoring': 'Restaurando…',
+  'backupShareText': 'Backup do Collage',
+  'backupFailed': 'Algo deu errado. Tente de novo.',
+  'backupInvalid': 'Este arquivo não é um backup do Collage.',
+  'backupRestored': '{count} colagens restauradas, {photos} fotos adicionadas de novo à sua galeria.',
 };

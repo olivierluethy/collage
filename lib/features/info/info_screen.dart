@@ -9,6 +9,7 @@ import '../../state/settings.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'backup_actions.dart';
 
 /// The "Information" hub: About, Privacy Policy, Terms of Service, Language and
 /// Theme. Opened from the ⓘ button on the home screen.
@@ -50,6 +51,17 @@ class InfoScreen extends ConsumerWidget {
             title: l.t('theme'),
             value: themeLabel,
             onTap: () => _pickTheme(context, ref),
+          ),
+          const Divider(),
+          _Tile(
+            icon: Icons.backup_outlined,
+            title: l.t('backupCreate'),
+            onTap: () => createBackup(context, ref),
+          ),
+          _Tile(
+            icon: Icons.settings_backup_restore_rounded,
+            title: l.t('backupRestore'),
+            onTap: () => restoreBackup(context, ref),
           ),
           const Divider(),
           _Tile(

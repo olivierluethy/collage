@@ -25,8 +25,8 @@ const Map<String, String> zh = {
   'aiAutoCollage': 'AI 自动拼图',
   'noCollagesTitle': '还没有拼图',
   'noCollagesMessage': '制作你的第一张拼图——挑选照片、选择版式，并准确决定每张照片的位置。',
-  'deleteCollageTitle': '删除这张拼图？',
-  'deleteCollageMessage': '这将把它从“我的拼图”中移除。已保存到相册的照片不受影响。',
+  'deleteCollageTitle': '将这张拼图移到回收站？',
+  'deleteCollageMessage': '你可以在 30 天内从回收站恢复它。已保存到相册的照片不受影响。',
 
   // Discover
   'discoverTitle': '发现你的精彩瞬间',
@@ -40,7 +40,7 @@ const Map<String, String> zh = {
 
   // Permission
   'permissionTitle': '让 Collage 访问你的照片',
-  'permissionBody': '要制作拼图，Collage 需要打开你的照片图库，以便你挑选想要的照片。它还需要获得权限，才能把做好的拼图保存回你的相册。\n\n允许访问照片后，Collage 还能读取照片的拍摄时间和地点，从而推荐像“6 月 12 日你在罗马”这样的现成拼图。\n\n你的照片始终保留在你的设备上，不会上传任何内容。',
+  'permissionBody': '要制作拼图，Collage 需要打开你的照片图库，以便你挑选想要的照片。它还需要获得权限，才能把做好的拼图保存回你的相册。\n\n允许访问照片后，Collage 还能读取照片的拍摄时间和地点，从而推荐像“6 月 12 日你在罗马”这样的现成拼图。\n\n你的照片始终保留在你的设备上，只有当你主动发起 AI 建议时才会被发送出去。',
   'permissionBlockedSnack': '没有照片访问权限，Collage 无法继续。请点按“允许访问”，然后选择“允许”。',
   'permissionOffSnack': '照片访问已关闭。请打开“设置”，为 Collage 开启照片权限，然后返回。',
   'openSettings': '打开设置',
@@ -172,6 +172,7 @@ const Map<String, String> zh = {
 
   // Filter presets
   'filterOriginal': '原图',
+  'filterAuto': '自动',
   'filterMono': '黑白',
   'filterSepia': '棕褐',
   'filterVintage': '复古',
@@ -296,4 +297,52 @@ const Map<String, String> zh = {
   'renameCollage': '重命名',
   'duplicateCollage': '复制',
   'copyOfTitle': '{title}（副本）',
+
+  // v1.4 additions
+  'chipStyle': '样式',
+  'vignette': '暗角',
+  'sharpen': '锐化',
+  'blur': '模糊',
+  'textCurve': '弯曲',
+  'textGradient': '渐变',
+  'photoFrame': '相框',
+  'frameColour': '相框颜色',
+  'photoShadow': '阴影',
+  'panelPhotoStyle': '照片样式',
+  'panelDraw': '涂鸦',
+  'toolDraw': '涂鸦',
+  'drawHint': '用手指在拼图上涂鸦。点按“完成”后，它会成为一个可移动、可调整大小的元素。',
+  'brushSize': '画笔大小',
+  'undoStroke': '撤销笔画',
+  'layerDrawing': '涂鸦',
+  'saveAsTemplate': '存为模板',
+  'templateName': '模板名称',
+  'templateSaved': '已保存到“我的模板”。',
+  'myTemplates': '我的模板',
+  'deleteTemplateTitle': '删除此模板？',
+  'exportGifHint': '动图，GIF 贴纸会保持动态。最大 720 px，颜色较少。',
+  'carouselSave': '保存 {count} 张幻灯片',
+  'carouselShare': '分享幻灯片',
+  'carouselSaved': '已将 {count} 张幻灯片保存到相册。',
+
+  // Trash
+  'trashTitle': '回收站',
+  'trashEmptyTitle': '回收站为空',
+  'trashEmptyMessage': '已删除的拼图会在此保留 {days} 天，之后将被永久删除。',
+  'trashDaysLeft': '剩余 {days} 天',
+  'restore': '恢复',
+  'deleteForever': '永久删除',
+  'emptyTrash': '清空',
+  'emptyTrashTitle': '清空回收站？',
+  'emptyTrashMessage': '回收站中的所有拼图都将被永久删除，此操作无法撤销。',
+
+  // Backup
+  'backupCreate': '备份拼图',
+  'backupRestore': '从备份恢复',
+  'backupCreating': '正在创建备份…',
+  'backupRestoring': '正在恢复…',
+  'backupShareText': 'Collage 备份',
+  'backupFailed': '出了点问题，请重试。',
+  'backupInvalid': '此文件不是 Collage 备份。',
+  'backupRestored': '已恢复 {count} 张拼图，并将 {photos} 张照片重新添加到相册。',
 };

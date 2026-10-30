@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -84,5 +85,45 @@ void main() {
     await drafts.delete('a');
     expect(await drafts.load('a'), isNull);
     expect(await File('${tmp.path}/collages/a.png').exists(), isFalse);
+  });
+
+  group('trash', () {
+    test('deleted collages land in the trash and can be restored', () async {
+      await drafts.save(_project('a'), thumbnail: Uint8List.fromList([7]));
+      await drafts.delete('a');
+      final trash = await drafts.listTrash();
+      expect(trash.map((e) => e.$1.id), ['a']);
+      expect(await drafts.list(), isEmpty);
+
+      await drafts.restore('a');
+      expect((await drafts.list()).map((p) => p.id), ['a']);
+      expect(await drafts.listTrash(), isEmpty);
+      final back = await drafts.load('a');
+      expect(await File(back!.thumbnailPath!).readAsBytes(), [7]);
+    });
+
+    test('deleteForever and emptyTrash remove entries for good', () async {
+      await drafts.save(_project('a'));
+      await drafts.save(_project('b'));
+      await drafts.delete('a');
+      await drafts.delete('b');
+      await drafts.deleteForever('a');
+      expect((await drafts.listTrash()).map((e) => e.$1.id), ['b']);
+      await drafts.emptyTrash();
+      expect(await drafts.listTrash(), isEmpty);
+    });
+
+    test('entries older than the retention window are purged', () async {
+      await drafts.save(_project('old'));
+      await drafts.delete('old');
+      final f = File('${tmp.path}/collages_trash/old.json');
+      final map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      map['deletedAt'] = DateTime.now()
+          .subtract(const Duration(days: DraftService.trashDays + 1))
+          .millisecondsSinceEpoch;
+      await f.writeAsString(jsonEncode(map));
+      expect(await drafts.listTrash(), isEmpty);
+      expect(await f.exists(), isFalse);
+    });
   });
 }

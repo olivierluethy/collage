@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../models/collage_project.dart';
 import '../models/remote_catalog.dart';
 import '../services/ai_collage_service.dart';
+import '../services/backup_service.dart';
 import '../services/catalog_service.dart';
 import '../services/draft_service.dart';
 import '../services/export_service.dart';
@@ -12,6 +13,7 @@ import '../services/giphy_service.dart';
 import '../services/moments_service.dart';
 import '../services/permission_service.dart';
 import '../services/prefs_service.dart';
+import '../services/user_template_service.dart';
 
 /// Overridden in main() once SharedPreferences has loaded.
 final prefsProvider = Provider<PrefsService>((ref) {
@@ -58,9 +60,11 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
     state = await AsyncValue.guard(() => ref.read(draftServiceProvider).list());
   }
 
+  /// Move a collage to the trash.
   Future<void> remove(String id) async {
     await ref.read(draftServiceProvider).delete(id);
     await reload();
+    ref.invalidate(trashProvider);
   }
 
   Future<void> rename(String id, String title) async {
@@ -70,6 +74,57 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
 
   Future<void> duplicate(String id, {required String title}) async {
     await ref.read(draftServiceProvider).duplicate(id, newId: const Uuid().v4(), title: title);
+    await reload();
+  }
+}
+
+final userTemplateServiceProvider = Provider((_) => const UserTemplateService());
+
+final backupServiceProvider = Provider((ref) => BackupService(ref.read(draftServiceProvider)));
+
+/// The user's own templates (designs saved without photos).
+final userTemplatesProvider =
+    AsyncNotifierProvider<UserTemplatesNotifier, List<CollageProject>>(UserTemplatesNotifier.new);
+
+class UserTemplatesNotifier extends AsyncNotifier<List<CollageProject>> {
+  @override
+  Future<List<CollageProject>> build() => ref.read(userTemplateServiceProvider).list();
+
+  Future<void> reload() async {
+    state = await AsyncValue.guard(() => ref.read(userTemplateServiceProvider).list());
+  }
+
+  Future<void> remove(String id) async {
+    await ref.read(userTemplateServiceProvider).delete(id);
+    await reload();
+  }
+}
+
+/// Trashed collages with their deletion time, newest first.
+final trashProvider =
+    AsyncNotifierProvider<TrashNotifier, List<(CollageProject, int)>>(TrashNotifier.new);
+
+class TrashNotifier extends AsyncNotifier<List<(CollageProject, int)>> {
+  @override
+  Future<List<(CollageProject, int)>> build() => ref.read(draftServiceProvider).listTrash();
+
+  Future<void> reload() async {
+    state = await AsyncValue.guard(() => ref.read(draftServiceProvider).listTrash());
+  }
+
+  Future<void> restore(String id) async {
+    await ref.read(draftServiceProvider).restore(id);
+    await reload();
+    await ref.read(draftsProvider.notifier).reload();
+  }
+
+  Future<void> deleteForever(String id) async {
+    await ref.read(draftServiceProvider).deleteForever(id);
+    await reload();
+  }
+
+  Future<void> empty() async {
+    await ref.read(draftServiceProvider).emptyTrash();
     await reload();
   }
 }

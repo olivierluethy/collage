@@ -25,8 +25,8 @@ const Map<String, String> hi = {
   'aiAutoCollage': 'AI ऑटो-कोलाज',
   'noCollagesTitle': 'अभी कोई कोलाज नहीं',
   'noCollagesMessage': 'अपना पहला कोलाज बनाएँ — फ़ोटो चुनें, लेआउट चुनें, और तय करें कि हर फ़ोटो कहाँ जाएगी।',
-  'deleteCollageTitle': 'यह कोलाज हटाएँ?',
-  'deleteCollageMessage': 'इससे यह "मेरे कोलाज" से हट जाएगा। आपकी गैलरी में पहले से सहेजी गई फ़ोटो पर असर नहीं पड़ेगा।',
+  'deleteCollageTitle': 'यह कोलाज ट्रैश में ले जाएँ?',
+  'deleteCollageMessage': 'आप इसे 30 दिनों तक ट्रैश से वापस ला सकते हैं। आपकी गैलरी में पहले से सहेजी गई फ़ोटो पर असर नहीं पड़ेगा।',
 
   // Discover
   'discoverTitle': 'अपने पल खोजें',
@@ -40,7 +40,7 @@ const Map<String, String> hi = {
 
   // Permission
   'permissionTitle': 'Collage को अपनी फ़ोटो देखने दें',
-  'permissionBody': 'कोलाज बनाने के लिए Collage को आपकी फ़ोटो लाइब्रेरी खोलनी होती है ताकि आप मनचाही तस्वीरें चुन सकें। तैयार कोलाज को गैलरी में सहेजने के लिए भी अनुमति चाहिए।\n\nफ़ोटो एक्सेस देने से Collage यह भी पढ़ सकता है कि आपकी फ़ोटो कब और कहाँ ली गईं, जिससे यह "आप 12 जून को रोम में थे" जैसे तैयार कोलाज सुझा सके।\n\nआपकी फ़ोटो आपके डिवाइस पर ही रहती हैं। कुछ भी अपलोड नहीं होता।',
+  'permissionBody': 'कोलाज बनाने के लिए Collage को आपकी फ़ोटो लाइब्रेरी खोलनी होती है ताकि आप मनचाही तस्वीरें चुन सकें। तैयार कोलाज को गैलरी में सहेजने के लिए भी अनुमति चाहिए।\n\nफ़ोटो एक्सेस देने से Collage यह भी पढ़ सकता है कि आपकी फ़ोटो कब और कहाँ ली गईं, जिससे यह "आप 12 जून को रोम में थे" जैसे तैयार कोलाज सुझा सके।\n\nआपकी फ़ोटो आपके डिवाइस पर ही रहती हैं। वे कहीं भी तभी भेजी जाती हैं जब आप खुद कोई AI सुझाव शुरू करते हैं।',
   'permissionBlockedSnack': 'फ़ोटो एक्सेस के बिना Collage आगे नहीं बढ़ सकता। कृपया "एक्सेस दें" पर टैप करें और अनुमति चुनें।',
   'permissionOffSnack': 'फ़ोटो एक्सेस बंद है। सेटिंग्स खोलें, Collage के लिए फ़ोटो चालू करें, और वापस आएँ।',
   'openSettings': 'सेटिंग्स खोलें',
@@ -172,6 +172,7 @@ const Map<String, String> hi = {
 
   // Filter presets
   'filterOriginal': 'ओरिजिनल',
+  'filterAuto': 'ऑटो',
   'filterMono': 'मोनो',
   'filterSepia': 'सीपिया',
   'filterVintage': 'विंटेज',
@@ -256,7 +257,7 @@ const Map<String, String> hi = {
   'styleAesthetic': 'एस्थेटिक',
 
   // v1.3 editor additions
-  'undo': 'पूर्ववत',
+  'undo': 'पूर्ववत करें',
   'redo': 'फिर करें',
   'chipRotate': 'घुमाएँ',
   'ctxDuplicate': 'डुप्लिकेट',
@@ -296,4 +297,52 @@ const Map<String, String> hi = {
   'renameCollage': 'नाम बदलें',
   'duplicateCollage': 'डुप्लिकेट',
   'copyOfTitle': '{title} (कॉपी)',
+
+  // v1.4 additions
+  'chipStyle': 'शैली',
+  'vignette': 'विनेट',
+  'sharpen': 'तीक्ष्णता',
+  'blur': 'ब्लर',
+  'textCurve': 'वक्र',
+  'textGradient': 'ग्रेडिएंट',
+  'photoFrame': 'फ़्रेम',
+  'frameColour': 'फ़्रेम रंग',
+  'photoShadow': 'छाया',
+  'panelPhotoStyle': 'फ़ोटो शैली',
+  'panelDraw': 'ड्रॉ',
+  'toolDraw': 'ड्रॉ',
+  'drawHint': 'उँगली से कोलाज पर ड्रॉ करें। इसे एक ऐसे एलिमेंट के रूप में रखने के लिए जिसे आप खिसका और रीसाइज़ कर सकें, "हो गया" पर टैप करें।',
+  'brushSize': 'ब्रश का आकार',
+  'undoStroke': 'स्ट्रोक पूर्ववत करें',
+  'layerDrawing': 'ड्रॉइंग',
+  'saveAsTemplate': 'टेम्पलेट के रूप में सहेजें',
+  'templateName': 'टेम्पलेट का नाम',
+  'templateSaved': 'मेरे टेम्पलेट में सहेजा गया।',
+  'myTemplates': 'मेरे टेम्पलेट',
+  'deleteTemplateTitle': 'यह टेम्पलेट हटाएँ?',
+  'exportGifHint': 'एनिमेटेड, GIF स्टिकर चलते रहते हैं। अधिकतम 720 px, कम रंग।',
+  'carouselSave': '{count} स्लाइड सहेजें',
+  'carouselShare': 'स्लाइड साझा करें',
+  'carouselSaved': '{count} स्लाइड आपकी गैलरी में सहेजी गईं।',
+
+  // Trash
+  'trashTitle': 'ट्रैश',
+  'trashEmptyTitle': 'ट्रैश खाली है',
+  'trashEmptyMessage': 'हटाए गए कोलाज हमेशा के लिए हटाए जाने से पहले {days} दिन तक यहाँ रहते हैं।',
+  'trashDaysLeft': '{days} दिन बाकी',
+  'restore': 'वापस लाएँ',
+  'deleteForever': 'हमेशा के लिए हटाएँ',
+  'emptyTrash': 'खाली करें',
+  'emptyTrashTitle': 'ट्रैश खाली करें?',
+  'emptyTrashMessage': 'ट्रैश के सभी कोलाज हमेशा के लिए हटा दिए जाएँगे। इसे पूर्ववत नहीं किया जा सकता।',
+
+  // Backup
+  'backupCreate': 'कोलाज का बैकअप लें',
+  'backupRestore': 'बैकअप से वापस लाएँ',
+  'backupCreating': 'बैकअप बनाया जा रहा है…',
+  'backupRestoring': 'वापस लाया जा रहा है…',
+  'backupShareText': 'Collage बैकअप',
+  'backupFailed': 'कुछ गलत हो गया। कृपया फिर कोशिश करें।',
+  'backupInvalid': 'यह फ़ाइल Collage बैकअप नहीं है।',
+  'backupRestored': '{count} कोलाज वापस लाए गए, {photos} फ़ोटो आपकी गैलरी में फिर से जोड़ी गईं।',
 };

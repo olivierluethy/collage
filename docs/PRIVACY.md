@@ -16,8 +16,14 @@ device, and why.
 - **Saving to your gallery**, so finished collages can be stored as images.
 
 Collages you save in "My Collages" are stored in the app's private storage on
-your device. Uninstalling the app deletes them. Images you saved to your
-gallery stay there.
+your device. Deleted collages stay in the app's trash for 30 days. Uninstalling
+the app deletes all of them. Images you saved to your gallery stay there.
+
+**Backups.** If you create a backup, the app writes one .zip file with your
+collages and the photos they use, and hands it to the Android share sheet.
+Where it goes (Google Drive, email, a computer, …) is your choice; the app
+itself does not upload it anywhere. Restoring a backup may add its photos back
+to your gallery.
 
 ## What can leave your device
 
