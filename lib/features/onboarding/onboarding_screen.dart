@@ -39,7 +39,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _Page(
       icon: Icons.auto_awesome_rounded,
       title: 'obTitle3',
-      // Temporarily hidden: "GIFs" removed while Giphy search is disabled.
+      // No GIF mention: GIF search only exists in builds with a Giphy key.
       body: 'obBody3',
     ),
   ];

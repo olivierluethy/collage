@@ -681,6 +681,13 @@ class _TextPanelState extends ConsumerState<TextPanel> {
         Row(
           children: [
             IconButton(isSelected: e?.bold ?? false, onPressed: () => _mut((x) => x.bold = !x.bold), icon: const Icon(Icons.format_bold)),
+            IconButton(isSelected: e?.italic ?? false, onPressed: () => _mut((x) => x.italic = !x.italic), icon: const Icon(Icons.format_italic)),
+            IconButton(
+              isSelected: e?.shadow ?? false,
+              tooltip: context.l10n.t('textShadow'),
+              onPressed: () => _mut((x) => x.shadow = !x.shadow),
+              icon: const Icon(Icons.blur_on_rounded),
+            ),
             IconButton(isSelected: e?.align == TextAlignH.left, onPressed: () => _mut((x) => x.align = TextAlignH.left), icon: const Icon(Icons.format_align_left)),
             IconButton(isSelected: e?.align == TextAlignH.center, onPressed: () => _mut((x) => x.align = TextAlignH.center), icon: const Icon(Icons.format_align_center)),
             IconButton(isSelected: e?.align == TextAlignH.right, onPressed: () => _mut((x) => x.align = TextAlignH.right), icon: const Icon(Icons.format_align_right)),
@@ -709,7 +716,155 @@ class _TextPanelState extends ConsumerState<TextPanel> {
         ),
         const SizedBox(height: Space.sm),
         SwatchRow(colors: Palette.swatches, selected: e?.color ?? Palette.swatches[0], onPick: (col) => _mut((x) => x.color = col)),
+        LabeledSlider(
+          label: context.l10n.t('letterSpacing'),
+          value: e?.letterSpacing ?? 0,
+          min: -2,
+          max: 20,
+          onChanged: (v) => _mut((x) => x.letterSpacing = v),
+        ),
+        LabeledSlider(
+          label: context.l10n.t('textOutline'),
+          value: e?.outlineWidth ?? 0,
+          min: 0,
+          max: 12,
+          onChanged: (v) => _mut((x) {
+            x.outlineWidth = v;
+            x.outline ??= const Color(0xFF131110);
+          }),
+        ),
+        SectionHeader(context.l10n.t('outlineColour')),
+        SwatchRow(
+          colors: Palette.swatches,
+          selected: e?.outline ?? const Color(0xFF131110),
+          onPick: (col) => _mut((x) {
+            x.outline = col;
+            if (x.outlineWidth == 0) x.outlineWidth = 3;
+          }),
+        ),
+        const SizedBox(height: Space.md),
       ],
+    );
+  }
+}
+
+/// Every free element, front-most first. Drag to restack, tap to select.
+class LayersPanel extends StatelessWidget {
+  const LayersPanel({super.key, required this.c});
+  final EditorController c;
+
+  String _label(BuildContext context, CanvasElement e) => switch (e) {
+        TextElement t => t.text.trim().isEmpty ? context.l10n.t('layerText') : t.text.trim(),
+        StickerElement _ => context.l10n.t('layerSticker'),
+        ShapeElement _ => context.l10n.t('layerShape'),
+        EmojiElement em => em.emoji,
+        GifElement _ => context.l10n.t('layerGif'),
+        ImageElement _ => context.l10n.t('layerPhoto'),
+      };
+
+  IconData _icon(CanvasElement e) => switch (e) {
+        TextElement _ => Icons.title_rounded,
+        StickerElement _ => Icons.emoji_emotions_outlined,
+        ShapeElement _ => Icons.category_outlined,
+        EmojiElement _ => Icons.tag_faces_rounded,
+        GifElement _ => Icons.gif_box_outlined,
+        ImageElement _ => Icons.photo_outlined,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) {
+        final layers = c.layers;
+        if (layers.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(Space.lg),
+              child: Text(context.l10n.t('layersEmpty'), style: context.text.bodyMd, textAlign: TextAlign.center),
+            ),
+          );
+        }
+        return ReorderableListView.builder(
+          buildDefaultDragHandles: false,
+          padding: const EdgeInsets.symmetric(vertical: Space.xs),
+          itemCount: layers.length,
+          onReorder: c.reorderLayer,
+          itemBuilder: (context, i) {
+            final e = layers[i];
+            final sel = c.selectedElementId == e.id;
+            return ListTile(
+              key: ValueKey(e.id),
+              dense: true,
+              selected: sel,
+              selectedColor: context.colors.amber,
+              leading: Icon(_icon(e)),
+              title: Text(_label(context, e), maxLines: 1, overflow: TextOverflow.ellipsis),
+              onTap: () => c.selectElement(e.id),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: context.l10n.t('ctxDuplicate'),
+                    icon: const Icon(Icons.copy_rounded, size: 20),
+                    onPressed: () => c.duplicateElement(e.id),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.t('ctxDelete'),
+                    icon: Icon(Icons.delete_outline_rounded, size: 20, color: context.colors.danger),
+                    onPressed: () => c.deleteElement(e.id),
+                  ),
+                  ReorderableDragStartListener(
+                    index: i,
+                    child: const Padding(
+                      padding: EdgeInsets.all(Space.sm),
+                      child: Icon(Icons.drag_handle_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Trim a free photo from each edge, live.
+class CropPanel extends StatelessWidget {
+  const CropPanel({super.key, required this.c, required this.elementId});
+  final EditorController c;
+  final String elementId;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) {
+        ImageElement? im;
+        for (final e in c.project.elements) {
+          if (e.id == elementId && e is ImageElement) im = e;
+        }
+        if (im == null) return const SizedBox.shrink();
+        const max = ImageElement.maxCrop * 100;
+        return ListView(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          children: [
+            LabeledSlider(label: context.l10n.t('cropLeft'), value: im.cropL * 100, min: 0, max: max, suffix: '%', onChanged: (v) => c.setCrop(elementId, l: v / 100)),
+            LabeledSlider(label: context.l10n.t('cropRight'), value: im.cropR * 100, min: 0, max: max, suffix: '%', onChanged: (v) => c.setCrop(elementId, r: v / 100)),
+            LabeledSlider(label: context.l10n.t('cropTop'), value: im.cropT * 100, min: 0, max: max, suffix: '%', onChanged: (v) => c.setCrop(elementId, t: v / 100)),
+            LabeledSlider(label: context.l10n.t('cropBottom'), value: im.cropB * 100, min: 0, max: max, suffix: '%', onChanged: (v) => c.setCrop(elementId, b: v / 100)),
+            Center(
+              child: TextButton.icon(
+                onPressed: im.isCropped ? () => c.resetCrop(elementId) : null,
+                icon: const Icon(Icons.restart_alt_rounded),
+                label: Text(context.l10n.t('reset')),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -740,9 +895,9 @@ class _GiphyPanelState extends State<GiphyPanel> {
       final r = q.isEmpty ? await widget.giphy.trending() : await widget.giphy.search(q);
       if (mounted) setState(() { _items = r; _loading = false; _error = null; });
     } on GiphyUnavailable {
-      if (mounted) setState(() { _loading = false; _error = 'GIF search needs a Giphy API key (see the README). Everything else works without it.'; });
+      if (mounted) setState(() { _loading = false; _error = context.l10n.t('gifNeedsKey'); });
     } catch (_) {
-      if (mounted) setState(() { _loading = false; _error = 'Could not load GIFs. Check your connection.'; });
+      if (mounted) setState(() { _loading = false; _error = context.l10n.t('gifLoadFailed'); });
     }
   }
 

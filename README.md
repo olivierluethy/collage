@@ -18,18 +18,21 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 ## Features
 
 - Manual slot assignment with drag-to-swap between slots
-- Frame each photo in its slot: drag to reposition, pinch to zoom, double-tap to recentre
+- Frame each photo in its slot: drag to reposition, pinch to zoom, twist or tap Rotate to tilt, double-tap to recentre
+- Undo and redo for every edit
 - Curated and custom layout templates, each labelled with its aspect-ratio numbers
 - 1,000+ ready-made templates, filtered by photo count and style — drop in your photos and post
-- Freeform canvas: move, scale, and rotate every element
+- Freeform canvas: move, scale, and rotate every element, with snap-to-centre alignment guides
+- Layers panel: restack, select, duplicate or delete any element
+- Crop free-floating photos
 - Stickers across 9 categories, plus optional stickers from your own remote catalog
-- Shapes, text, and emoji
+- Shapes, text (with outline, shadow and letter spacing), and emoji
 - Optional extra fonts from your own remote catalog (see [docs/CATALOGS.md](docs/CATALOGS.md))
-<!-- Temporarily hidden: Giphy GIF search -->
+- Optional Giphy GIF search (shown only in builds with a Giphy key)
 - Backgrounds: solid, gradient, pattern, or image
 - Live border and spacing controls
-- High-resolution PNG export straight to your gallery
-- Re-editable saved collages in "My Collages"
+- Export as PNG or JPG in three sizes (1080, 2048 or 4096 px), save to your gallery or share
+- Re-editable saved collages in "My Collages" — rename, duplicate or delete with a long-press
 - AI auto-collage suggestions
 - First-run onboarding and coach-marks to get you started
 - Light and dark themes
@@ -43,10 +46,9 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 3. When prompted, allow "Install unknown apps" for the browser or file manager you used to download it.
 4. Finish the install, then open Collage.
 
-<!-- Temporarily hidden: Giphy GIF search is disabled in the current build.
 ## Giphy GIF search (optional)
 
-GIF search is powered by the Giphy API. Without a key, the rest of the app works normally and the GIF tab simply shows a friendly message.
+GIF search is powered by the Giphy API. Without a key the GIF tool is simply not shown and the rest of the app works normally.
 
 To enable it:
 
@@ -60,23 +62,36 @@ To enable it:
    For release builds, set the `GIPHY_API_KEY` GitHub secret instead.
 
 Never commit a real key to the repository.
--->
 
 ## AI auto-collage (optional)
 
-The AI suggestion feature needs an API key supplied via a dart-define:
+The AI suggestion feature talks to Claude. For release builds, run a small
+proxy that holds your Anthropic API key and point the app at it — a key
+compiled into an APK can be extracted by anyone:
+
+```
+flutter build apk --release --dart-define=AI_PROXY_URL=https://your.site/collage-ai
+```
+
+For release builds set the `AI_PROXY_URL` GitHub secret. The proxy contract and
+a minimal example are in [docs/AI_PROXY.md](docs/AI_PROXY.md).
+
+For local development only, you can call the API directly instead:
 
 ```
 flutter run --dart-define=AI_API_KEY=your_key
 ```
 
-For release builds, set the `AI_API_KEY` GitHub secret. Without a key, the feature shows a clear message and everything else — including making collages by hand — works fully.
+Without either, the feature shows a clear message and everything else —
+including making collages by hand — works fully.
 
 ## Information screen (About, legal, language, theme)
 
 The ⓘ button on the home screen opens an **Information** screen with About, Privacy Policy, Terms of Service, language and theme (light/dark/system). The app ships with 15 languages (English, 中文, हिन्दी, Español, العربية, বাংলা, Français, Русский, Português, Bahasa Indonesia, Deutsch, 日本語, Türkçe, Italiano, 한국어).
 
-Privacy Policy and Terms of Service open in the device browser. Point them at your real pages with dart-defines (the defaults are placeholders):
+Privacy Policy and Terms of Service open in the device browser. By default they
+point at [docs/PRIVACY.md](docs/PRIVACY.md) and [docs/TERMS.md](docs/TERMS.md) in
+this repository. To use your own pages instead:
 
 ```
 flutter run --dart-define=PRIVACY_POLICY_URL=https://your.site/privacy \
@@ -122,8 +137,13 @@ flutter pub get
 flutter build apk --release
 ```
 
-The `--dart-define=AI_API_KEY=...` flag is optional; add it if you want AI suggestions enabled in your build.
-<!-- Temporarily hidden: The `--dart-define=GIPHY_API_KEY=...` and `--dart-define=AI_API_KEY=...` flags are optional; add them if you want GIF search and AI suggestions enabled in your build. -->
+The `--dart-define=GIPHY_API_KEY=...` and `--dart-define=AI_PROXY_URL=...` flags are optional; add them if you want GIF search and AI suggestions enabled in your build.
+
+Release builds are signed with the keystore stored in the `ANDROID_KEYSTORE_*`
+GitHub secrets. A local `flutter build apk --release` without
+`android/key.properties` is signed with the debug key instead, so it cannot be
+installed over a release build (or the other way round) without uninstalling
+first.
 
 ## Releasing
 

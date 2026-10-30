@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../data/fonts.dart';
@@ -62,6 +64,19 @@ class CollageCanvas extends StatelessWidget {
                       element: e,
                       canvas: size,
                       interactive: interactive,
+                    ),
+                  // Alignment guides while a dragged element is snapped.
+                  if (interactive && (c.guideX != null || c.guideY != null))
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _GuidePainter(
+                            x: c.guideX,
+                            y: c.guideY,
+                            color: context.colors.amber,
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -187,6 +202,55 @@ Widget filteredPhoto(
   return photo;
 }
 
+/// Tilts a cover-fitted slot photo by [rotation] and enlarges it just enough
+/// that the rotated photo still covers every corner of the cell. The wrapper is
+/// always built (even at 0°) so the photo's ancestors never change.
+class _RotatedCover extends StatelessWidget {
+  const _RotatedCover({required this.rotation, required this.child});
+  final double rotation;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        var s = 1.0;
+        if (rotation != 0 && w > 0 && h > 0 && w.isFinite && h.isFinite) {
+          final c = math.cos(rotation).abs();
+          final sn = math.sin(rotation).abs();
+          s = math.max((w * c + h * sn) / w, (w * sn + h * c) / h);
+        }
+        return Transform.rotate(
+          angle: rotation,
+          child: Transform.scale(scale: s, child: child),
+        );
+      },
+    );
+  }
+}
+
+/// Thin guide lines at the canvas fractions an element is snapped to.
+class _GuidePainter extends CustomPainter {
+  _GuidePainter({required this.x, required this.y, required this.color});
+  final double? x;
+  final double? y;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    if (x != null) canvas.drawLine(Offset(x! * size.width, 0), Offset(x! * size.width, size.height), p);
+    if (y != null) canvas.drawLine(Offset(0, y! * size.height), Offset(size.width, y! * size.height), p);
+  }
+
+  @override
+  bool shouldRepaint(_GuidePainter old) => old.x != x || old.y != y || old.color != color;
+}
+
 /// Touch framing for one slot photo: tap selects, drag repositions, pinch
 /// zooms, double-tap recentres. It only mutates [SlotFill]'s pan/zoom, which the
 /// export renders through the exact same widget — so what you frame is what gets
@@ -217,6 +281,7 @@ class _SlotFrameGestureState extends State<_SlotFrameGesture> {
   double _baseZoom = 1;
   double _baseOffX = 0;
   double _baseOffY = 0;
+  double _baseRotation = 0;
   Offset _pan = Offset.zero; // accumulated finger travel, in cell pixels
 
   void _onStart(ScaleStartDetails d) {
@@ -225,6 +290,7 @@ class _SlotFrameGestureState extends State<_SlotFrameGesture> {
     _baseZoom = f.zoom;
     _baseOffX = f.offsetX;
     _baseOffY = f.offsetY;
+    _baseRotation = f.rotation;
     _pan = Offset.zero;
   }
 
@@ -232,7 +298,15 @@ class _SlotFrameGestureState extends State<_SlotFrameGesture> {
     final c = widget.controller;
     final f = c.fillFor(widget.slotId);
     if (f == null || cell.isEmpty) return;
-    _pan += d.focalPointDelta;
+    // Two-finger twist tilts the photo inside its cell.
+    if (d.pointerCount >= 2) c.setSlotRotation(widget.slotId, _baseRotation + d.rotation);
+    // Pan in the photo's own (rotated) frame so it stays under the finger.
+    final r = -f.rotation;
+    final delta = d.focalPointDelta;
+    _pan += Offset(
+      delta.dx * math.cos(r) - delta.dy * math.sin(r),
+      delta.dx * math.sin(r) + delta.dy * math.cos(r),
+    );
     final zoom = (_baseZoom * d.scale).clamp(1.0, 4.0);
     final (ow, oh) = _coverOverflow(cell, f.imgAspect);
     // Map finger travel onto the photo's available slack: dragging keeps the
@@ -308,11 +382,14 @@ class _SlotView extends StatelessWidget {
     Widget content = fill != null
         ? ClipRRect(
             borderRadius: br,
-            child: Transform.scale(
-              scale: fill.zoom,
-              child: filteredPhoto(
-                fill,
-                alignment: Alignment(fill.offsetX, fill.offsetY),
+            child: _RotatedCover(
+              rotation: fill.rotation,
+              child: Transform.scale(
+                scale: fill.zoom,
+                child: filteredPhoto(
+                  fill,
+                  alignment: Alignment(fill.offsetX, fill.offsetY),
+                ),
               ),
             ),
           )
@@ -438,6 +515,7 @@ class _SlotView extends StatelessWidget {
                 onSwap: () => controller.startSwapMode(slotId),
                 onFlipH: () => controller.flipSlot(slotId, horizontal: true),
                 onFlipV: () => controller.flipSlot(slotId, vertical: true),
+                onRotate: () => controller.rotateSlotQuarter(slotId),
                 onClear: () => controller.clearSlot(slotId),
               ),
             ),
@@ -463,6 +541,7 @@ class _SlotChips extends StatelessWidget {
     required this.onSwap,
     required this.onFlipH,
     required this.onFlipV,
+    required this.onRotate,
     required this.onClear,
   });
   final bool hasPhoto;
@@ -470,6 +549,7 @@ class _SlotChips extends StatelessWidget {
   final VoidCallback onSwap;
   final VoidCallback onFlipH;
   final VoidCallback onFlipV;
+  final VoidCallback onRotate;
   final VoidCallback onClear;
 
   @override
@@ -493,6 +573,8 @@ class _SlotChips extends StatelessWidget {
             _Chip(icon: Icons.flip_rounded, label: context.l10n.t('chipFlipH'), onTap: onFlipH),
           if (hasPhoto)
             _Chip(icon: Icons.flip_rounded, label: context.l10n.t('chipFlipV'), onTap: onFlipV, iconTurns: 1),
+          if (hasPhoto)
+            _Chip(icon: Icons.rotate_90_degrees_cw_rounded, label: context.l10n.t('chipRotate'), onTap: onRotate),
           if (hasPhoto)
             _Chip(icon: Icons.close_rounded, label: context.l10n.t('chipClear'), onTap: onClear, danger: true),
         ],
@@ -598,9 +680,12 @@ class _PolySlotView extends StatelessWidget {
       );
     }
     return SizedBox.expand(
-      child: Transform.scale(
-        scale: fill.zoom,
-        child: filteredPhoto(fill, alignment: Alignment(fill.offsetX, fill.offsetY)),
+      child: _RotatedCover(
+        rotation: fill.rotation,
+        child: Transform.scale(
+          scale: fill.zoom,
+          child: filteredPhoto(fill, alignment: Alignment(fill.offsetX, fill.offsetY)),
+        ),
       ),
     );
   }
@@ -731,6 +816,7 @@ class _PolySlotView extends StatelessWidget {
                   onSwap: () => controller.startSwapMode(slotId),
                   onFlipH: () => controller.flipSlot(slotId, horizontal: true),
                   onFlipV: () => controller.flipSlot(slotId, vertical: true),
+                  onRotate: () => controller.rotateSlotQuarter(slotId),
                   onClear: () => controller.clearSlot(slotId),
                 ),
               ),
@@ -767,6 +853,9 @@ class _ElementViewState extends State<_ElementView> {
   final _boxKey = GlobalKey();
   double _baseScale = 1;
   double _baseRotation = 0;
+  // Unsnapped finger position, so a snapped element can be pulled free again.
+  double _rawCx = 0;
+  double _rawCy = 0;
   double _handleBaseScale = 1;
   double _handleBaseRotation = 0;
   double _handleBaseAngle = 0;
@@ -798,20 +887,26 @@ class _ElementViewState extends State<_ElementView> {
           ? (_) {
               _baseScale = e.scale;
               _baseRotation = e.rotation;
+              _rawCx = e.cx;
+              _rawCy = e.cy;
               c.selectElement(e.id);
             }
           : null,
       onScaleUpdate: widget.interactive
           ? (d) {
+              _rawCx += d.focalPointDelta.dx / W;
+              _rawCy += d.focalPointDelta.dy / H;
+              final (cx, cy) = c.snapPosition(e.id, _rawCx, _rawCy);
               c.updateTransform(
                 e.id,
-                cx: e.cx + d.focalPointDelta.dx / W,
-                cy: e.cy + d.focalPointDelta.dy / H,
+                cx: cx,
+                cy: cy,
                 scale: d.pointerCount >= 2 ? _baseScale * d.scale : null,
                 rotation: d.pointerCount >= 2 ? _baseRotation + d.rotation : null,
               );
             }
           : null,
+      onScaleEnd: widget.interactive ? (_) => c.clearGuides() : null,
       child: child,
     );
 
@@ -921,12 +1016,28 @@ class _ElementViewState extends State<_ElementView> {
         );
       case ImageElement im:
         final w = im.naturalWidthFrac * canvasW * im.scale;
+        // The full photo is laid out larger than the box and shifted so only
+        // the cropped window shows. Built the same way when uncropped so the
+        // photo keeps its ancestors when a crop is added.
+        final fw = w / (1 - im.cropL - im.cropR);
+        final fh = fw / im.imgAspect;
         Widget photo = SizedBox(
           width: w,
           height: w / im.aspectRatio,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: PhotoImage(assetId: im.assetId, full: true, fit: BoxFit.cover),
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned(
+                  left: -im.cropL * fw,
+                  top: -im.cropT * fh,
+                  width: fw,
+                  height: fh,
+                  child: PhotoImage(assetId: im.assetId, full: true, fit: BoxFit.cover),
+                ),
+              ],
+            ),
           ),
         );
         if (im.flipX || im.flipY) {
@@ -939,19 +1050,44 @@ class _ElementViewState extends State<_ElementView> {
         return photo;
       case TextElement t:
         final fs = 0.09 * canvasW * t.scale;
+        final align = switch (t.align) {
+          TextAlignH.left => TextAlign.left,
+          TextAlignH.center => TextAlign.center,
+          TextAlignH.right => TextAlign.right,
+        };
+        final base = AppFonts.style(t.fontKey, fontSize: fs, color: t.color, bold: t.bold, italic: t.italic)
+            .copyWith(letterSpacing: t.letterSpacing / 100 * fs);
+        final fillStyle = t.shadow
+            ? base.copyWith(shadows: [
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  blurRadius: fs * 0.12,
+                  offset: Offset(0, fs * 0.04),
+                ),
+              ])
+            : base;
+        Widget text = Text(t.text, textAlign: align, style: fillStyle);
+        // An outline is a stroked copy of the same text laid under the fill.
+        if (t.outline != null && t.outlineWidth > 0) {
+          final stroke = base.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeJoin = StrokeJoin.round
+              ..strokeWidth = t.outlineWidth / 1000 * canvasW * t.scale * 2
+              ..color = t.outline!,
+          );
+          text = Stack(
+            children: [
+              Text(t.text, textAlign: align, style: stroke),
+              text,
+            ],
+          );
+        }
         return Container(
           constraints: BoxConstraints(maxWidth: canvasW * 0.9),
           color: t.background,
           padding: t.background != null ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4) : null,
-          child: Text(
-            t.text,
-            textAlign: switch (t.align) {
-              TextAlignH.left => TextAlign.left,
-              TextAlignH.center => TextAlign.center,
-              TextAlignH.right => TextAlign.right,
-            },
-            style: AppFonts.style(t.fontKey, fontSize: fs, color: t.color, bold: t.bold, italic: t.italic),
-          ),
+          child: text,
         );
     }
   }

@@ -9,10 +9,14 @@ import '../models/collage_project.dart';
 /// Persists collages to the app's documents directory so they appear in
 /// "My Collages" and can be re-opened and edited later.
 class DraftService {
-  const DraftService();
+  const DraftService({this.baseDir});
+
+  /// Where the `collages/` folder lives. Defaults to the app documents
+  /// directory; tests pass a temporary directory instead.
+  final Future<Directory> Function()? baseDir;
 
   Future<Directory> _dir() async {
-    final base = await getApplicationDocumentsDirectory();
+    final base = await (baseDir ?? getApplicationDocumentsDirectory)();
     final dir = Directory('${base.path}/collages');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
@@ -80,6 +84,35 @@ class DraftService {
     return CollageProject.fromJson(
       jsonDecode(await f.readAsString()) as Map<String, dynamic>,
     );
+  }
+
+  /// Rename a saved collage in place.
+  Future<void> rename(String id, String title) async {
+    final p = await load(id);
+    if (p == null) return;
+    p.title = title;
+    p.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    await save(p);
+  }
+
+  /// Copy a saved collage (JSON and thumbnail) under [newId] and [title].
+  /// Returns the copy, or null if the original is gone.
+  Future<CollageProject?> duplicate(String id, {required String newId, required String title}) async {
+    final f = await _jsonFile(id);
+    if (!await f.exists()) return null;
+    final j = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    j
+      ..['id'] = newId
+      ..['title'] = title
+      ..['createdAt'] = now
+      ..['updatedAt'] = now
+      ..['thumbnailPath'] = null;
+    final copy = CollageProject.fromJson(j);
+    final thumb = await _thumbFile(id);
+    final bytes = await thumb.exists() ? await thumb.readAsBytes() : null;
+    await save(copy, thumbnail: bytes);
+    return copy;
   }
 
   Future<void> delete(String id) async {

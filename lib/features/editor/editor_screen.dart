@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../config.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
+import '../../services/export_service.dart';
 import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
@@ -14,8 +16,9 @@ import '../result/result_screen.dart';
 import 'collage_canvas.dart';
 import 'editor_controller.dart';
 import 'editor_panels.dart';
+import 'export_sheet.dart';
 
-enum _Panel { none, layout, borders, background, filter, stickers, shapes, text, emoji, gif, replace }
+enum _Panel { none, layout, borders, background, filter, stickers, shapes, text, emoji, gif, layers, crop, replace }
 
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key, required this.project, required this.pool});
@@ -38,6 +41,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   _Panel _panel = _Panel.none;
   String? _editingTextId;
   String? _replaceSlotId;
+  String? _cropElementId;
 
   @override
   void initState() {
@@ -53,9 +57,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       duration: const Duration(seconds: 7),
-      content: const Text('Tap a photo for Replace, Swap or Clear. Drag it to '
-          'reposition, pinch to zoom, double-tap to recentre. Or drag one photo '
-          'onto another to swap them.'),
+      content: Text(context.l10n.t('coachEditorSlots')),
       action: SnackBarAction(label: context.l10n.t('gotIt'), onPressed: () {}),
     ));
   }
@@ -131,9 +133,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (!freeform) _c.autofill();
   }
 
+  ExportOptions _lastExportOptions() {
+    final prefs = ref.read(prefsProvider);
+    return ExportOptions(
+      format: ExportFormat.values.asNameMap()[prefs.exportFormatName] ?? ExportFormat.png,
+      size: ExportSize.values.asNameMap()[prefs.exportSizeName] ?? ExportSize.standard,
+    );
+  }
+
   Future<void> _save() async {
     _closePanel();
     _c.clearSelection();
+    final options = await showExportSheet(context, _lastExportOptions());
+    if (options == null || !mounted) return;
+    await ref.read(prefsProvider).setExportChoice(format: options.format.name, size: options.size.name);
+    if (!mounted) return;
     // Render a clean, non-interactive frame so no edit badges, action chips or
     // selection handles are captured into the exported PNG.
     setState(() {
@@ -143,9 +157,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     try {
       await Future.delayed(Motion.fast);
       final export = ref.read(exportServiceProvider);
-      final png = await export.capture(_boundaryKey, targetWidth: 2048);
+      final result = await export.captureAs(_boundaryKey, options);
       final thumb = await export.capture(_boundaryKey, targetWidth: 500);
-      if (png == null) {
+      if (result == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(context.l10n.t('couldNotRender'))));
@@ -155,7 +169,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await ref.read(draftServiceProvider).save(_c.project, thumbnail: thumb);
       await ref.read(draftsProvider.notifier).reload();
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, png: png)));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, result: result)));
     } finally {
       if (mounted) {
         setState(() {
@@ -174,6 +188,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         leading: const BackButton(),
         title: Text(context.l10n.t('editorTitle')),
         actions: [
+          AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: context.l10n.t('undo'),
+                  onPressed: _c.canUndo && !_saving ? _undo : null,
+                  icon: const Icon(Icons.undo_rounded),
+                ),
+                IconButton(
+                  tooltip: context.l10n.t('redo'),
+                  onPressed: _c.canRedo && !_saving ? _redo : null,
+                  icon: const Icon(Icons.redo_rounded),
+                ),
+              ],
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: Space.sm),
             child: FilledButton.icon(
@@ -207,14 +239,36 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ),
             ),
           ),
-          _ContextBar(controller: _c, onEditText: (e) {
-            setState(() { _editingTextId = e.id; _panel = _Panel.text; });
-          }),
+          _ContextBar(
+            controller: _c,
+            onEditText: (e) {
+              setState(() { _editingTextId = e.id; _panel = _Panel.text; });
+            },
+            onCrop: (e) {
+              setState(() {
+                _cleanupPanel();
+                _cropElementId = e.id;
+                _panel = _Panel.crop;
+              });
+            },
+          ),
           if (_panel != _Panel.none) _panelHost(context),
           _ToolRail(active: _panel, onTool: _onTool, onPhotos: _addPhotos),
         ],
       ),
     );
+  }
+
+  /// Undo/redo close any open panel first: a panel may hold state (the text
+  /// being typed, a replace preview) that the restored snapshot doesn't have.
+  void _undo() {
+    _closePanel();
+    _c.undo();
+  }
+
+  void _redo() {
+    _closePanel();
+    _c.redo();
   }
 
   void _onTool(_Panel p) {
@@ -231,10 +285,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _Panel.filter => (context.l10n.t('panelFilter'), FilterPanel(c: _c), 360.0),
       _Panel.stickers => (context.l10n.t('panelStickers'), StickersPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
       _Panel.shapes => (context.l10n.t('panelShapes'), ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
-      _Panel.text => (context.l10n.t('panelText'), TextPanel(c: _c, elementId: _editingTextId ?? ''), 260.0),
+      _Panel.text => (context.l10n.t('panelText'), TextPanel(c: _c, elementId: _editingTextId ?? ''), (h * 0.46).clamp(340, 460)),
       _Panel.emoji => (context.l10n.t('panelEmoji'), EmojiPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
-      // Temporarily hidden: unreachable while the GIF tool-rail entry is hidden.
+      // Only reachable when a Giphy key is configured (see _ToolRail).
       _Panel.gif => (context.l10n.t('panelGif'), GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
+      _Panel.layers => (context.l10n.t('panelLayers'), LayersPanel(c: _c), (h * 0.40).clamp(280, 420)),
+      _Panel.crop => (context.l10n.t('panelCrop'), CropPanel(c: _c, elementId: _cropElementId ?? ''), 290.0),
       _Panel.replace => (context.l10n.t('panelChoosePhoto'), ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.none => ('', const SizedBox.shrink(), 0.0),
     };
@@ -272,9 +328,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 // ---------------------------------------------------------------------------
 
 class _ContextBar extends StatelessWidget {
-  const _ContextBar({required this.controller, required this.onEditText});
+  const _ContextBar({required this.controller, required this.onEditText, required this.onCrop});
   final EditorController controller;
   final void Function(TextElement e) onEditText;
+  final void Function(ImageElement e) onCrop;
 
   @override
   Widget build(BuildContext context) {
@@ -299,9 +356,11 @@ class _ContextBar extends StatelessWidget {
                     if (el is TextElement)
                       _CtxBtn(icon: Icons.edit_rounded, label: context.l10n.t('ctxEdit'), onTap: () => onEditText(el)),
                     if (el is ImageElement) ...[
+                      _CtxBtn(icon: Icons.crop_rounded, label: context.l10n.t('ctxCrop'), onTap: () => onCrop(el)),
                       _CtxBtn(icon: Icons.flip_rounded, label: context.l10n.t('ctxFlipH'), onTap: () => controller.flipElement(el.id, horizontal: true)),
                       _CtxBtn(icon: Icons.flip_rounded, turns: 1, label: context.l10n.t('ctxFlipV'), onTap: () => controller.flipElement(el.id, vertical: true)),
                     ],
+                    _CtxBtn(icon: Icons.copy_rounded, label: context.l10n.t('ctxDuplicate'), onTap: () => controller.duplicateElement(el.id)),
                     _CtxBtn(icon: Icons.flip_to_front_rounded, label: context.l10n.t('ctxForward'), onTap: () => controller.bringForward(el.id)),
                     _CtxBtn(icon: Icons.flip_to_back_rounded, label: context.l10n.t('ctxBack'), onTap: () => controller.sendBackward(el.id)),
                     _CtxBtn(icon: Icons.restart_alt_rounded, label: context.l10n.t('ctxStraighten'), onTap: () => controller.updateTransform(el.id, rotation: 0)),
@@ -370,9 +429,9 @@ class _ToolRail extends StatelessWidget {
       (_Panel.shapes, Icons.category_outlined, context.l10n.t('toolShapes')),
       (_Panel.text, Icons.title_rounded, context.l10n.t('toolText')),
       (_Panel.emoji, Icons.tag_faces_rounded, context.l10n.t('toolEmoji')),
-      // Temporarily hidden: GIF tab (Giphy search disabled). Restore by
-      // uncommenting the entry below.
-      // (_Panel.gif, Icons.gif_box_outlined, context.l10n.t('toolGif')),
+      // GIF search needs a Giphy key; without one the tool is simply absent.
+      if (Config.hasGiphy) (_Panel.gif, Icons.gif_box_outlined, context.l10n.t('toolGif')),
+      (_Panel.layers, Icons.layers_outlined, context.l10n.t('toolLayers')),
     ];
     return Container(
       decoration: BoxDecoration(

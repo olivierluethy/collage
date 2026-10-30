@@ -39,9 +39,10 @@ class GalleryService {
     return asset.width / asset.height;
   }
 
-  /// Save exported PNG bytes to the gallery. Returns the created asset, or null
-  /// on failure.
-  Future<AssetEntity?> savePng(Uint8List bytes, {required String filename}) {
+  /// Save exported image bytes (PNG or JPG — the filename's extension tells the
+  /// gallery which) to the gallery. Returns the created asset, or null on
+  /// failure.
+  Future<AssetEntity?> saveImage(Uint8List bytes, {required String filename}) {
     return PhotoManager.editor.saveImage(bytes, filename: filename, title: filename);
   }
 }

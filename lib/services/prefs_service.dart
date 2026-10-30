@@ -14,6 +14,8 @@ class PrefsService {
   static const _kLocale = 'locale';
   static const _kCatalogFonts = 'catalog_fonts_json';
   static const _kCatalogStickers = 'catalog_stickers_json';
+  static const _kExportFormat = 'export_format';
+  static const _kExportSize = 'export_size';
 
   bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
   Future<void> setOnboardingDone() => _prefs.setBool(_kOnboardingDone, true);
@@ -33,6 +35,15 @@ class PrefsService {
     } else {
       await _prefs.setString(_kLocale, code);
     }
+  }
+
+  /// Last export choice ('png' | 'jpg', 'small' | 'standard' | 'large'), so
+  /// the Save sheet opens on what the user picked before.
+  String? get exportFormatName => _prefs.getString(_kExportFormat);
+  String? get exportSizeName => _prefs.getString(_kExportSize);
+  Future<void> setExportChoice({required String format, required String size}) async {
+    await _prefs.setString(_kExportFormat, format);
+    await _prefs.setString(_kExportSize, size);
   }
 
   Future<void> resetGuides() async {

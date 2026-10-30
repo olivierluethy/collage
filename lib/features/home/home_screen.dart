@@ -138,7 +138,7 @@ class _CollageCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () => openCollage(context, ref, project),
-      onLongPress: () => _confirmDelete(context, ref),
+      onLongPress: () => _showActions(context, ref),
       child: Container(
         decoration: BoxDecoration(
           color: context.colors.surface,
@@ -180,6 +180,77 @@ class _CollageCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Long-press menu: rename, duplicate or delete this collage.
+  Future<void> _showActions(BuildContext context, WidgetRef ref) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline_rounded),
+              title: Text(context.l10n.t('renameCollage')),
+              onTap: () => Navigator.pop(sheet, 'rename'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy_rounded),
+              title: Text(context.l10n.t('duplicateCollage')),
+              onTap: () => Navigator.pop(sheet, 'duplicate'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.colors.danger),
+              title: Text(context.l10n.t('delete'), style: TextStyle(color: context.colors.danger)),
+              onTap: () => Navigator.pop(sheet, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case 'rename':
+        await _rename(context, ref);
+      case 'duplicate':
+        await ref.read(draftsProvider.notifier).duplicate(
+              project.id,
+              title: context.l10n.a('copyOfTitle', {'title': project.title}),
+            );
+      case 'delete':
+        await _confirmDelete(context, ref);
+    }
+  }
+
+  Future<void> _rename(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController(text: project.title);
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(context.l10n.t('renameCollage')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 60,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.pop(dialog, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: Text(context.l10n.t('cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, ctrl.text),
+              child: Text(context.l10n.t('save'))),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    final t = title?.trim();
+    if (t == null || t.isEmpty || t == project.title) return;
+    await ref.read(draftsProvider.notifier).rename(project.id, t);
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
