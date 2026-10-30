@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -40,13 +41,30 @@ class CollageBackground extends StatelessWidget {
         if (bg.imageAssetId == null) {
           return ColoredBox(color: context.colors.inkCanvas);
         }
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            PhotoImage(assetId: bg.imageAssetId!, full: true, fit: BoxFit.cover),
-            if (bg.imageDim > 0)
-              ColoredBox(color: Colors.black.withValues(alpha: bg.imageDim)),
-          ],
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Blur scales with the canvas so the export matches the screen.
+            final sigma = bg.imageBlur * constraints.maxWidth / 1000;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRect(
+                  child: ImageFiltered(
+                    // A zero-sigma blur is a no-op, so the wrapper can stay in
+                    // the tree and the photo keeps its decoded frame.
+                    imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal),
+                    child: Transform.scale(
+                      // Overscan a little so blurred edges don't fade to clear.
+                      scale: sigma > 0 ? 1.08 : 1.0,
+                      child: PhotoImage(assetId: bg.imageAssetId!, full: true, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+                if (bg.imageDim > 0)
+                  ColoredBox(color: Colors.black.withValues(alpha: bg.imageDim)),
+              ],
+            );
+          },
         );
     }
   }

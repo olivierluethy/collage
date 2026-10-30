@@ -82,6 +82,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Fragment shaders (photo sharpening).
+  shaders:
+    - shaders/sharpen.frag
+
   assets:
     - assets/icon/
     - assets/stickers/tape/

@@ -11,8 +11,10 @@ import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/collage_background.dart';
+import '../../widgets/drawing_painter.dart';
 import '../../widgets/photo_image.dart';
 import '../../widgets/poly_clipper.dart';
+import '../../widgets/sharpened.dart';
 import '../../widgets/sticker_image.dart';
 import 'editor_controller.dart';
 
@@ -25,6 +27,7 @@ class CollageCanvas extends StatelessWidget {
     required this.controller,
     this.interactive = true,
     this.onRequestReplace,
+    this.onRequestStyle,
   });
 
   final EditorController controller;
@@ -32,6 +35,9 @@ class CollageCanvas extends StatelessWidget {
 
   /// Ask the host to open the replace picker for a slot (with live preview).
   final void Function(String slotId)? onRequestReplace;
+
+  /// Ask the host to open the frame/shadow panel for a slot.
+  final void Function(String slotId)? onRequestStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -78,6 +84,9 @@ class CollageCanvas extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Draw mode: a full-canvas layer that captures strokes.
+                  if (interactive && c.drawing)
+                    Positioned.fill(child: _DrawLayer(controller: c, canvas: size)),
                 ],
               ),
             );
@@ -124,11 +133,13 @@ class CollageCanvas extends StatelessWidget {
           child: _PolySlotView(
             controller: c,
             slotId: slot.id,
+            unit: unit,
             polygon: local,
             thickness: thickness,
             borderColor: c.border.color,
             interactive: interactive,
             onRequestReplace: onRequestReplace,
+            onRequestStyle: onRequestStyle,
           ),
         );
       }
@@ -147,11 +158,13 @@ class CollageCanvas extends StatelessWidget {
         child: _SlotView(
           controller: c,
           slotId: slot.id,
+          unit: unit,
           radius: radius,
           thickness: thickness,
           borderColor: c.border.color,
           interactive: interactive,
           onRequestReplace: onRequestReplace,
+          onRequestStyle: onRequestStyle,
         ),
       );
     }).toList();
@@ -186,11 +199,14 @@ Widget filteredPhoto(
     fit: fit,
     alignment: alignment,
   );
-  if (!fill.filter.isIdentity) {
+  if (!fill.filter.isColorIdentity) {
     photo = ColorFiltered(
       colorFilter: ColorFilter.matrix(fill.filter.matrix()),
       child: photo,
     );
+  }
+  if (fill.filter.sharpen > 0) {
+    photo = Sharpened(amount: fill.filter.sharpen, child: photo);
   }
   if (fill.isFlipped) {
     photo = Transform.scale(
@@ -229,6 +245,77 @@ class _RotatedCover extends StatelessWidget {
       },
     );
   }
+}
+
+/// Captures finger strokes in draw mode and shows them live. Points are kept
+/// as canvas fractions so they map onto any render size.
+class _DrawLayer extends StatelessWidget {
+  const _DrawLayer({required this.controller, required this.canvas});
+  final EditorController controller;
+  final Size canvas;
+
+  Offset _frac(Offset local) => Offset(local.dx / canvas.width, local.dy / canvas.height);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (d) => controller.beginStroke(_frac(d.localPosition)),
+      onPanUpdate: (d) => controller.extendStroke(_frac(d.localPosition)),
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: DrawingPainter(controller.draftStrokes),
+      ),
+    );
+  }
+}
+
+/// The drop shadow under a cell with "shadow" switched on, scaled to the
+/// canvas so the export matches the screen.
+List<BoxShadow> _cellShadow(double unit) => [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.45),
+        blurRadius: 18 * unit,
+        offset: Offset(0, 6 * unit),
+      ),
+    ];
+
+/// Darkened cell edges: a radial gradient from clear to black.
+class _Vignette extends StatelessWidget {
+  const _Vignette({required this.strength});
+  final double strength; // 0..1
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            radius: 0.9,
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.75 * strength)],
+            stops: const [0.5, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shadow under a polygon cell; paints nothing at zero elevation.
+class _PolyShadowPainter extends CustomPainter {
+  _PolyShadowPainter({required this.points, required this.elevation});
+  final List<Offset> points;
+  final double elevation;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (elevation <= 0 || points.length < 3) return;
+    final path = Path()..addPolygon(points, true);
+    canvas.drawShadow(path, Colors.black, elevation, false);
+  }
+
+  @override
+  bool shouldRepaint(_PolyShadowPainter old) => old.elevation != elevation || old.points != points;
 }
 
 /// Thin guide lines at the canvas fractions an element is snapped to.
@@ -355,20 +442,24 @@ class _SlotView extends StatelessWidget {
   const _SlotView({
     required this.controller,
     required this.slotId,
+    required this.unit,
     required this.radius,
     required this.thickness,
     required this.borderColor,
     required this.interactive,
     this.onRequestReplace,
+    this.onRequestStyle,
   });
 
   final EditorController controller;
   final String slotId;
+  final double unit; // canvas pixels per 1/1000 of canvas width
   final double radius;
   final double thickness;
   final Color borderColor;
   final bool interactive;
   final void Function(String slotId)? onRequestReplace;
+  final void Function(String slotId)? onRequestStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -382,15 +473,22 @@ class _SlotView extends StatelessWidget {
     Widget content = fill != null
         ? ClipRRect(
             borderRadius: br,
-            child: _RotatedCover(
-              rotation: fill.rotation,
-              child: Transform.scale(
-                scale: fill.zoom,
-                child: filteredPhoto(
-                  fill,
-                  alignment: Alignment(fill.offsetX, fill.offsetY),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _RotatedCover(
+                  rotation: fill.rotation,
+                  child: Transform.scale(
+                    scale: fill.zoom,
+                    child: filteredPhoto(
+                      fill,
+                      alignment: Alignment(fill.offsetX, fill.offsetY),
+                    ),
+                  ),
                 ),
-              ),
+                // Overlays come after the photo so toggling them never moves it.
+                if (fill.filter.vignette > 0) _Vignette(strength: fill.filter.vignette),
+              ],
             ),
           )
         : DottedSlot(radius: radius);
@@ -400,11 +498,20 @@ class _SlotView extends StatelessWidget {
     // handlers inert and drops the overlay siblings; it must never wrap the
     // photo in a different tree, or the photo widgets would be rebuilt, lose
     // their already-decoded frame, and come out blank in the saved PNG.
+    final frame = (fill?.frameWidth ?? 0) * unit;
     Widget core = Container(
       decoration: BoxDecoration(
         borderRadius: br,
         border: thickness > 0 ? Border.all(color: borderColor, width: thickness) : null,
+        boxShadow: fill != null && fill.shadow ? _cellShadow(unit) : null,
       ),
+      // This photo's own frame, drawn over its edges.
+      foregroundDecoration: frame > 0
+          ? BoxDecoration(
+              borderRadius: br,
+              border: Border.all(color: fill!.frameColor, width: frame),
+            )
+          : null,
       child: content,
     );
 
@@ -516,6 +623,7 @@ class _SlotView extends StatelessWidget {
                 onFlipH: () => controller.flipSlot(slotId, horizontal: true),
                 onFlipV: () => controller.flipSlot(slotId, vertical: true),
                 onRotate: () => controller.rotateSlotQuarter(slotId),
+                onStyle: () => onRequestStyle?.call(slotId),
                 onClear: () => controller.clearSlot(slotId),
               ),
             ),
@@ -542,6 +650,7 @@ class _SlotChips extends StatelessWidget {
     required this.onFlipH,
     required this.onFlipV,
     required this.onRotate,
+    required this.onStyle,
     required this.onClear,
   });
   final bool hasPhoto;
@@ -550,6 +659,7 @@ class _SlotChips extends StatelessWidget {
   final VoidCallback onFlipH;
   final VoidCallback onFlipV;
   final VoidCallback onRotate;
+  final VoidCallback onStyle;
   final VoidCallback onClear;
 
   @override
@@ -575,6 +685,8 @@ class _SlotChips extends StatelessWidget {
             _Chip(icon: Icons.flip_rounded, label: context.l10n.t('chipFlipV'), onTap: onFlipV, iconTurns: 1),
           if (hasPhoto)
             _Chip(icon: Icons.rotate_90_degrees_cw_rounded, label: context.l10n.t('chipRotate'), onTap: onRotate),
+          if (hasPhoto)
+            _Chip(icon: Icons.filter_frames_rounded, label: context.l10n.t('chipStyle'), onTap: onStyle),
           if (hasPhoto)
             _Chip(icon: Icons.close_rounded, label: context.l10n.t('chipClear'), onTap: onClear, danger: true),
         ],
@@ -654,20 +766,24 @@ class _PolySlotView extends StatelessWidget {
   const _PolySlotView({
     required this.controller,
     required this.slotId,
+    required this.unit,
     required this.polygon,
     required this.thickness,
     required this.borderColor,
     required this.interactive,
     this.onRequestReplace,
+    this.onRequestStyle,
   });
 
   final EditorController controller;
   final String slotId;
   final List<Offset> polygon; // local (box-relative) pixels
+  final double unit; // canvas pixels per 1/1000 of canvas width
   final double thickness;
   final Color borderColor;
   final bool interactive;
   final void Function(String slotId)? onRequestReplace;
+  final void Function(String slotId)? onRequestStyle;
 
   Widget _innerVisual(BuildContext context, SlotFill? fill) {
     if (fill == null) {
@@ -679,14 +795,18 @@ class _PolySlotView extends StatelessWidget {
         ),
       );
     }
-    return SizedBox.expand(
-      child: _RotatedCover(
-        rotation: fill.rotation,
-        child: Transform.scale(
-          scale: fill.zoom,
-          child: filteredPhoto(fill, alignment: Alignment(fill.offsetX, fill.offsetY)),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _RotatedCover(
+          rotation: fill.rotation,
+          child: Transform.scale(
+            scale: fill.zoom,
+            child: filteredPhoto(fill, alignment: Alignment(fill.offsetX, fill.offsetY)),
+          ),
         ),
-      ),
+        if (fill.filter.vignette > 0) _Vignette(strength: fill.filter.vignette),
+      ],
     );
   }
 
@@ -758,10 +878,33 @@ class _PolySlotView extends StatelessWidget {
       ),
     );
 
+    final frame = (fill?.frameWidth ?? 0) * unit;
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        // Drop shadow under the cell. Always present (painting nothing when
+        // off) so the photo below keeps its position among the children.
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _PolyShadowPainter(
+                points: polygon,
+                elevation: fill != null && fill.shadow ? 10 * unit : 0,
+              ),
+            ),
+          ),
+        ),
         Positioned.fill(child: core),
+        // This photo's own frame.
+        if (frame > 0)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: PolygonBorderPainter(
+                    points: polygon, color: fill!.frameColor, strokeWidth: frame),
+              ),
+            ),
+          ),
         // Border stroke along the polygon edges.
         if (thickness > 0)
           Positioned.fill(
@@ -817,6 +960,7 @@ class _PolySlotView extends StatelessWidget {
                   onFlipH: () => controller.flipSlot(slotId, horizontal: true),
                   onFlipV: () => controller.flipSlot(slotId, vertical: true),
                   onRotate: () => controller.rotateSlotQuarter(slotId),
+                  onStyle: () => onRequestStyle?.call(slotId),
                   onClear: () => controller.clearSlot(slotId),
                 ),
               ),
@@ -1048,6 +1192,13 @@ class _ElementViewState extends State<_ElementView> {
           );
         }
         return photo;
+      case DrawingElement d:
+        final w = d.naturalWidthFrac * canvasW * d.scale;
+        return SizedBox(
+          width: w,
+          height: w / d.aspectRatio,
+          child: CustomPaint(painter: DrawingPainter(d.strokes)),
+        );
       case TextElement t:
         final fs = 0.09 * canvasW * t.scale;
         final align = switch (t.align) {
@@ -1057,29 +1208,51 @@ class _ElementViewState extends State<_ElementView> {
         };
         final base = AppFonts.style(t.fontKey, fontSize: fs, color: t.color, bold: t.bold, italic: t.italic)
             .copyWith(letterSpacing: t.letterSpacing / 100 * fs);
-        final fillStyle = t.shadow
-            ? base.copyWith(shadows: [
+        final shadows = t.shadow
+            ? [
                 Shadow(
                   color: Colors.black.withValues(alpha: 0.55),
                   blurRadius: fs * 0.12,
                   offset: Offset(0, fs * 0.04),
                 ),
-              ])
-            : base;
-        Widget text = Text(t.text, textAlign: align, style: fillStyle);
+              ]
+            : null;
         // An outline is a stroked copy of the same text laid under the fill.
-        if (t.outline != null && t.outlineWidth > 0) {
-          final stroke = base.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeJoin = StrokeJoin.round
-              ..strokeWidth = t.outlineWidth / 1000 * canvasW * t.scale * 2
-              ..color = t.outline!,
+        final stroke = t.outline != null && t.outlineWidth > 0
+            ? base.copyWith(
+                foreground: Paint()
+                  ..style = PaintingStyle.stroke
+                  ..strokeJoin = StrokeJoin.round
+                  ..strokeWidth = t.outlineWidth / 1000 * canvasW * t.scale * 2
+                  ..color = t.outline!,
+              )
+            : null;
+        Widget text;
+        if (t.curve != 0) {
+          text = _CurvedText(
+            text: t.text,
+            style: base.copyWith(shadows: shadows),
+            strokeStyle: stroke,
+            gradientEnd: t.gradientEnd,
+            curve: t.curve,
           );
+        } else {
+          final grad = t.gradientEnd;
           text = Stack(
             children: [
-              Text(t.text, textAlign: align, style: stroke),
-              text,
+              if (stroke != null) Text(t.text, textAlign: align, style: stroke),
+              // With a gradient the shadow gets its own layer, so the mask
+              // below tints only the letters, not their shadow.
+              if (grad != null && shadows != null)
+                Text(t.text, textAlign: align, style: base.copyWith(color: Colors.transparent, shadows: shadows)),
+              if (grad != null)
+                ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (r) => LinearGradient(colors: [t.color, grad]).createShader(r),
+                  child: Text(t.text, textAlign: align, style: base),
+                )
+              else
+                Text(t.text, textAlign: align, style: base.copyWith(shadows: shadows)),
             ],
           );
         }
@@ -1091,6 +1264,132 @@ class _ElementViewState extends State<_ElementView> {
         );
     }
   }
+}
+
+/// Text set along a circular arc. [curve] in -1..1 bends it up to half a
+/// circle (positive arches up, negative sags down). Each glyph is laid out on
+/// its own; a gradient is applied as a per-glyph colour from left to right.
+class _CurvedText extends StatelessWidget {
+  const _CurvedText({
+    required this.text,
+    required this.style,
+    required this.curve,
+    this.strokeStyle,
+    this.gradientEnd,
+  });
+
+  final String text;
+  final TextStyle style;
+  final TextStyle? strokeStyle;
+  final Color? gradientEnd;
+  final double curve;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = _CurvedLayout.compute(text, style, curve);
+    return SizedBox(
+      width: layout.size.width,
+      height: layout.size.height,
+      child: CustomPaint(
+        painter: _CurvedTextPainter(
+          layout: layout,
+          style: style,
+          strokeStyle: strokeStyle,
+          gradientEnd: gradientEnd,
+        ),
+      ),
+    );
+  }
+}
+
+/// Glyph positions on the arc, shared by sizing and painting.
+class _CurvedLayout {
+  _CurvedLayout(this.glyphs, this.size);
+
+  final List<({String char, Offset at, double angle, double t})> glyphs;
+  final Size size;
+
+  static _CurvedLayout compute(String text, TextStyle style, double curve) {
+    final chars = text.replaceAll('\n', ' ').characters.toList();
+    final advances = <double>[];
+    var lineH = (style.fontSize ?? 14) * 1.2;
+    var ascent = lineH * 0.8;
+    for (final ch in chars) {
+      final tp = TextPainter(text: TextSpan(text: ch, style: style), textDirection: TextDirection.ltr)..layout();
+      advances.add(tp.width);
+      lineH = math.max(lineH, tp.height);
+      ascent = math.max(ascent, tp.computeDistanceToActualBaseline(TextBaseline.alphabetic));
+    }
+    final total = advances.fold(0.0, (a, b) => a + b);
+    final theta = (curve.clamp(-1.0, 1.0) * math.pi).abs();
+    if (chars.isEmpty || total == 0 || theta < 0.01) {
+      var x = 0.0;
+      final glyphs = [
+        for (var i = 0; i < chars.length; i++)
+          (char: chars[i], at: Offset((x += advances[i]) - advances[i] / 2, ascent), angle: 0.0, t: total == 0 ? 0.0 : (x - advances[i] / 2) / total),
+      ];
+      return _CurvedLayout(glyphs, Size(math.max(total, 1.0), lineH));
+    }
+    final r = total / theta;
+    final sag = r * (1 - math.cos(theta / 2));
+    final width = 2 * r * math.sin(theta / 2) + lineH;
+    final height = lineH + sag;
+    final cx = width / 2;
+    final up = curve > 0;
+    // Arching up: circle centre below the text; sagging: above it.
+    final cy = up ? ascent + r : ascent + sag - r;
+    final glyphs = <({String char, Offset at, double angle, double t})>[];
+    var s = 0.0;
+    for (var i = 0; i < chars.length; i++) {
+      final mid = s + advances[i] / 2;
+      s += advances[i];
+      final phi = -theta / 2 + mid / r;
+      final at = up
+          ? Offset(cx + r * math.sin(phi), cy - r * math.cos(phi))
+          : Offset(cx + r * math.sin(phi), cy + r * math.cos(phi));
+      glyphs.add((char: chars[i], at: at, angle: up ? phi : -phi, t: mid / total));
+    }
+    return _CurvedLayout(glyphs, Size(width, height));
+  }
+}
+
+class _CurvedTextPainter extends CustomPainter {
+  _CurvedTextPainter({
+    required this.layout,
+    required this.style,
+    this.strokeStyle,
+    this.gradientEnd,
+  });
+
+  final _CurvedLayout layout;
+  final TextStyle style;
+  final TextStyle? strokeStyle;
+  final Color? gradientEnd;
+
+  void _glyph(Canvas canvas, String ch, Offset at, double angle, TextStyle st) {
+    final tp = TextPainter(text: TextSpan(text: ch, style: st), textDirection: TextDirection.ltr)..layout();
+    final base = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(angle);
+    tp.paint(canvas, Offset(-tp.width / 2, -base));
+    canvas.restore();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final g in layout.glyphs) {
+      if (strokeStyle != null) _glyph(canvas, g.char, g.at, g.angle, strokeStyle!);
+    }
+    for (final g in layout.glyphs) {
+      final end = gradientEnd;
+      final st = end == null ? style : style.copyWith(color: Color.lerp(style.color, end, g.t));
+      _glyph(canvas, g.char, g.at, g.angle, st);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CurvedTextPainter old) => true;
 }
 
 class _Handle extends StatelessWidget {

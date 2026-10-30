@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../config.dart';
 import '../../l10n/app_localizations.dart';
@@ -10,6 +11,7 @@ import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../widgets/sharpened.dart';
 import '../flow.dart';
 import '../picker/photo_picker_screen.dart';
 import '../result/result_screen.dart';
@@ -18,7 +20,7 @@ import 'editor_controller.dart';
 import 'editor_panels.dart';
 import 'export_sheet.dart';
 
-enum _Panel { none, layout, borders, background, filter, stickers, shapes, text, emoji, gif, layers, crop, replace }
+enum _Panel { none, layout, borders, background, filter, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace }
 
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key, required this.project, required this.pool});
@@ -42,11 +44,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   String? _editingTextId;
   String? _replaceSlotId;
   String? _cropElementId;
+  String? _styleSlotId;
 
   @override
   void initState() {
     super.initState();
     _c = EditorController(project: widget.project, pool: widget.pool);
+    Sharpened.warmUp();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeCoach());
   }
 
@@ -78,6 +82,74 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (_panel == _Panel.replace) {
       _c.cancelReplace();
       _replaceSlotId = null;
+    }
+    // Leaving the draw tool keeps what was drawn as one movable element.
+    if (_panel == _Panel.draw && _c.drawing) _c.finishDrawing(_canvasSize());
+  }
+
+  /// The canvas's current on-screen size (zero before first layout).
+  Size _canvasSize() {
+    final box = _boundaryKey.currentContext?.findRenderObject() as RenderBox?;
+    return box?.size ?? Size.zero;
+  }
+
+  void _openStyle(String slotId) {
+    setState(() {
+      _cleanupPanel();
+      _styleSlotId = slotId;
+      _panel = _Panel.photoStyle;
+    });
+  }
+
+  void _openDraw() {
+    setState(() {
+      _cleanupPanel();
+      _c.startDrawing();
+      _panel = _Panel.draw;
+    });
+  }
+
+  /// Save the current design (without photos) as one of the user's templates.
+  Future<void> _saveAsTemplate() async {
+    _closePanel();
+    _c.clearSelection();
+    final ctrl = TextEditingController(text: _c.project.title);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(context.l10n.t('saveAsTemplate')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 60,
+          decoration: InputDecoration(hintText: context.l10n.t('templateName')),
+          onSubmitted: (v) => Navigator.pop(dialog, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog), child: Text(context.l10n.t('cancel'))),
+          TextButton(onPressed: () => Navigator.pop(dialog, ctrl.text), child: Text(context.l10n.t('save'))),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    final n = name?.trim();
+    if (n == null || n.isEmpty || !mounted) return;
+    setState(() => _exporting = true);
+    try {
+      await Future.delayed(Motion.fast);
+      final thumb = await ref.read(exportServiceProvider).capture(_boundaryKey, targetWidth: 500);
+      await ref.read(userTemplateServiceProvider).saveFrom(
+            _c.project,
+            id: const Uuid().v4(),
+            name: n,
+            thumbnail: thumb,
+          );
+      await ref.read(userTemplatesProvider.notifier).reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.t('templateSaved'))));
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
   }
 
@@ -144,7 +216,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Future<void> _save() async {
     _closePanel();
     _c.clearSelection();
-    final options = await showExportSheet(context, _lastExportOptions());
+    final options = await showExportSheet(
+      context,
+      _lastExportOptions(),
+      allowGif: _c.project.elements.any((e) => e is GifElement),
+    );
     if (options == null || !mounted) return;
     await ref.read(prefsProvider).setExportChoice(format: options.format.name, size: options.size.name);
     if (!mounted) return;
@@ -206,6 +282,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ],
             ),
           ),
+          PopupMenuButton<String>(
+            enabled: !_saving,
+            onSelected: (v) {
+              if (v == 'template') _saveAsTemplate();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'template',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.bookmark_add_outlined),
+                  title: Text(context.l10n.t('saveAsTemplate')),
+                ),
+              ),
+            ],
+          ),
           Padding(
             padding: const EdgeInsets.only(right: Space.sm),
             child: FilledButton.icon(
@@ -233,6 +325,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       controller: _c,
                       interactive: !_exporting,
                       onRequestReplace: _openReplace,
+                      onRequestStyle: _openStyle,
                     ),
                   ),
                 ),
@@ -273,6 +366,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   void _onTool(_Panel p) {
     if (p == _Panel.text) { _openText(); return; }
+    if (p == _Panel.draw) { _openDraw(); return; }
     _openPanel(p);
   }
 
@@ -281,7 +375,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final (title, body, height) = switch (_panel) {
       _Panel.layout => (context.l10n.t('panelLayout'), LayoutPanel(c: _c), 340.0),
       _Panel.borders => (context.l10n.t('panelBorders'), BordersPanel(c: _c), 280.0),
-      _Panel.background => (context.l10n.t('panelBackground'), BackgroundPanel(c: _c), 270.0),
+      _Panel.background => (context.l10n.t('panelBackground'), BackgroundPanel(c: _c), 330.0),
       _Panel.filter => (context.l10n.t('panelFilter'), FilterPanel(c: _c), 360.0),
       _Panel.stickers => (context.l10n.t('panelStickers'), StickersPanel(c: _c, onAdded: _closePanel), (h * 0.44).clamp(320, 460)),
       _Panel.shapes => (context.l10n.t('panelShapes'), ShapesPanel(c: _c, onAdded: _closePanel), (h * 0.42).clamp(300, 440)),
@@ -291,6 +385,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _Panel.gif => (context.l10n.t('panelGif'), GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.layers => (context.l10n.t('panelLayers'), LayersPanel(c: _c), (h * 0.40).clamp(280, 420)),
       _Panel.crop => (context.l10n.t('panelCrop'), CropPanel(c: _c, elementId: _cropElementId ?? ''), 290.0),
+      _Panel.photoStyle => (context.l10n.t('panelPhotoStyle'), PhotoStylePanel(c: _c, slotId: _styleSlotId ?? ''), 280.0),
+      _Panel.draw => (context.l10n.t('panelDraw'), DrawPanel(c: _c, onDone: _closePanel), 250.0),
       _Panel.replace => (context.l10n.t('panelChoosePhoto'), ReplacePanel(c: _c, slotId: _replaceSlotId ?? '', onDone: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.none => ('', const SizedBox.shrink(), 0.0),
     };
@@ -431,6 +527,7 @@ class _ToolRail extends StatelessWidget {
       (_Panel.emoji, Icons.tag_faces_rounded, context.l10n.t('toolEmoji')),
       // GIF search needs a Giphy key; without one the tool is simply absent.
       if (Config.hasGiphy) (_Panel.gif, Icons.gif_box_outlined, context.l10n.t('toolGif')),
+      (_Panel.draw, Icons.brush_rounded, context.l10n.t('toolDraw')),
       (_Panel.layers, Icons.layers_outlined, context.l10n.t('toolLayers')),
     ];
     return Container(

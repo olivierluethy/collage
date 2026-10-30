@@ -149,6 +149,7 @@ class BackgroundPanel extends StatelessWidget {
                   ),
                 ),
                 LabeledSlider(label: context.l10n.t('darken'), value: bg.imageDim * 100, min: 0, max: 70, suffix: '%', onChanged: (v) => up((x) => x.imageDim = v / 100)),
+                LabeledSlider(label: context.l10n.t('blur'), value: bg.imageBlur, min: 0, max: 30, onChanged: (v) => up((x) => x.imageBlur = v)),
               ],
             );
         }
@@ -262,8 +263,9 @@ class _FilterPanelState extends State<FilterPanel> {
       builder: (context, _) {
         final target = _target;
         final sample = _sampleAsset;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // Scrolls, so the growing list of adjustments never overflows.
+        return ListView(
+          padding: EdgeInsets.zero,
           children: [
             // Scope toggle + reset.
             Padding(
@@ -323,6 +325,22 @@ class _FilterPanelState extends State<FilterPanel> {
               _AdjustSlider(label: context.l10n.t('contrast'), value: target?.contrast ?? 0, onChanged: (v) => _setAdjust((f) => f.contrast = v)),
               _AdjustSlider(label: context.l10n.t('warmth'), value: target?.warmth ?? 0, onChanged: (v) => _setAdjust((f) => f.warmth = v)),
               _AdjustSlider(label: context.l10n.t('saturation'), value: target?.saturation ?? 0, onChanged: (v) => _setAdjust((f) => f.saturation = v)),
+              LabeledSlider(
+                label: context.l10n.t('vignette'),
+                value: (target?.vignette ?? 0) * 100,
+                min: 0,
+                max: 100,
+                suffix: '%',
+                onChanged: (v) => _setAdjust((f) => f.vignette = v / 100),
+              ),
+              LabeledSlider(
+                label: context.l10n.t('sharpen'),
+                value: (target?.sharpen ?? 0) * 100,
+                min: 0,
+                max: 100,
+                suffix: '%',
+                onChanged: (v) => _setAdjust((f) => f.sharpen = v / 100),
+              ),
               const SizedBox(height: Space.md),
             ],
           ],
@@ -388,7 +406,7 @@ class _PresetChip extends StatelessWidget {
     } else {
       final f = PhotoFilter(preset: preset);
       Widget img = PhotoImage(assetId: sampleAsset!, fit: BoxFit.cover);
-      if (!f.isIdentity) {
+      if (!f.isColorIdentity) {
         img = ColorFiltered(colorFilter: ColorFilter.matrix(f.matrix()), child: img);
       }
       swatch = img;
@@ -724,6 +742,28 @@ class _TextPanelState extends ConsumerState<TextPanel> {
           onChanged: (v) => _mut((x) => x.letterSpacing = v),
         ),
         LabeledSlider(
+          label: context.l10n.t('textCurve'),
+          value: (e?.curve ?? 0) * 100,
+          min: -100,
+          max: 100,
+          onChanged: (v) => _mut((x) => x.curve = v.abs() < 3 ? 0 : v / 100),
+        ),
+        Row(
+          children: [
+            Expanded(child: SectionHeader(context.l10n.t('textGradient'))),
+            Switch(
+              value: e?.gradientEnd != null,
+              onChanged: (on) => _mut((x) => x.gradientEnd = on ? const Color(0xFFF59E2E) : null),
+            ),
+          ],
+        ),
+        if (e?.gradientEnd != null)
+          SwatchRow(
+            colors: Palette.swatches,
+            selected: e!.gradientEnd!,
+            onPick: (col) => _mut((x) => x.gradientEnd = col),
+          ),
+        LabeledSlider(
           label: context.l10n.t('textOutline'),
           value: e?.outlineWidth ?? 0,
           min: 0,
@@ -760,6 +800,7 @@ class LayersPanel extends StatelessWidget {
         EmojiElement em => em.emoji,
         GifElement _ => context.l10n.t('layerGif'),
         ImageElement _ => context.l10n.t('layerPhoto'),
+        DrawingElement _ => context.l10n.t('layerDrawing'),
       };
 
   IconData _icon(CanvasElement e) => switch (e) {
@@ -769,6 +810,7 @@ class LayersPanel extends StatelessWidget {
         EmojiElement _ => Icons.tag_faces_rounded,
         GifElement _ => Icons.gif_box_outlined,
         ImageElement _ => Icons.photo_outlined,
+        DrawingElement _ => Icons.brush_rounded,
       };
 
   @override
@@ -1054,6 +1096,7 @@ String _stickerKey(String id) => switch (id) {
 /// Maps a filter preset to its l10n key (see `locales/en.dart`).
 String _presetKey(FilterPreset p) => switch (p) {
       FilterPreset.none => 'filterOriginal',
+      FilterPreset.auto => 'filterAuto',
       FilterPreset.grayscale => 'filterMono',
       FilterPreset.sepia => 'filterSepia',
       FilterPreset.vintage => 'filterVintage',
@@ -1061,3 +1104,102 @@ String _presetKey(FilterPreset p) => switch (p) {
       FilterPreset.highContrast => 'filterPunch',
       FilterPreset.fade => 'filterFade',
     };
+
+/// One slot photo's own frame and shadow, live.
+class PhotoStylePanel extends StatelessWidget {
+  const PhotoStylePanel({super.key, required this.c, required this.slotId});
+  final EditorController c;
+  final String slotId;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) {
+        final f = c.fillFor(slotId);
+        if (f == null) return const SizedBox.shrink();
+        return ListView(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          children: [
+            LabeledSlider(
+              label: context.l10n.t('photoFrame'),
+              value: f.frameWidth,
+              min: 0,
+              max: 30,
+              onChanged: (v) => c.updateSlotStyle(slotId, (x) => x.frameWidth = v),
+            ),
+            SectionHeader(context.l10n.t('frameColour')),
+            SwatchRow(
+              colors: Palette.swatches,
+              selected: f.frameColor,
+              onPick: (col) => c.updateSlotStyle(slotId, (x) {
+                x.frameColor = col;
+                if (x.frameWidth == 0) x.frameWidth = 8;
+              }),
+            ),
+            SwitchListTile(
+              title: Text(context.l10n.t('photoShadow')),
+              value: f.shadow,
+              onChanged: (on) => c.updateSlotStyle(slotId, (x) => x.shadow = on),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Freehand drawing controls. While open, the canvas captures strokes; Done
+/// turns them into one movable element.
+class DrawPanel extends StatelessWidget {
+  const DrawPanel({super.key, required this.c, required this.onDone});
+  final EditorController c;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) {
+        return ListView(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
+              child: Text(context.l10n.t('drawHint'), style: context.text.caption),
+            ),
+            SwatchRow(
+              colors: Palette.swatches,
+              selected: c.drawColor,
+              onPick: (col) => c.setDrawStyle(color: col),
+            ),
+            LabeledSlider(
+              label: context.l10n.t('brushSize'),
+              value: c.drawWidth * 1000,
+              min: 2,
+              max: 60,
+              onChanged: (v) => c.setDrawStyle(width: v / 1000),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: c.draftStrokes.isEmpty ? null : c.undoStroke,
+                    icon: const Icon(Icons.undo_rounded),
+                    label: Text(context.l10n.t('undoStroke')),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: onDone,
+                    child: Text(context.l10n.t('done')),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
