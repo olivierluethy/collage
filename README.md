@@ -19,6 +19,7 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 
 - Manual slot assignment with drag-to-swap between slots
 - Frame each photo in its slot: drag to reposition, pinch to zoom, twist or tap Rotate to tilt, double-tap to recentre
+- Give any photo its own frame and drop shadow
 - Undo and redo for every edit
 - Curated and custom layout templates, each labelled with its aspect-ratio numbers
 - 1,000+ ready-made templates, filtered by photo count and style — drop in your photos and post
@@ -26,13 +27,19 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 - Layers panel: restack, select, duplicate or delete any element
 - Crop free-floating photos
 - Stickers across 9 categories, plus optional stickers from your own remote catalog
-- Shapes, text (with outline, shadow and letter spacing), and emoji
+- Shapes, text (with outline, shadow, letter spacing, curved baseline and colour gradient), and emoji
+- Freehand drawing
 - Optional extra fonts from your own remote catalog (see [docs/CATALOGS.md](docs/CATALOGS.md))
 - Optional Giphy GIF search (shown only in builds with a Giphy key)
-- Backgrounds: solid, gradient, pattern, or image
+- Backgrounds: solid, gradient, pattern, or image (with blur)
+- Filters: presets including Auto, brightness, contrast, warmth, saturation and vignette
 - Live border and spacing controls
-- Export as PNG or JPG in three sizes (1080, 2048 or 4096 px), save to your gallery or share
+- Export as PNG or JPG in three sizes (1080, 2048 or 4096 px), or as an animated GIF when the collage has GIF stickers
+- Instagram carousels: 2:1 and 3:1 canvases that save or share as separate square slides
 - Re-editable saved collages in "My Collages" — rename, duplicate or delete with a long-press
+- Trash: deleted collages can be restored for 30 days
+- Save any design as your own template
+- Back up all collages (including their photos) to a .zip and restore them on any phone
 - AI auto-collage suggestions
 - First-run onboarding and coach-marks to get you started
 - Light and dark themes
@@ -73,8 +80,9 @@ compiled into an APK can be extracted by anyone:
 flutter build apk --release --dart-define=AI_PROXY_URL=https://your.site/collage-ai
 ```
 
-For release builds set the `AI_PROXY_URL` GitHub secret. The proxy contract and
-a minimal example are in [docs/AI_PROXY.md](docs/AI_PROXY.md).
+For release builds set the `AI_PROXY_URL` GitHub secret. A ready-to-deploy
+Cloudflare Worker is in [proxy/](proxy/README.md); the contract is in
+[docs/AI_PROXY.md](docs/AI_PROXY.md).
 
 For local development only, you can call the API directly instead:
 
