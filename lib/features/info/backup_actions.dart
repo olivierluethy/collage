@@ -52,11 +52,32 @@ Future<void> createBackup(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// Let the user pick a backup .zip and restore its collages.
+/// Send one collage (with its photos) as a ".collage" file, so someone else
+/// can import, edit and send it back.
+Future<void> shareCollageForEditing(BuildContext context, WidgetRef ref, String id) async {
+  final l = context.l10n;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final file = await _withProgress(
+      context,
+      l.t('backupCreating'),
+      () => ref.read(backupServiceProvider).create(onlyId: id),
+    );
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(file.path, mimeType: 'application/zip')],
+      text: l.t('shareForEditingText'),
+    ));
+  } catch (_) {
+    messenger.showSnackBar(SnackBar(content: Text(l.t('backupFailed'))));
+  }
+}
+
+/// Let the user pick a backup .zip or a shared .collage file and import it.
 Future<void> restoreBackup(BuildContext context, WidgetRef ref) async {
   final l = context.l10n;
   final messenger = ScaffoldMessenger.of(context);
-  final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: const ['zip']);
+  // Any file type: Android often can't map ".collage" to a MIME type filter.
+  final picked = await FilePicker.pickFile(type: FileType.any);
   if (picked == null || !context.mounted) return;
   try {
     final summary = await _withProgress(context, l.t('backupRestoring'), () async {
