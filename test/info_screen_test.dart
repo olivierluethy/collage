@@ -20,7 +20,7 @@ Future<PrefsService> _pump(WidgetTester tester) async {
         locale: const Locale('en'),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        home: const InfoScreen(),
+        home: const Scaffold(body: MoreTab()),
       ),
     ),
   );
