@@ -19,7 +19,10 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 
 - Manual slot assignment with drag-to-swap between slots
 - Frame each photo in its slot: drag to reposition, pinch to zoom, twist or tap Rotate to tilt, double-tap to recentre
-- Give any photo its own frame and drop shadow
+- Give any photo its own frame and drop shadow, a scrapbook style (Polaroid, tape, torn paper) or a shape (circle, heart, star, …)
+- Drag the edges between photos to resize cells right in the editor
+- Centre faces automatically and cut a subject out as a sticker (on-device, Google ML Kit)
+- Videos in cells (muted, looped) and MP4 export of video collages
 - Undo and redo for every edit
 - Curated and custom layout templates, each labelled with its aspect-ratio numbers
 - 1,000+ ready-made templates, filtered by photo count and style — drop in your photos and post
@@ -29,6 +32,7 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 - Stickers across 9 categories, plus optional stickers from your own remote catalog
 - Shapes, text (with outline, shadow, letter spacing, curved baseline and colour gradient), and emoji
 - Freehand drawing
+- One-tap date & place caption from the photos, and AI title ideas
 - Optional extra fonts from your own remote catalog (see [docs/CATALOGS.md](docs/CATALOGS.md))
 - Optional Giphy GIF search (shown only in builds with a Giphy key)
 - Backgrounds: solid, gradient, pattern, or image (with blur)
@@ -36,10 +40,13 @@ A free photo collage maker for Android where **you** decide which photo goes in 
 - Live border and spacing controls
 - Export as PNG or JPG in three sizes (1080, 2048 or 4096 px), or as an animated GIF when the collage has GIF stickers
 - Instagram carousels: 2:1 and 3:1 canvases that save or share as separate square slides
+- Instagram profile grids: split a collage into 3×N tiles, numbered in posting order
+- Print: A4 canvases and PDF export; photo books that export several collages as one PDF
 - Re-editable saved collages in "My Collages" — rename, duplicate or delete with a long-press
 - Trash: deleted collages can be restored for 30 days
 - Save any design as your own template
 - Back up all collages (including their photos) to a .zip and restore them on any phone
+- Send a single collage as a file for someone else to edit and send back
 - AI auto-collage suggestions
 - First-run onboarding and coach-marks to get you started
 - Light and dark themes
