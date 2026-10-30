@@ -789,7 +789,7 @@ class LayersPanel extends StatelessWidget {
           buildDefaultDragHandles: false,
           padding: const EdgeInsets.symmetric(vertical: Space.xs),
           itemCount: layers.length,
-          onReorder: c.reorderLayer,
+          onReorderItem: c.reorderLayer,
           itemBuilder: (context, i) {
             final e = layers[i];
             final sel = c.selectedElementId == e.id;

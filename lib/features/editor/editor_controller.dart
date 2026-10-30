@@ -605,13 +605,12 @@ class EditorController extends ChangeNotifier {
   List<CanvasElement> get layers =>
       [...project.elements]..sort((a, b) => b.z.compareTo(a.z));
 
-  /// Move the layer at [oldIndex] to [newIndex] (indices into [layers], as
-  /// reported by a ReorderableListView) and renumber z so the list order is
-  /// the stacking order.
+  /// Move the layer at [oldIndex] to [newIndex] (indices into [layers]; the
+  /// final position, as ReorderableListView.onReorderItem reports it) and
+  /// renumber z so the list order is the stacking order.
   void reorderLayer(int oldIndex, int newIndex) {
     final list = layers;
     if (oldIndex < 0 || oldIndex >= list.length) return;
-    if (newIndex > oldIndex) newIndex -= 1;
     final moved = list.removeAt(oldIndex);
     list.insert(newIndex.clamp(0, list.length), moved);
     for (var i = 0; i < list.length; i++) {

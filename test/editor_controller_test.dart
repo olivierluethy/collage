@@ -156,7 +156,7 @@ void main() {
       expect(c.layers.map((e) => (e as EmojiElement).emoji), ['3', '2', '1']);
 
       // Drag the front-most layer to the bottom of the list.
-      c.reorderLayer(0, 3);
+      c.reorderLayer(0, 2);
       expect(c.layers.map((e) => (e as EmojiElement).emoji), ['2', '1', '3']);
       c.dispose();
     });
