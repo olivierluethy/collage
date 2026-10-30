@@ -115,10 +115,88 @@ class DraftService {
     return copy;
   }
 
+  // ---- trash ----------------------------------------------------------------
+  /// How long a deleted collage stays restorable.
+  static const trashDays = 30;
+
+  Future<Directory> _trashDir() async {
+    final base = await (baseDir ?? getApplicationDocumentsDirectory)();
+    final dir = Directory('${base.path}/collages_trash');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// Move a collage to the trash. It can be restored for [trashDays] days.
   Future<void> delete(String id) async {
     final j = await _jsonFile(id);
     final t = await _thumbFile(id);
-    if (await j.exists()) await j.delete();
-    if (await t.exists()) await t.delete();
+    if (!await j.exists()) {
+      if (await t.exists()) await t.delete();
+      return;
+    }
+    final trash = await _trashDir();
+    final map = jsonDecode(await j.readAsString()) as Map<String, dynamic>;
+    map['deletedAt'] = DateTime.now().millisecondsSinceEpoch;
+    if (await t.exists()) {
+      final moved = await t.rename('${trash.path}/$id.png');
+      map['thumbnailPath'] = moved.path;
+    }
+    await File('${trash.path}/$id.json').writeAsString(jsonEncode(map));
+    await j.delete();
+  }
+
+  /// Trashed collages, most recently deleted first, each with its deletion
+  /// time. Anything older than [trashDays] is purged on the way.
+  Future<List<(CollageProject, int)>> listTrash() async {
+    final trash = await _trashDir();
+    final cutoff = DateTime.now()
+        .subtract(const Duration(days: trashDays))
+        .millisecondsSinceEpoch;
+    final out = <(CollageProject, int)>[];
+    for (final f in trash.listSync().whereType<File>().where((f) => f.path.endsWith('.json'))) {
+      try {
+        final map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+        final deletedAt = (map['deletedAt'] as num?)?.toInt() ?? 0;
+        final project = CollageProject.fromJson(map);
+        if (deletedAt < cutoff) {
+          await _purge(project.id);
+          continue;
+        }
+        out.add((project, deletedAt));
+      } catch (_) {
+        // Skip unreadable entries.
+      }
+    }
+    out.sort((a, b) => b.$2.compareTo(a.$2));
+    return out;
+  }
+
+  /// Put a trashed collage back into "My Collages".
+  Future<void> restore(String id) async {
+    final trash = await _trashDir();
+    final j = File('${trash.path}/$id.json');
+    if (!await j.exists()) return;
+    final map = jsonDecode(await j.readAsString()) as Map<String, dynamic>..remove('deletedAt');
+    final project = CollageProject.fromJson(map);
+    final t = File('${trash.path}/$id.png');
+    final thumb = await t.exists() ? await t.readAsBytes() : null;
+    project.thumbnailPath = null;
+    await save(project, thumbnail: thumb);
+    await _purge(id);
+  }
+
+  /// Delete a trashed collage for good.
+  Future<void> deleteForever(String id) => _purge(id);
+
+  Future<void> emptyTrash() async {
+    final trash = await _trashDir();
+    if (await trash.exists()) await trash.delete(recursive: true);
+  }
+
+  Future<void> _purge(String id) async {
+    final trash = await _trashDir();
+    for (final f in [File('${trash.path}/$id.json'), File('${trash.path}/$id.png')]) {
+      if (await f.exists()) await f.delete();
+    }
   }
 }

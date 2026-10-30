@@ -16,6 +16,7 @@ import '../discover/discover_screen.dart';
 import '../flow.dart';
 import '../info/info_screen.dart';
 import '../templates/templates_tab.dart';
+import '../trash/trash_screen.dart';
 
 /// Home base with three tabs: My Collages (the re-editable library), Templates
 /// (ready-made designs) and Discover (location + date collage suggestions).
@@ -40,6 +41,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: Text(title, style: context.text.displayMd),
         actions: [
+          if (_index == 0)
+            IconButton(
+              tooltip: context.l10n.t('trashTitle'),
+              icon: const Icon(Icons.delete_outline_rounded),
+              color: context.colors.textMid,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TrashScreen()),
+              ),
+            ),
           IconButton(
             tooltip: context.l10n.t('aiAutoCollage'),
             icon: const Icon(Icons.auto_awesome_rounded),

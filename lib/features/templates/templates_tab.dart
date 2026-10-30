@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/template_catalog.dart';
 import '../../l10n/app_localizations.dart';
+import '../../models/collage_project.dart';
 import '../../models/collage_template.dart';
+import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -28,9 +32,23 @@ class _TemplatesTabState extends ConsumerState<TemplatesTab> {
   @override
   Widget build(BuildContext context) {
     final templates = TemplateCatalog.forBucket(_count, _style);
+    final mine = ref.watch(userTemplatesProvider).valueOrNull ?? const [];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (mine.isNotEmpty) ...[
+          SectionHeader(context.l10n.t('myTemplates')),
+          SizedBox(
+            height: 112,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+              itemCount: mine.length,
+              separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
+              itemBuilder: (_, i) => _UserTemplateTile(template: mine[i]),
+            ),
+          ),
+        ],
         SectionHeader(context.l10n.t('templatesPhotos')),
         _ChipRow(
           children: [
@@ -114,6 +132,66 @@ class _TemplateTile extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// One of the user's own templates. Tap to start a collage from it,
+/// long-press to delete it.
+class _UserTemplateTile extends ConsumerWidget {
+  const _UserTemplateTile({required this.template});
+  final CollageProject template;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final thumb = template.thumbnailPath;
+    return GestureDetector(
+      onTap: () => openUserTemplate(context, ref, template),
+      onLongPress: () => _confirmDelete(context, ref),
+      child: SizedBox(
+        width: 84,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(Radii.control),
+                child: thumb != null && File(thumb).existsSync()
+                    ? Image.file(File(thumb), fit: BoxFit.cover)
+                    : ColoredBox(
+                        color: context.colors.surfaceInput,
+                        child: Icon(Icons.bookmark_outline_rounded, color: context.colors.textLo),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              template.title,
+              style: context.text.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(context.l10n.t('deleteTemplateTitle')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(context.l10n.t('cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(context.l10n.t('delete'), style: TextStyle(color: context.colors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await ref.read(userTemplatesProvider.notifier).remove(template.id);
   }
 }
 
