@@ -30,6 +30,7 @@ import '../../widgets/sticker_image.dart';
 import '../../widgets/ui.dart';
 import '../flow.dart';
 import '../picker/photo_picker_screen.dart';
+import '../template_builder/custom_template_screen.dart';
 import 'editor_controller.dart';
 
 /// Inline modifier/picker panels. Every one changes the collage LIVE while the
@@ -447,19 +448,34 @@ class LayoutPanel extends StatelessWidget {
   const LayoutPanel({super.key, required this.c});
   final EditorController c;
 
+  /// Build a layout by hand (the custom template builder) and apply it.
+  Future<void> _makeCustom(BuildContext context, int count) async {
+    final t = await Navigator.of(
+      context,
+    ).push<LayoutTemplate>(MaterialPageRoute(builder: (_) => CustomTemplateScreen(count: count)));
+    if (t != null) c.setLayout(t);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: c,
       builder: (context, _) {
         final count = c.pool.length.clamp(1, 9);
-        final options = [...LayoutTemplates.forCount(count), LayoutTemplates.freeform];
+        final current = c.project.layout;
+        final presets = LayoutTemplates.forCount(count);
+        final options = [
+          ...presets,
+          // A hand-made layout stays visible (and selected) after it's applied.
+          if (current.slots.isNotEmpty && !presets.any((t) => t.id == current.id)) current,
+          LayoutTemplates.freeform,
+        ];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SectionHeader(context.l10n.t('canvasShape')),
             SizedBox(
-              height: 38,
+              height: 40,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: Space.lg),
@@ -468,16 +484,36 @@ class LayoutPanel extends StatelessWidget {
                 itemBuilder: (_, i) {
                   final r = CanvasRatio.all[i];
                   final sel = r.label == c.project.ratioLabel;
-                  return GestureDetector(
-                    onTap: () => c.setRatioLabel(r.label),
-                    child: Container(
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: Space.md),
-                      decoration: BoxDecoration(
-                        color: sel ? context.colors.amberTint : context.colors.surfaceInput,
-                        borderRadius: BorderRadius.circular(Radii.chip),
+                  return Semantics(
+                    selected: sel,
+                    button: true,
+                    child: GestureDetector(
+                      onTap: () => c.setRatioLabel(r.label),
+                      child: Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                        decoration: BoxDecoration(
+                          color: sel ? context.colors.amberTint : context.colors.surfaceInput,
+                          borderRadius: BorderRadius.circular(Radii.chip),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              ratioName(context, r),
+                              style: context.text.labelMd.copyWith(
+                                color: sel ? context.colors.amber : context.colors.textMid,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              r.label,
+                              style: context.text.spec.copyWith(
+                                color: sel ? context.colors.amber : context.colors.textLo,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Text(r.label, style: context.text.spec.copyWith(color: sel ? context.colors.amber : context.colors.textMid)),
                     ),
                   );
                 },
@@ -486,27 +522,67 @@ class LayoutPanel extends StatelessWidget {
             SectionHeader(context.l10n.t('arrangement')),
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 5,
                   mainAxisSpacing: Space.sm,
                   crossAxisSpacing: Space.sm,
                   childAspectRatio: 0.9,
                 ),
-                itemCount: options.length,
+                itemCount: options.length + 1,
                 itemBuilder: (_, i) {
-                  final t = options[i];
-                  final sel = c.project.layout.id == t.id;
-                  return GestureDetector(
-                    onTap: () => c.setLayout(t),
-                    child: Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: context.colors.surfaceHigh,
+                  if (i == options.length) {
+                    return Tooltip(
+                      message: context.l10n.t('customLayout'),
+                      child: InkWell(
+                        onTap: () => _makeCustom(context, count),
                         borderRadius: BorderRadius.circular(Radii.control),
-                        border: Border.all(color: sel ? context.colors.amber : context.colors.line, width: sel ? 2 : 1),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(Radii.control),
+                            border: Border.all(color: context.colors.lineStrong),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.edit_square, size: 20, color: context.colors.amber),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.l10n.t('custom'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: context.text.caption.copyWith(color: context.colors.textMid),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: _MiniAspect(template: t, ratio: c.project.ratio.value),
+                    );
+                  }
+                  final t = options[i];
+                  final sel = current.id == t.id;
+                  final name = layoutName(context, t);
+                  return Tooltip(
+                    message: name,
+                    child: Semantics(
+                      label: name,
+                      selected: sel,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => c.setLayout(t),
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: context.colors.surfaceHigh,
+                            borderRadius: BorderRadius.circular(Radii.control),
+                            border: Border.all(
+                              color: sel ? context.colors.amber : context.colors.line,
+                              width: sel ? 2 : 1,
+                            ),
+                          ),
+                          child: _MiniAspect(template: t, ratio: c.project.ratio.value),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -517,6 +593,66 @@ class LayoutPanel extends StatelessWidget {
       },
     );
   }
+}
+
+/// The visible name for a layout template: its l10n string when we have a key
+/// for the id, else the template's own English name.
+String layoutName(BuildContext context, LayoutTemplate t) {
+  final key = _layoutKey(t.id) ?? (t.custom ? 'custom' : null);
+  return key == null ? t.name : context.l10n.t(key);
+}
+
+/// Maps a curated layout id to its l10n key (see `locales/en.dart`).
+String? _layoutKey(String id) => switch (id) {
+  'one' => 'layoutSingle',
+  'freeform' => 'layoutFreeform',
+  '2-rows' => 'layoutStacked',
+  '2-cols' => 'layoutSideBySide',
+  '2-split-v' => 'layoutBigLeft',
+  '2-split-h' => 'layoutBigTop',
+  '2-angled' => 'layoutAngled',
+  '2-corner' => 'layoutDiagonal',
+  '3-cols' => 'layoutThreeColumns',
+  '3-rows' => 'layoutThreeRows',
+  '3-feat-left' => 'layoutBigLeftTwoRight',
+  '3-feat-top' => 'layoutBigTopTwoBelow',
+  '3-slanted' => 'layoutSlantedTrio',
+  '4-grid' => 'layoutGrid2x2',
+  '4-cols' => 'layoutFourColumns',
+  '4-rows' => 'layoutFourRows',
+  '4-feat' => 'layoutBigLeftThreeRight',
+  '4-x' => 'layoutPinwheel',
+  '4-slanted' => 'layoutSlantedFour',
+  '5-feat-left' => 'layoutBigLeftFourRight',
+  '5-top1-bottom4' => 'layoutOneUpFourDown',
+  '5-left1-right4' => 'layoutOneLeftFourRight',
+  '6-grid-3x2' => 'layoutGrid3x2',
+  '6-grid-2x3' => 'layoutGrid2x3',
+  '6-feat' => 'layoutBigTopFiveBelow',
+  '7-feat' => 'layoutBigLeftSixRight',
+  '7-top3-bottom4' => 'layoutThreeUpFourDown',
+  '8-grid-4x2' => 'layoutGrid4x2',
+  '8-grid-2x4' => 'layoutGrid2x4',
+  '9-grid' => 'layoutGrid3x3',
+  _ => null,
+};
+
+/// The localized friendly name of a canvas shape ("Square", "Story", …).
+String ratioName(BuildContext context, CanvasRatio r) {
+  final key = switch (r.label) {
+    '1:1' => 'ratioSquare',
+    '4:5' => 'ratioPortrait',
+    '9:16' => 'ratioStory',
+    '3:2' => 'ratioLandscape',
+    '16:9' => 'ratioWide',
+    '4:3' => 'ratioClassic',
+    '2:3' => 'ratioTall',
+    '2:1' => 'ratioCarousel2',
+    '3:1' => 'ratioCarousel3',
+    'A4' => 'ratioA4',
+    _ => 'ratioA4Landscape',
+  };
+  return context.l10n.t(key);
 }
 
 class _MiniAspect extends StatelessWidget {
@@ -704,7 +840,7 @@ class _TextPanelState extends ConsumerState<TextPanel> {
     try {
       final stamp = await const StampService().dateAndPlace(_photoIds, localeName: locale);
       if (stamp == null) {
-        messenger.showSnackBar(SnackBar(content: Text(l.t('noPhotoInfo'))));
+        showAppSnackOn(messenger, l.t('noPhotoInfo'));
       } else {
         _setText(stamp);
       }
@@ -731,7 +867,7 @@ class _TextPanelState extends ConsumerState<TextPanel> {
     }
     if (!mounted) return;
     if (titles.isEmpty) {
-      messenger.showSnackBar(SnackBar(content: Text(l.t('aiTitlesFailed'))));
+      showAppSnackOn(messenger, l.t('aiTitlesFailed'), kind: SnackKind.error);
       return;
     }
     final pick = await showModalBottomSheet<String>(
@@ -1247,9 +1383,11 @@ class _PhotoStylePanelState extends State<PhotoStylePanel> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-    messenger.showSnackBar(SnackBar(
-      content: Text(found > 0 ? l.a('facesFramed', {'count': '$found'}) : l.t('noFacesFound')),
-    ));
+    showAppSnackOn(
+      messenger,
+      found > 0 ? l.a('facesFramed', {'count': '$found'}) : l.t('noFacesFound'),
+      kind: found > 0 ? SnackKind.success : SnackKind.info,
+    );
   }
 
   Future<void> _cutout() async {
@@ -1267,7 +1405,7 @@ class _PhotoStylePanelState extends State<PhotoStylePanel> {
       if (mounted) setState(() => _busy = false);
     }
     if (path == null) {
-      messenger.showSnackBar(SnackBar(content: Text(l.t('cutoutFailed'))));
+      showAppSnackOn(messenger, l.t('cutoutFailed'), kind: SnackKind.error);
       return;
     }
     c.addCutout(path);
