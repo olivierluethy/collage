@@ -46,6 +46,13 @@ class PrefsService {
     await _prefs.setString(_kExportSize, size);
   }
 
+  /// Show every in-app tip and the editor tour again (onboarding stays done).
+  Future<void> resetCoachMarks() async {
+    for (final k in _prefs.getKeys().toList()) {
+      if (k.startsWith(_kCoachPrefix)) await _prefs.remove(k);
+    }
+  }
+
   Future<void> resetGuides() async {
     for (final k in _prefs.getKeys().toList()) {
       if (k.startsWith(_kCoachPrefix) || k == _kOnboardingDone) {

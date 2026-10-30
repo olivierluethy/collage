@@ -550,6 +550,11 @@ class EditorController extends ChangeNotifier {
     autofill();
   }
 
+  void setTitle(String title) {
+    project.title = title;
+    _touch();
+  }
+
   void setRatioLabel(String label) {
     project.ratioLabel = label;
     _touch();

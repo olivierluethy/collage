@@ -152,27 +152,201 @@ class EmptyState extends StatelessWidget {
     required this.title,
     required this.message,
     this.action,
+    this.secondary,
+    this.art,
   });
   final IconData icon;
   final String title;
   final String message;
   final Widget? action;
 
+  /// Optional second, quieter way forward (e.g. "Browse templates").
+  final Widget? secondary;
+
+  /// Optional illustration shown instead of [icon].
+  final Widget? art;
+
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(Space.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: context.colors.textLo),
-            const SizedBox(height: Space.lg),
-            Text(title, style: context.text.displayMd, textAlign: TextAlign.center),
-            const SizedBox(height: Space.sm),
-            Text(message, style: context.text.bodyMd, textAlign: TextAlign.center),
-            if (action != null) ...[const SizedBox(height: Space.xl), action!],
-          ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              art ??
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: context.colors.surfaceHigh,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 40, color: context.colors.textMid),
+                  ),
+              const SizedBox(height: Space.xl),
+              Text(title, style: context.text.displayMd, textAlign: TextAlign.center),
+              const SizedBox(height: Space.sm),
+              Text(message,
+                  style: context.text.bodyLg.copyWith(color: context.colors.textMid),
+                  textAlign: TextAlign.center),
+              if (action != null) ...[const SizedBox(height: Space.xl), action!],
+              if (secondary != null) ...[const SizedBox(height: Space.sm), secondary!],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a snackbar reports; picks its leading status icon.
+enum SnackKind { info, success, error }
+
+/// The house snackbar: a leading status icon, one line of plain text and at
+/// most one amber action (e.g. "Undo"). Replaces any snackbar already showing.
+void showAppSnack(
+  BuildContext context,
+  String message, {
+  SnackKind kind = SnackKind.info,
+  String? actionLabel,
+  VoidCallback? onAction,
+  Duration? duration,
+}) =>
+    showAppSnackOn(
+      ScaffoldMessenger.of(context),
+      message,
+      kind: kind,
+      actionLabel: actionLabel,
+      onAction: onAction,
+      duration: duration,
+    );
+
+/// [showAppSnack] on a messenger captured before an `await`, for when the
+/// widget that started the work may be gone by the time it finishes.
+void showAppSnackOn(
+  ScaffoldMessengerState messenger,
+  String message, {
+  SnackKind kind = SnackKind.info,
+  String? actionLabel,
+  VoidCallback? onAction,
+  Duration? duration,
+}) {
+  final c = messenger.context.colors;
+  final (icon, color) = switch (kind) {
+    SnackKind.success => (Icons.check_circle_rounded, c.success),
+    SnackKind.error => (Icons.error_outline_rounded, c.danger),
+    SnackKind.info => (Icons.info_outline_rounded, c.info),
+  };
+  messenger
+    ..clearSnackBars()
+    ..showSnackBar(SnackBar(
+      duration: duration ?? (actionLabel != null ? const Duration(seconds: 6) : const Duration(seconds: 4)),
+      content: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: Space.md),
+          Expanded(child: Text(message)),
+        ],
+      ),
+      action: actionLabel == null
+          ? null
+          : SnackBarAction(label: actionLabel, onPressed: onAction ?? () {}),
+    ));
+}
+
+/// Confirm an action that can't be undone. The confirm button names the action
+/// ("Delete forever", "Empty trash") in the danger colour — never just "OK".
+Future<bool> confirmDestructive(
+  BuildContext context, {
+  required String title,
+  String? message,
+  required String confirmLabel,
+  required String cancelLabel,
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text(title),
+      content: message == null ? null : Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog, false),
+          child: Text(cancelLabel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialog, true),
+          child: Text(confirmLabel, style: TextStyle(color: dialog.colors.danger)),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
+/// A large, tappable choice card used in action sheets (e.g. "New collage"):
+/// icon, title and one line explaining what happens. [primary] lifts it with
+/// the amber tint so the main path reads first.
+class ActionCard extends StatelessWidget {
+  const ActionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Material(
+      color: primary ? c.amberTint : c.surfaceHigh,
+      borderRadius: BorderRadius.circular(Radii.card),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.card),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Radii.card),
+            border: Border.all(color: primary ? c.amber : c.line, width: primary ? 1.5 : 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: primary ? c.amber : c.surfaceInput,
+                  borderRadius: BorderRadius.circular(Radii.control),
+                ),
+                child: Icon(icon, color: primary ? c.onAmber : c.textHi, size: 22),
+              ),
+              const SizedBox(width: Space.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title, style: context.text.labelLg.copyWith(color: c.textHi)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: context.text.bodyMd.copyWith(color: c.textMid)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: c.textLo),
+            ],
+          ),
         ),
       ),
     );

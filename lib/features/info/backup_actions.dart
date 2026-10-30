@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/backup_service.dart';
 import '../../state/providers.dart';
+import '../../widgets/ui.dart';
 
 /// Run [work] behind a modal progress dialog that can't be dismissed.
 Future<T> _withProgress<T>(BuildContext context, String label, Future<T> Function() work) async {
@@ -48,7 +49,8 @@ Future<void> createBackup(BuildContext context, WidgetRef ref) async {
       text: l.t('backupShareText'),
     ));
   } catch (_) {
-    messenger.showSnackBar(SnackBar(content: Text(l.t('backupFailed'))));
+    showAppSnackOn(
+      messenger, l.t('backupFailed'), kind: SnackKind.error);
   }
 }
 
@@ -68,7 +70,8 @@ Future<void> shareCollageForEditing(BuildContext context, WidgetRef ref, String 
       text: l.t('shareForEditingText'),
     ));
   } catch (_) {
-    messenger.showSnackBar(SnackBar(content: Text(l.t('backupFailed'))));
+    showAppSnackOn(
+      messenger, l.t('backupFailed'), kind: SnackKind.error);
   }
 }
 
@@ -85,15 +88,18 @@ Future<void> restoreBackup(BuildContext context, WidgetRef ref) async {
       return ref.read(backupServiceProvider).restore(bytes);
     });
     await ref.read(draftsProvider.notifier).reload();
-    messenger.showSnackBar(SnackBar(
-      content: Text(l.a('backupRestored', {
+    showAppSnackOn(
+      messenger,
+      l.a('backupRestored', {
         'count': '${summary.collages}',
         'photos': '${summary.photos}',
-      })),
-    ));
+      }),
+      kind: SnackKind.success);
   } on BackupFormatException {
-    messenger.showSnackBar(SnackBar(content: Text(l.t('backupInvalid'))));
+    showAppSnackOn(
+      messenger, l.t('backupInvalid'), kind: SnackKind.error);
   } catch (_) {
-    messenger.showSnackBar(SnackBar(content: Text(l.t('backupFailed'))));
+    showAppSnackOn(
+      messenger, l.t('backupFailed'), kind: SnackKind.error);
   }
 }

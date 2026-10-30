@@ -5,34 +5,94 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../config.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/draft_service.dart';
+import '../../state/providers.dart';
 import '../../state/settings.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../widgets/ui.dart';
+import '../books/books_screen.dart';
+import '../trash/trash_screen.dart';
 import 'backup_actions.dart';
+import 'settings_pickers.dart';
 
-/// The "Information" hub: About, Privacy Policy, Terms of Service, Language and
-/// Theme. Opened from the ⓘ button on the home screen.
-class InfoScreen extends ConsumerWidget {
-  const InfoScreen({super.key});
+/// The "More" tab: everything that isn't making a collage, grouped by what the
+/// user wants to do — find things (photo books, trash), keep them safe
+/// (backup), adjust the app (language, theme, tips) and read about it.
+class MoreTab extends ConsumerWidget {
+  const MoreTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final settings = ref.watch(settingsProvider);
-    final activeCode = settings.locale?.languageCode ??
-        Localizations.localeOf(context).languageCode;
-    final themeLabel = switch (settings.themeMode) {
-      ThemeMode.light => l.t('themeLight'),
-      ThemeMode.dark => l.t('themeDark'),
-      ThemeMode.system => l.t('themeSystem'),
-    };
+    final code = activeLanguageCode(context, ref);
+    final trashCount = ref.watch(trashProvider).valueOrNull?.length ?? 0;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l.t('infoTitle'))),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: Space.sm),
-        children: [
+    return ListView(
+      padding: const EdgeInsets.only(bottom: Space.xxl),
+      children: [
+        _Group(l.t('moreLibrary'), [
+          _Tile(
+            icon: Icons.menu_book_rounded,
+            title: l.t('booksTitle'),
+            subtitle: l.t('moreBooksHint'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BooksScreen()),
+            ),
+          ),
+          _Tile(
+            icon: Icons.delete_outline_rounded,
+            title: l.t('trashTitle'),
+            subtitle: l.a('moreTrashHint', {'days': '${DraftService.trashDays}'}),
+            badge: trashCount > 0 ? '$trashCount' : null,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TrashScreen()),
+            ),
+          ),
+        ]),
+        _Group(l.t('moreBackup'), [
+          _Tile(
+            icon: Icons.backup_outlined,
+            title: l.t('backupCreate'),
+            subtitle: l.t('moreBackupHint'),
+            onTap: () => createBackup(context, ref),
+          ),
+          _Tile(
+            icon: Icons.settings_backup_restore_rounded,
+            title: l.t('backupRestore'),
+            subtitle: l.t('moreRestoreHint'),
+            onTap: () => restoreBackup(context, ref),
+          ),
+        ]),
+        _Group(l.t('moreSettings'), [
+          _Tile(
+            icon: Icons.language_rounded,
+            title: l.t('language'),
+            value: languageName(code),
+            onTap: () => showLanguagePicker(context, ref),
+          ),
+          _Tile(
+            icon: Icons.brightness_6_rounded,
+            title: l.t('theme'),
+            value: themeLabel(context, settings.themeMode),
+            onTap: () => showThemePicker(context, ref),
+          ),
+          _Tile(
+            icon: Icons.lightbulb_outline_rounded,
+            title: l.t('moreShowTips'),
+            subtitle: l.t('moreShowTipsHint'),
+            chevron: false,
+            onTap: () async {
+              await ref.read(prefsProvider).resetCoachMarks();
+              if (context.mounted) {
+                showAppSnack(context, l.t('moreTipsReset'), kind: SnackKind.success);
+              }
+            },
+          ),
+        ]),
+        _Group(l.t('moreAbout'), [
           _Tile(
             icon: Icons.info_outline_rounded,
             title: l.t('about'),
@@ -41,106 +101,29 @@ class InfoScreen extends ConsumerWidget {
             ),
           ),
           _Tile(
-            icon: Icons.language_rounded,
-            title: l.t('language'),
-            value: _languageName(activeCode),
-            onTap: () => _pickLanguage(context, ref, activeCode),
-          ),
-          _Tile(
-            icon: Icons.brightness_6_rounded,
-            title: l.t('theme'),
-            value: themeLabel,
-            onTap: () => _pickTheme(context, ref),
-          ),
-          const Divider(),
-          _Tile(
-            icon: Icons.backup_outlined,
-            title: l.t('backupCreate'),
-            onTap: () => createBackup(context, ref),
-          ),
-          _Tile(
-            icon: Icons.settings_backup_restore_rounded,
-            title: l.t('backupRestore'),
-            onTap: () => restoreBackup(context, ref),
-          ),
-          const Divider(),
-          _Tile(
             icon: Icons.privacy_tip_outlined,
             title: l.t('privacyPolicy'),
+            external: true,
             onTap: () => _open(context, Config.privacyPolicyUrl),
           ),
           _Tile(
             icon: Icons.description_outlined,
             title: l.t('termsOfService'),
+            external: true,
             onTap: () => _open(context, Config.termsOfServiceUrl),
           ),
-        ],
-      ),
-    );
-  }
-
-  static String? _languageName(String code) {
-    for (final lang in AppLocalizations.languages) {
-      if (lang.code == code) return lang.name;
-    }
-    return null;
-  }
-
-  Future<void> _pickLanguage(
-      BuildContext context, WidgetRef ref, String activeCode) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            for (final lang in AppLocalizations.languages)
-              ListTile(
-                title: Text(lang.name),
-                trailing: lang.code == activeCode
-                    ? Icon(Icons.check_rounded, color: sheetContext.colors.amber)
-                    : null,
-                onTap: () {
-                  ref.read(settingsProvider.notifier).setLocale(Locale(lang.code));
-                  Navigator.of(sheetContext).pop();
-                },
-              ),
-          ],
+        ]),
+        const SizedBox(height: Space.lg),
+        Center(
+          child: FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snap) => Text(
+              l.a('appVersion', {'version': snap.data?.version ?? '—'}),
+              style: context.text.caption.copyWith(color: context.colors.textLo),
+            ),
+          ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _pickTheme(BuildContext context, WidgetRef ref) async {
-    final l = context.l10n;
-    final current = ref.read(settingsProvider).themeMode;
-    final options = <(ThemeMode, String)>[
-      (ThemeMode.system, l.t('themeSystem')),
-      (ThemeMode.light, l.t('themeLight')),
-      (ThemeMode.dark, l.t('themeDark')),
-    ];
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (mode, label) in options)
-              ListTile(
-                title: Text(label),
-                trailing: mode == current
-                    ? Icon(Icons.check_rounded, color: sheetContext.colors.amber)
-                    : null,
-                onTap: () {
-                  ref.read(settingsProvider.notifier).setThemeMode(mode);
-                  Navigator.of(sheetContext).pop();
-                },
-              ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -151,11 +134,50 @@ class InfoScreen extends ConsumerWidget {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.t('linkError'))),
-        );
+        showAppSnack(context, context.l10n.t('linkError'), kind: SnackKind.error);
       }
     }
+  }
+}
+
+/// A titled group of rows on one surface card.
+class _Group extends StatelessWidget {
+  const _Group(this.title, this.children);
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Space.xl, Space.xl, Space.xl, Space.sm),
+          child: Text(title, style: context.text.labelMd.copyWith(color: c.textMid)),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          // A Material (not a decorated box) so the rows' ink splashes show.
+          child: Material(
+            color: c.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.card),
+              side: BorderSide(color: c.line),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0) Divider(height: 1, indent: 56, color: c.line),
+                  children[i],
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -206,25 +228,45 @@ class _Tile extends StatelessWidget {
   const _Tile({
     required this.icon,
     required this.title,
+    this.subtitle,
     this.value,
+    this.badge,
+    this.chevron = true,
+    this.external = false,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final String? value;
+  final String? badge;
+  final bool chevron;
+  final bool external;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final sub = value ?? subtitle;
     return ListTile(
+      minTileHeight: 56,
       leading: Icon(icon, color: c.textMid),
       title: Text(title, style: context.text.bodyLg),
-      subtitle: value == null
+      subtitle: sub == null
           ? null
-          : Text(value!, style: context.text.caption.copyWith(color: c.textMid)),
-      trailing: Icon(Icons.chevron_right_rounded, color: c.textLo),
+          : Text(sub,
+              style: context.text.caption.copyWith(color: value != null ? c.amber : c.textMid)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (badge != null) SpecChip(badge!),
+          if (external)
+            Icon(Icons.open_in_new_rounded, size: 18, color: c.textLo)
+          else if (chevron)
+            Icon(Icons.chevron_right_rounded, color: c.textLo),
+        ],
+      ),
       onTap: onTap,
     );
   }

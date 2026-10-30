@@ -178,20 +178,13 @@ class _UserTemplateTile extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(context.l10n.t('deleteTemplateTitle')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(context.l10n.t('cancel'))),
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: Text(context.l10n.t('delete'), style: TextStyle(color: context.colors.danger)),
-          ),
-        ],
-      ),
+    final ok = await confirmDestructive(
+      context,
+      title: context.l10n.t('deleteTemplateTitle'),
+      confirmLabel: context.l10n.t('deleteTemplate'),
+      cancelLabel: context.l10n.t('cancel'),
     );
-    if (ok == true) await ref.read(userTemplatesProvider.notifier).remove(template.id);
+    if (ok) await ref.read(userTemplatesProvider.notifier).remove(template.id);
   }
 }
 

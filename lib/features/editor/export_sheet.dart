@@ -4,9 +4,11 @@ import '../../l10n/app_localizations.dart';
 import '../../services/export_service.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../../widgets/ui.dart';
 
 /// Ask how to export: format (PNG / JPG, or animated GIF when [allowGif])
-/// and output width. Resolves to null if the user dismisses the sheet.
+/// and output width, both pre-set to the last choice so most people just tap
+/// the button. Resolves to null if the user dismisses the sheet.
 Future<ExportOptions?> showExportSheet(
   BuildContext context,
   ExportOptions initial, {
@@ -96,11 +98,22 @@ class _ExportSheetState extends State<_ExportSheet> {
               selected: {_o.size},
               onSelectionChanged: (s) => setState(() => _o = _o.copyWith(size: s.first)),
             ),
-            const SizedBox(height: Space.lg),
-            FilledButton.icon(
+            const SizedBox(height: Space.xs),
+            Text(
+              switch (_o.size) {
+                ExportSize.small => l.t('exportSizeSmallHint'),
+                ExportSize.standard => l.t('exportSizeStandardHint'),
+                ExportSize.large => l.t('exportSizeLargeHint'),
+              },
+              style: context.text.caption,
+            ),
+            const SizedBox(height: Space.xl),
+            // Says what happens: images and videos go straight to the gallery;
+            // a PDF is created and then offered to save or share.
+            PrimaryButton(
               onPressed: () => Navigator.of(context).pop(_o),
-              icon: const Icon(Icons.save_alt_rounded, size: 18),
-              label: Text(l.t('save')),
+              icon: _o.format == ExportFormat.pdf ? Icons.picture_as_pdf_outlined : Icons.download_rounded,
+              label: _o.format == ExportFormat.pdf ? l.t('createPdf') : l.t('saveToGallery'),
             ),
           ],
         ),
