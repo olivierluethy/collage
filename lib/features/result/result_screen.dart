@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -60,6 +61,49 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     await SharePlus.instance.share(
       ShareParams(files: [XFile(file.path, mimeType: format.mimeType)], text: l.t('madeWithCollage')),
     );
+  }
+
+  /// Number of square slides this collage splits into (1 = no carousel).
+  int get _slides =>
+      widget.result.format == ExportFormat.gif ? 1 : widget.project.ratio.carouselSlides;
+
+  /// Cut the export into its carousel slides, then save them to the gallery
+  /// in posting order, or share them all at once.
+  Future<void> _carousel({required bool share}) async {
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final bytes = widget.bytes;
+      final slides = _slides;
+      final format = widget.result.format;
+      final pieces = await Isolate.run(() => splitCarousel(bytes, slides, format));
+      if (share) {
+        final dir = await getTemporaryDirectory();
+        final files = <XFile>[];
+        for (var i = 0; i < pieces.length; i++) {
+          final f = File('${dir.path}/collage_slide_${i + 1}.${format.extension}');
+          await f.writeAsBytes(pieces[i]);
+          files.add(XFile(f.path, mimeType: format.mimeType));
+        }
+        await SharePlus.instance.share(ShareParams(files: files, text: l.t('madeWithCollage')));
+      } else {
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        var ok = 0;
+        for (var i = 0; i < pieces.length; i++) {
+          final a = await ref.read(galleryServiceProvider).saveImage(
+                pieces[i],
+                filename: 'collage_${stamp}_${i + 1}.${format.extension}',
+              );
+          if (a != null) ok++;
+        }
+        messenger.showSnackBar(SnackBar(
+          content: Text(ok == pieces.length ? l.a('carouselSaved', {'count': '$ok'}) : l.t('couldNotSave')),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -133,6 +177,28 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                       ),
                     ],
                   ),
+                  if (_slides > 1) ...[
+                    const SizedBox(height: Space.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busy ? null : () => _carousel(share: false),
+                            icon: const Icon(Icons.view_carousel_outlined, size: 18),
+                            label: Text(context.l10n.a('carouselSave', {'count': '$_slides'})),
+                          ),
+                        ),
+                        const SizedBox(width: Space.sm),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busy ? null : () => _carousel(share: true),
+                            icon: const Icon(Icons.ios_share_rounded, size: 18),
+                            label: Text(context.l10n.t('carouselShare')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: Space.sm),
                   TextButton(
                     onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),

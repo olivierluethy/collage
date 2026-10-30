@@ -5,19 +5,30 @@ import '../../services/export_service.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 
-/// Ask how to export: format (PNG / JPG) and output width. Resolves to null
-/// if the user dismisses the sheet.
-Future<ExportOptions?> showExportSheet(BuildContext context, ExportOptions initial) {
+/// Ask how to export: format (PNG / JPG, or animated GIF when [allowGif])
+/// and output width. Resolves to null if the user dismisses the sheet.
+Future<ExportOptions?> showExportSheet(
+  BuildContext context,
+  ExportOptions initial, {
+  bool allowGif = false,
+}) {
   return showModalBottomSheet<ExportOptions>(
     context: context,
     showDragHandle: true,
-    builder: (_) => _ExportSheet(initial: initial),
+    builder: (_) => _ExportSheet(
+      // A remembered GIF choice doesn't apply to a collage without GIFs.
+      initial: !allowGif && initial.format == ExportFormat.gif
+          ? initial.copyWith(format: ExportFormat.png)
+          : initial,
+      allowGif: allowGif,
+    ),
   );
 }
 
 class _ExportSheet extends StatefulWidget {
-  const _ExportSheet({required this.initial});
+  const _ExportSheet({required this.initial, required this.allowGif});
   final ExportOptions initial;
+  final bool allowGif;
 
   @override
   State<_ExportSheet> createState() => _ExportSheetState();
@@ -50,13 +61,19 @@ class _ExportSheetState extends State<_ExportSheet> {
               segments: [
                 ButtonSegment(value: ExportFormat.png, label: const Text('PNG'), tooltip: l.t('exportPngHint')),
                 ButtonSegment(value: ExportFormat.jpg, label: const Text('JPG'), tooltip: l.t('exportJpgHint')),
+                if (widget.allowGif)
+                  ButtonSegment(value: ExportFormat.gif, label: const Text('GIF'), tooltip: l.t('exportGifHint')),
               ],
               selected: {_o.format},
               onSelectionChanged: (s) => setState(() => _o = _o.copyWith(format: s.first)),
             ),
             const SizedBox(height: Space.xs),
             Text(
-              _o.format == ExportFormat.png ? l.t('exportPngHint') : l.t('exportJpgHint'),
+              switch (_o.format) {
+                ExportFormat.png => l.t('exportPngHint'),
+                ExportFormat.jpg => l.t('exportJpgHint'),
+                ExportFormat.gif => l.t('exportGifHint'),
+              },
               style: context.text.caption,
             ),
             const SizedBox(height: Space.md),
