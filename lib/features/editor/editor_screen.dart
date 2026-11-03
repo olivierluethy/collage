@@ -22,6 +22,7 @@ import '../picker/photo_picker_screen.dart';
 import '../picker/picker_flow.dart';
 import '../picker/video_picker_screen.dart';
 import '../result/result_screen.dart';
+import 'canvas_zoom.dart';
 import 'collage_canvas.dart';
 import 'editor_controller.dart';
 import 'edge_panel.dart';
@@ -754,14 +755,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
                 padding: const EdgeInsets.all(Space.md),
                 child: AspectRatio(
                   aspectRatio: _c.project.ratio.value,
-                  child: RepaintBoundary(
-                    key: _boundaryKey,
-                    child: CollageCanvas(
-                      controller: _c,
-                      interactive: !_exporting,
-                      onEditSlot: _editSlot,
-                      onElementTrashed: _deleteElement,
-                      isOverTrash: _isOverTrash,
+                  // Pinch / buttons zoom the canvas while edges are shaped.
+                  // Outside the RepaintBoundary, so exports stay 1:1.
+                  child: ListenableBuilder(
+                    listenable: _c,
+                    builder: (context, child) => ZoomableCanvas(
+                      enabled: _c.edgeEditing && !_exporting,
+                      child: child!,
+                    ),
+                    child: RepaintBoundary(
+                      key: _boundaryKey,
+                      child: CollageCanvas(
+                        controller: _c,
+                        interactive: !_exporting,
+                        onEditSlot: _editSlot,
+                        onElementTrashed: _deleteElement,
+                        isOverTrash: _isOverTrash,
+                      ),
                     ),
                   ),
                 ),
