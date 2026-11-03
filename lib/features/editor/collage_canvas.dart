@@ -1634,14 +1634,18 @@ class _ElementViewState extends State<_ElementView> {
     return Positioned(
       left: e.cx * W,
       top: e.cy * H,
-      // Locked layers let touches through to what lies below. Always in
-      // the tree so locking never rebuilds the layer.
-      child: IgnorePointer(
-        ignoring: e.locked,
-        child: FractionalTranslation(
+      child: FractionalTranslation(
         translation: const Offset(-0.5, -0.5),
         child: Transform.rotate(
           angle: e.rotation,
+          // Locked layers let touches through to what lies below. Always in
+          // the tree so locking never rebuilds the layer. It sits inside the
+          // translation and rotation because it bounds hits by its own box:
+          // above them, only the part of the element overlapping its
+          // unshifted layout box (the bottom-right quarter) took touches —
+          // the rest fell through to the photo beneath.
+          child: IgnorePointer(
+          ignoring: e.locked,
           child: AnimatedOpacity(
             // Over the trash the element fades and shrinks: "release to delete".
             opacity: doomed ? 0.45 : 1,
