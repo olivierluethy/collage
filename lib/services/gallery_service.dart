@@ -44,9 +44,23 @@ class GalleryService {
   /// Save exported image bytes (PNG or JPG — the filename's extension tells the
   /// gallery which) to the gallery. Returns the created asset, or null on
   /// failure.
+  ///
+  /// On Android 10+ exports land in [albumPath] (Pictures/Collage), so they
+  /// are easy to find in any gallery or file manager.
   Future<AssetEntity?> saveImage(Uint8List bytes, {required String filename}) {
-    return PhotoManager.editor.saveImage(bytes, filename: filename, title: filename);
+    return PhotoManager.editor.saveImage(
+      bytes,
+      filename: filename,
+      title: filename,
+      relativePath: Platform.isAndroid ? albumPath : null,
+    );
   }
+
+  /// Where exported pictures go in the Android gallery.
+  static const albumPath = 'Pictures/Collage';
+
+  /// Where exported videos go in the Android gallery.
+  static const videoAlbumPath = 'Movies/Collage';
 
   /// Save an exported MP4 to the gallery (written to a temp file first, as
   /// the gallery imports videos from files). Returns null on failure.
@@ -54,7 +68,11 @@ class GalleryService {
     final file = File('${(await getTemporaryDirectory()).path}/$filename');
     await file.writeAsBytes(bytes);
     try {
-      return await PhotoManager.editor.saveVideo(file, title: filename);
+      return await PhotoManager.editor.saveVideo(
+        file,
+        title: filename,
+        relativePath: Platform.isAndroid ? videoAlbumPath : null,
+      );
     } catch (_) {
       return null;
     } finally {

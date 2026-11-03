@@ -105,6 +105,16 @@ class PrefsService {
   static const kQuietStart = 'reminders_quiet_start';
   static const kQuietEnd = 'reminders_quiet_end';
 
+  // --- v1.9 saving & export, notifications ----------------------------------
+  // lib/state/exports.dart and lib/state/occasions.dart own their meaning.
+
+  static const kExportDestination = 'export_destination';
+  static const kExportFolderUri = 'export_folder_uri';
+  static const kExportFolderLabel = 'export_folder_label';
+  static const kDiscoverSuggestions = 'discover_suggestions';
+  static const kRemindMemories = 'reminders_memories';
+  static const kNotifyExports = 'notify_exports';
+
   bool? getBool(String key) => _prefs.getBool(key);
   int? getInt(String key) => _prefs.getInt(key);
   String? getString(String key) => _prefs.getString(key);
