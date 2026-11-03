@@ -16,6 +16,8 @@ class _Host extends StatefulWidget {
 class _HostState extends State<_Host> {
   bool enabled = true;
 
+  void disable() => setState(() => enabled = false);
+
   @override
   Widget build(BuildContext context) => MaterialApp(
         theme: AppTheme.dark,
@@ -133,7 +135,7 @@ void main() {
     await tester.pump();
 
     final host = tester.state<_HostState>(find.byType(_Host));
-    host.setState(() => host.enabled = false);
+    host.disable();
     await tester.pump();
     expect(_state(tester).scale, 1);
     expect(find.byTooltip('Zoom in'), findsNothing);
