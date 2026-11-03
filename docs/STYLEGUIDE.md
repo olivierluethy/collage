@@ -303,7 +303,7 @@ titles are `labelMd`/`textMid` in sentence case, not overline caps. A row's curr
 end in `open_in_new`.
 
 **Cards with menus** — every collage card has a visible ⋯ `IconButton`; long-press stays as a
-shortcut. Moving to trash is never confirmed. Instead a snackbar offers **Undo**. Only actions that
+shortcut (in My Collages it starts selection, see §9d). Moving a single item to trash is never confirmed. Instead a snackbar offers **Undo**. Only actions that
 can't be undone (delete forever, empty trash, delete template/book) use `confirmDestructive`, whose
 danger button names the action.
 
@@ -345,6 +345,40 @@ Instagram grid and carousel exports collapse into one "For Instagram" group.
 **Panels stay compact.** A tool panel never takes more than ~42% of the screen height; its content scrolls. Style shows Borders · Background · Filters as pill tabs in the panel header instead of a title plus a segmented row.
 
 **Edge shaping.** Layout → Edges shows a dot on every edge shared by two photos; the selected edge turns amber and shows its two Bézier points (24dp amber, 44dp target). Points snap to straight and to thirds. Presets (Straight, Curve, Wave, Zigzag, Curvy zigzag), sliders and previous/next buttons give non-drag alternatives. Edges are part of the polygon layout geometry, so diagonal cuts, shapes and frames keep working with them.
+
+## 9e. Library patterns (v1.7 additions)
+
+My Collages has to stay usable with hundreds of collages. No new colour or font is added.
+
+**Dates** — `MetaDate` formats with the locale (`DateFormat.yMMMd` + `Hm`) and leads with a relative
+day for recent items ("Today", "3 days ago"). It never ellipsises: when the line doesn't fit it
+moves the relative day and the time to a second line, then drops the time. Screen readers and the
+details sheet get the full date and time (`yMMMMEEEEd`, `Hm`).
+
+**Search row** — a fixed row above the list: search field, `tune` filter button (amber with a count
+badge when filters are on) and a `swap_vert` sort menu. Active filters show below it as removable
+`InputChip`s, followed by a `labelMd`/`textMid` result count ("24 collages") with **Jump to** and
+**Select**.
+
+**Filter sheet** — offers only metadata that occurs in the library: a date range picker, year and month
+`ChoiceChip`s (with counts), template style, occasion, ratio (`spec` text) and "Has video". The
+primary button names the result ("Show 24 collages").
+
+**Month sections** — the grid is grouped by month with a sticky header (`titleMd` month + `SpecChip`
+count, scaffold background). Tapping a header or **Jump to** opens a month list that holds only
+months with collages.
+
+**Activity strip** — collapsed by default (remembered). Bars per day / week / month, hours once a
+single day is picked. Bars are `textLo` (empty periods `line`), the active one `amber` on an
+`amberTint` cell. Every bar is a 40dp-wide button with a "March 2026: 14 collages" label.
+
+**Selection mode** — long-press, the ⋯ menu's **Select** or the **Select** button. The app bar shows
+Cancel and "3 selected". Its menu holds the explicit "Select all collages (312)". The bottom bar holds
+"Select all 24 shown" and a `danger` **Move to trash**. Selected cards get a 2px `amber` border
+and an amber check. Moving several collages to trash is confirmed with the exact count. Undo in the
+snackbar restores exactly those collages.
+
+---
 
 ## 10. How to use this file
 
