@@ -23,19 +23,51 @@ class PhotoImage extends StatefulWidget {
   final int thumbPx;
   final Alignment alignment;
 
+  // Least-recently-used caches (a LinkedHashMap keeps insertion order; a hit
+  // is moved to the end). Bounded, so scrolling through thousands of photos
+  // in Discover or the picker can't grow memory without limit. Widgets keep
+  // their own bytes, so eviction never blanks a photo on screen.
   static final Map<String, Uint8List> _thumbCache = {};
   static final Map<String, Uint8List> _fullCache = {};
+  static const _maxThumbs = 600;
+  static const _maxFull = 24;
 
-  /// Best-available bytes for export/AI without building a widget.
+  /// Asset ids that no longer resolve (deleted, or outside limited access).
+  static final Set<String> _missing = {};
+
+  /// Whether [assetId] was looked up and could not be found.
+  static bool isMissing(String assetId) => _missing.contains(assetId);
+
+  static Uint8List? _hit(Map<String, Uint8List> cache, String id) {
+    final v = cache.remove(id);
+    if (v != null) cache[id] = v;
+    return v;
+  }
+
+  static void _put(Map<String, Uint8List> cache, String id, Uint8List v, int max) {
+    cache.remove(id);
+    cache[id] = v;
+    while (cache.length > max) {
+      cache.remove(cache.keys.first);
+    }
+  }
+
+  /// Best-available bytes for export/AI without building a widget. Null when
+  /// the photo is gone from the library (see [isMissing]).
   static Future<Uint8List?> bytes(String assetId, {bool full = false, int thumbPx = 400}) async {
     final cache = full ? _fullCache : _thumbCache;
-    if (cache.containsKey(assetId)) return cache[assetId];
+    final cached = _hit(cache, assetId);
+    if (cached != null) return cached;
     final asset = await AssetEntity.fromId(assetId);
-    if (asset == null) return null;
+    if (asset == null) {
+      _missing.add(assetId);
+      return null;
+    }
+    _missing.remove(assetId);
     final data = full
         ? await asset.originBytes
         : await asset.thumbnailDataWithSize(ThumbnailSize.square(thumbPx));
-    if (data != null) cache[assetId] = data;
+    if (data != null) _put(cache, assetId, data, full ? _maxFull : _maxThumbs);
     return data;
   }
 
@@ -45,6 +77,7 @@ class PhotoImage extends StatefulWidget {
 
 class _PhotoImageState extends State<PhotoImage> {
   Uint8List? _bytes;
+  bool _missing = false;
 
   @override
   void initState() {
@@ -61,11 +94,27 @@ class _PhotoImageState extends State<PhotoImage> {
   Future<void> _load() async {
     final data = await PhotoImage.bytes(widget.assetId,
         full: widget.full, thumbPx: widget.thumbPx);
-    if (mounted) setState(() => _bytes = data);
+    if (!mounted) return;
+    setState(() {
+      _bytes = data;
+      _missing = data == null && PhotoImage.isMissing(widget.assetId);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_bytes == null && _missing) {
+      // The photo was deleted or renamed away: say so instead of spinning.
+      return Semantics(
+        label: 'missing photo',
+        child: ColoredBox(
+          color: context.colors.surfaceInput,
+          child: Center(
+            child: Icon(Icons.broken_image_outlined, color: context.colors.textLo, size: 28),
+          ),
+        ),
+      );
+    }
     if (_bytes == null) {
       return ColoredBox(
         color: context.colors.surfaceInput,
