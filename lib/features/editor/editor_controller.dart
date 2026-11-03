@@ -404,8 +404,19 @@ class EditorController extends ChangeNotifier {
   /// The shared edge (by [EdgeShape.key]) whose shape is being edited.
   String? selectedEdgeKey;
 
-  /// Interior edges shared by exactly two cells (polygon layouts only).
-  List<SharedEdge> get sharedEdges => findSharedEdges(project.layout.slots);
+  /// Rectangular cells must become polygons before an edge can be shaped.
+  bool get _needsPolygons {
+    final slots = project.layout.slots;
+    return slots.length > 1 && slots.any((s) => !s.isPolygon);
+  }
+
+  /// Interior edges shared by exactly two cells. For a rectangular layout
+  /// these are the edges of its polygon equivalent (with T-junction corners
+  /// split), which it is turned into on the first actual shape change.
+  List<SharedEdge> get sharedEdges {
+    final slots = project.layout.slots;
+    return findSharedEdges(_needsPolygons ? polygonizeSlots(slots) : slots);
+  }
 
   /// The shape of [key], straight when it has none yet.
   EdgeShape edgeShape(String key) {
@@ -415,15 +426,10 @@ class EditorController extends ChangeNotifier {
     return EdgeShape(a: ids.first, b: ids.last);
   }
 
-  /// Enter edge editing. Rectangular layouts are turned into the equivalent
-  /// polygons first (with T-junction corners split), so every boundary
-  /// between two cells becomes an edge that can be shaped. The photos and
-  /// their framing are untouched.
+  /// Enter edge editing: every boundary between two cells gets a handle. The
+  /// layout itself only changes once an edge is actually shaped.
   void startEdgeEditing() {
     clearSelection();
-    final slots = project.layout.slots;
-    final needsPolys = slots.any((s) => !s.isPolygon) || sharedEdges.isEmpty;
-    if (needsPolys && slots.length > 1) _setSlots(polygonizeSlots(slots));
     edgeEditing = true;
     final edges = sharedEdges;
     selectedEdgeKey = edges.isEmpty ? null : edges.first.key;
@@ -443,7 +449,10 @@ class EditorController extends ChangeNotifier {
 
   /// Replace the shape of one edge (or of every shared edge with [all]).
   void setEdgeShape(String key, EdgeShape Function(EdgeShape s) fn, {bool all = false}) {
-    final l = project.layout;
+    // Rectangles become the equivalent polygons; photos and framing stay.
+    final l0 = project.layout;
+    final slots = _needsPolygons ? polygonizeSlots(l0.slots) : l0.slots;
+    final l = LayoutTemplate(id: l0.id, name: l0.name, family: l0.family, slots: slots, custom: l0.custom, edges: l0.edges);
     final map = l.edgeMap;
     final keys = all ? [for (final e in sharedEdges) e.key] : [key];
     for (final k in keys) {
