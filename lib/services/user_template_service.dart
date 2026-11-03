@@ -24,8 +24,9 @@ class UserTemplateService {
   }
 
   /// Save [project]'s design as a template named [name]. Photos are dropped:
-  /// slot fills, free photos and a photo background (which falls back to a
-  /// solid colour).
+  /// slot fills, plain free photos and a photo background (which falls back
+  /// to a solid colour). Shaped photo layers become placeholders; custom
+  /// cuts (moved points, zigzags, curves) are part of the layout and kept.
   Future<CollageProject> saveFrom(
     CollageProject project, {
     required String id,
@@ -41,7 +42,15 @@ class UserTemplateService {
       ..['fills'] = <String, dynamic>{}
       ..['thumbnailPath'] = null;
     final template = CollageProject.fromJson(j);
-    template.elements.removeWhere((e) => e is ImageElement);
+    // Plain free photos are content and leave; a photo layer that was given
+    // a shape or its own frame is part of the design (the star over the
+    // background), so it stays as an empty placeholder with its geometry,
+    // mask, framing, contour, order and layer state intact. Opening the
+    // template fills placeholders from the chosen photos.
+    template.elements.removeWhere((e) => e is ImageElement && !e.isShaped && e.frameAspect == null);
+    for (final e in template.elements) {
+      if (e is ImageElement) e.assetId = '';
+    }
     if (template.background.kind == BackgroundKind.image) {
       template.background
         ..kind = BackgroundKind.solid
