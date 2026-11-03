@@ -15,6 +15,7 @@ import '../../widgets/ui.dart';
 import '../books/books_screen.dart';
 import '../trash/trash_screen.dart';
 import 'backup_actions.dart';
+import 'occasion_settings.dart';
 import 'settings_pickers.dart';
 
 /// The "More" tab: everything that isn't making a collage, grouped by what the
@@ -92,6 +93,7 @@ class MoreTab extends ConsumerWidget {
             },
           ),
         ]),
+        _Group(l.t('setOccasionsGroup'), occasionSettingsRows(context, ref)),
         _Group(l.t('moreAbout'), [
           _Tile(
             icon: Icons.info_outline_rounded,

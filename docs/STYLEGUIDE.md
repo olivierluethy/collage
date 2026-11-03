@@ -378,6 +378,33 @@ Cancel and "3 selected". Its menu holds the explicit "Select all collages (312)"
 and an amber check. Moving several collages to trash is confirmed with the exact count. Undo in the
 snackbar restores exactly those collages.
 
+## 9f. Templates and occasions (v1.7 additions)
+
+No new colour or font. The rule: help people find a design fast, mention an occasion once, and
+never nag.
+
+**Template browser** — a search field (`surfaceInput`, `control` radius) with a 48dp tonal
+*Filters* button whose badge counts active filters. Category chips (All · Favourites · Invitations ·
+Holidays · styles) follow §6 chips at 48dp height. Count and shape filters live in a bottom sheet.
+While nothing narrows the list, rows come first: *Recently used*, *Favourites*, *For you*,
+*My templates*. A `SpecChip` line reports the result count.
+
+**Template tile** — `surface` card, `card` radius, `line` border; the live preview is centred at its
+own ratio; a quiet `spec` line (photo icon + count, ratio in `textLo`). A star sits top-right on a
+26dp `scrim` circle inside a 48dp target: white outline, `amber` when starred. Long-press stars too
+and a snackbar confirms. One semantics node reads "name, n photos, shape".
+Grid: 2 columns under 360dp, 3 on phones, more on tablets.
+
+**Occasion card** — at most one at a time, at the top of Templates and the New collage sheet:
+`surfaceHigh`, `card` radius, a 40dp `amberTint` icon tile, the headline in `labelLg`
+("Halloween is on Friday") and one `bodyMd`/`textMid` line ("Want to make something for it?", or
+"Make another Halloween collage" once one exists). A ghost × hides that occurrence for good.
+Copy never counts what the user hasn't done.
+
+**Settings rows** — Occasions group in More: a switch row, value rows (value in `amber`) and
+sub-screens that reuse the grouped surface cards. Reminders use a master switch card that turns
+`amberTint` + `amber` border when on; the controls below are disabled until then.
+
 ---
 
 ## 10. How to use this file

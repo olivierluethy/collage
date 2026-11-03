@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../services/occasion_service.dart';
 import '../../models/collage_project.dart';
 import '../../models/collage_template.dart';
 import '../../widgets/meta_date.dart';
@@ -192,9 +193,12 @@ String templateStyleLabel(AppLocalizations l, String key) {
   return AppLocalizations.maps['en']!.containsKey(k) ? l.t(k) : _humanize(key);
 }
 
-/// Localised occasion name. Uses an `occasion<Id>` string when the app has
-/// one, otherwise a readable form of the id ("new_year" → "New year").
+/// Localised occasion name from the occasion calendar; falls back to an
+/// `occasion<Id>` string, then a readable form of the id ("new_year" →
+/// "New year").
 String occasionLabel(AppLocalizations l, String id) {
+  final known = OccasionService.byId(id);
+  if (known != null) return l.t(known.nameKey);
   final camel = id
       .split(RegExp(r'[_\-\s]+'))
       .where((s) => s.isNotEmpty)

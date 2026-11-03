@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config.dart';
 import '../../l10n/app_localizations.dart';
+import '../../services/occasion_service.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
 import '../ai/ai_screen.dart';
 import '../flow.dart';
+import '../templates/occasion_card.dart';
 
 /// The one place every new collage starts: pick photos (the main path), start
 /// from a ready-made template, or let AI suggest one. The AI card only shows
@@ -17,6 +19,7 @@ Future<void> showNewCollageSheet(
   WidgetRef ref, {
   required VoidCallback onBrowseTemplates,
 }) async {
+  OccasionDate? occasion;
   final choice = await showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
@@ -33,6 +36,14 @@ Future<void> showNewCollageSheet(
               Padding(
                 padding: const EdgeInsets.fromLTRB(Space.sm, 0, Space.sm, Space.lg),
                 child: Text(l.t('newCollage'), style: sheet.text.titleLg),
+              ),
+              // An upcoming occasion, when there is one (compact, dismissable).
+              OccasionCard(
+                padding: const EdgeInsets.only(bottom: Space.sm),
+                onOpen: (o) {
+                  occasion = o;
+                  Navigator.pop(sheet, 'occasion');
+                },
               ),
               ActionCard(
                 primary: true,
@@ -69,6 +80,8 @@ Future<void> showNewCollageSheet(
       await startNewCollage(context, ref);
     case 'template':
       onBrowseTemplates();
+    case 'occasion':
+      if (occasion != null) await openOccasion(context, occasion!);
     case 'ai':
       await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiScreen()));
   }
