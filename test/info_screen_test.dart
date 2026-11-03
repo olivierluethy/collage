@@ -11,6 +11,11 @@ import 'package:collage/theme/app_theme.dart';
 
 Future<PrefsService> _pump(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
+  // The More tab has grown past one phone screen; a tall surface keeps every
+  // row built so the finders below don't depend on the lazy list's extent.
+  tester.view.physicalSize = const Size(800, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   final prefs = await PrefsService.create();
   await tester.pumpWidget(
     ProviderScope(

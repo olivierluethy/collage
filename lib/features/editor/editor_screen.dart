@@ -779,7 +779,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
               onShape: (e) => _openPhotoLayer(e.id),
               onDelete: (e) => _deleteElement(e.id),
             ),
-            _SlotBar(
+            SlotContextBar(
               controller: _c,
               onReplace: _openReplace,
               onEdit: _openStyle,
@@ -1295,9 +1295,10 @@ class _ToolRail extends StatelessWidget {
 /// The contextual bar for a selected photo cell. It says what a drag does
 /// right now (move the photo inside its frame) and lists everything that can
 /// be done with this photo — replacing the tiny chips that used to float on
-/// the photo itself.
-class _SlotBar extends StatelessWidget {
-  const _SlotBar({
+/// the photo itself. Public so widget tests can drive it directly.
+class SlotContextBar extends StatelessWidget {
+  const SlotContextBar({
+    super.key,
     required this.controller,
     required this.onReplace,
     required this.onEdit,

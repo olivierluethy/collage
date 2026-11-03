@@ -3,7 +3,7 @@
   <h1>Collage</h1>
   <p><b>A photo collage maker where you place every photo yourself.</b><br/>A free Android app that puts you in control of every slot — no autofill.</p>
   <p>
-    <img alt="Version 1.6.0" src="https://img.shields.io/badge/version-1.6.0-FFB454">
+    <img alt="Version 1.9.0" src="https://img.shields.io/badge/version-1.9.0-FFB454">
     <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
     <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white">
     <img alt="Dart" src="https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white">
@@ -226,8 +226,8 @@ first.
 Maintainers publish a new version by pushing a git tag:
 
 ```
-git tag v1.6.0
-git push origin v1.6.0
+git tag v1.9.0
+git push origin v1.9.0
 ```
 
 This triggers the GitHub Actions workflow that builds the APKs and publishes a GitHub Release with them attached.

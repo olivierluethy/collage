@@ -28,7 +28,16 @@ class SpecChip extends StatelessWidget {
             Icon(icon, size: 13, color: color),
             const SizedBox(width: 4),
           ],
-          Text(text, style: context.text.spec.copyWith(color: color)),
+          // Flexible so a long label ellipsizes in a tight row (narrow
+          // phones, large text) instead of overflowing.
+          Flexible(
+            child: Text(
+              text,
+              style: context.text.spec.copyWith(color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -64,7 +73,7 @@ class PrimaryButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: Space.sm)],
-              Text(label),
+              Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)),
             ],
           );
     final btn = ElevatedButton(
