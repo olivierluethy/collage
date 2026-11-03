@@ -26,15 +26,83 @@ class ShapeCatalog {
     ('cross', 'Plus'),
   ];
 
+  /// Shapes a photo layer can be cut into, in picker order. 'oval' is a
+  /// circle that follows the frame's own aspect; 'custom' is an editable
+  /// outline (see [editablePoints]).
+  static const List<(String, String)> photoMasks = [
+    ('none', 'Rectangle'),
+    ('rounded', 'Rounded'),
+    ('circle', 'Circle'),
+    ('oval', 'Oval'),
+    ('triangle', 'Triangle'),
+    ('star', 'Star'),
+    ('heart', 'Heart'),
+    ('diamond', 'Diamond'),
+    ('hexagon', 'Hexagon'),
+    ('poly8', 'Octagon'),
+    ('bubble', 'Speech'),
+    ('custom', 'Custom'),
+  ];
+
+  /// Whether a mask keeps its proportions best in a square frame (picking it
+  /// squares the frame; ovals and custom outlines keep theirs).
+  static bool prefersSquare(String kind) => const {'circle', 'star', 'hexagon', 'poly8', 'heart', 'diamond', 'triangle'}.contains(kind);
+
+  /// The outline of a custom mask from points (0..1 of the frame).
+  static Path pointsPath(List<Offset> pts, Size s) {
+    final path = Path();
+    for (var i = 0; i < pts.length; i++) {
+      final x = pts[i].dx * s.width, y = pts[i].dy * s.height;
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+    return path..close();
+  }
+
+  /// A starting outline (0..1 of the frame) to edit when a photo switches
+  /// to a custom mask — the polygon closest to its current shape.
+  static List<Offset> editablePoints(String kind) {
+    List<Offset> ring(int n, double start, {double inner = 1}) => [
+          for (var i = 0; i < n; i++)
+            Offset(
+              0.5 + 0.5 * (i.isOdd ? inner : 1) * math.cos(start + i * 2 * math.pi / n),
+              0.5 + 0.5 * (i.isOdd ? inner : 1) * math.sin(start + i * 2 * math.pi / n),
+            ),
+        ];
+    switch (kind) {
+      case 'triangle':
+        return const [Offset(0.5, 0), Offset(1, 1), Offset(0, 1)];
+      case 'diamond':
+        return const [Offset(0.5, 0), Offset(1, 0.5), Offset(0.5, 1), Offset(0, 0.5)];
+      case 'star':
+        return ring(10, -math.pi / 2, inner: 1 / 2.2);
+      case 'hexagon':
+        return ring(6, -math.pi / 2);
+      case 'pentagon':
+        return ring(5, -math.pi / 2);
+      case 'circle':
+      case 'oval':
+      case 'heart':
+        return ring(12, -math.pi / 2);
+      default:
+        final m = RegExp(r'^poly(\d+)$').firstMatch(kind);
+        if (m != null) return ring(int.parse(m.group(1)!).clamp(3, 24), -math.pi / 2);
+        return const [Offset(0, 0), Offset(1, 0), Offset(1, 1), Offset(0, 1)];
+    }
+  }
+
   static Path pathFor(String kind, Size s) {
     final w = s.width, h = s.height;
+    final poly = RegExp(r'^poly(\d+)$').firstMatch(kind);
+    if (poly != null) return _polygon(w, h, int.parse(poly.group(1)!).clamp(3, 24), -math.pi / 2);
     switch (kind) {
+      case 'oval':
+        return Path()..addOval(Rect.fromLTWH(0, 0, w, h));
       case 'square':
         return Path()..addRect(Rect.fromLTWH(0, 0, w, h));
       case 'rounded':
         return Path()
           ..addRRect(RRect.fromRectAndRadius(
-              Rect.fromLTWH(0, 0, w, h), Radius.circular(w * 0.18)));
+              Rect.fromLTWH(0, 0, w, h), Radius.circular(math.min(w, h) * 0.18)));
       case 'circle':
         return Path()..addOval(Rect.fromLTWH(0, 0, w, h));
       case 'triangle':
@@ -83,13 +151,14 @@ class ShapeCatalog {
 
   static Path _star(double w, double h, int points) {
     final path = Path();
+    // Fills the box on both axes (identical to before for square boxes), so
+    // a star photo frame can be stretched like any other shape.
     final cx = w / 2, cy = h / 2;
-    final outerR = w / 2, innerR = w / 4.4;
     for (var i = 0; i < points * 2; i++) {
-      final r = i.isEven ? outerR : innerR;
+      final k = i.isEven ? 1.0 : 1 / 2.2;
       final a = -math.pi / 2 + i * math.pi / points;
-      final x = cx + r * math.cos(a);
-      final y = cy + r * math.sin(a);
+      final x = cx + w / 2 * k * math.cos(a);
+      final y = cy + h / 2 * k * math.sin(a);
       i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
     }
     return path..close();

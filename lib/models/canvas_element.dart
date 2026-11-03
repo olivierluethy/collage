@@ -29,6 +29,12 @@ sealed class CanvasElement {
   double rotation;
   int z;
 
+  /// Layer state: a hidden layer is neither drawn nor exported; a locked one
+  /// is drawn but ignores touches on the canvas (pick it in Layers instead),
+  /// so a background photo can't be nudged by accident.
+  bool hidden = false;
+  bool locked = false;
+
   ElementType get type;
 
   /// Natural width of the element as a fraction of canvas width, before
@@ -48,13 +54,15 @@ sealed class CanvasElement {
         'scale': scale,
         'rotation': rotation,
         'z': z,
+        if (hidden) 'hidden': true,
+        if (locked) 'locked': true,
       };
 
   Map<String, dynamic> toJson();
 
   static CanvasElement fromJson(Map<String, dynamic> j) {
     final type = ElementType.values.byName(j['type'] as String);
-    return switch (type) {
+    final CanvasElement e = switch (type) {
       ElementType.sticker => StickerElement.fromJson(j),
       ElementType.shape => ShapeElement.fromJson(j),
       ElementType.text => TextElement.fromJson(j),
@@ -63,6 +71,9 @@ sealed class CanvasElement {
       ElementType.image => ImageElement.fromJson(j),
       ElementType.drawing => DrawingElement.fromJson(j),
     };
+    return e
+      ..hidden = j['hidden'] as bool? ?? false
+      ..locked = j['locked'] as bool? ?? false;
   }
 }
 
@@ -96,7 +107,9 @@ class StickerElement extends CanvasElement {
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() => {...baseJson(), 'assetPath': assetPath};
@@ -152,7 +165,9 @@ class ShapeElement extends CanvasElement {
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() => {
@@ -253,7 +268,9 @@ class TextElement extends CanvasElement {
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() => {
@@ -327,7 +344,9 @@ class EmojiElement extends CanvasElement {
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() => {...baseJson(), 'emoji': emoji};
@@ -376,7 +395,9 @@ class GifElement extends CanvasElement {
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() =>
@@ -394,8 +415,18 @@ class GifElement extends CanvasElement {
       );
 }
 
-/// A free-floating photo (freeform collages / extra photos on top of a grid).
-/// [assetId] is the photo_manager AssetEntity id, resolved to a file at render.
+/// A free-floating photo layer (freeform collages, or photos on top of a
+/// grid). [assetId] is the photo_manager AssetEntity id, resolved at render;
+/// an empty id is a photo placeholder (kept by saved templates).
+///
+/// The layer separates its *frame* from the *image within it*:
+/// * the frame is the element box — position, [scale], [rotation], an
+///   optional own aspect ([frameAspect]) and a [mask] shape cut out of it;
+/// * the image cover-fills the frame and is panned ([panX]/[panY], -1..1 as
+///   an alignment) and zoomed ([zoom] >= 1) inside it, after the optional
+///   crop insets.
+/// Without a frame aspect, mask, pan or zoom it renders exactly like the
+/// plain cropped photos of earlier versions.
 class ImageElement extends CanvasElement {
   ImageElement({
     required super.id,
@@ -409,12 +440,21 @@ class ImageElement extends CanvasElement {
     this.cropT = 0,
     this.cropR = 0,
     this.cropB = 0,
+    this.mask = 'none',
+    this.maskPoints,
+    this.frameAspect,
+    this.panX = 0,
+    this.panY = 0,
+    this.zoom = 1,
+    this.outlineColor = const Color(0xFFFFFFFF),
+    this.outlineWidth = 0,
+    this.shadow = false,
     super.scale,
     super.rotation,
     super.z,
   });
 
-  final String assetId;
+  String assetId;
   double imgAspect;
   bool flipX; // mirror left↔right
   bool flipY; // mirror top↔bottom
@@ -426,17 +466,42 @@ class ImageElement extends CanvasElement {
   double cropR;
   double cropB;
 
+  /// Shape cut out of the frame: 'none', a [ShapeCatalog] kind (circle,
+  /// oval, star, heart, triangle, rounded, hexagon, 'polyN' …) or 'custom'
+  /// for the editable outline in [maskPoints] (0..1 of the frame).
+  String mask;
+  List<Offset>? maskPoints;
+
+  /// Width / height of the frame. Null: the (cropped) photo's own aspect.
+  double? frameAspect;
+
+  /// The image inside the frame: pan as an alignment and zoom (>= 1).
+  double panX;
+  double panY;
+  double zoom;
+
+  /// Contour along the mask (canvas units per 1000; 0 = none) and a drop
+  /// shadow under the shape.
+  Color outlineColor;
+  double outlineWidth;
+  bool shadow;
+
   static const maxCrop = 0.45;
+  static const maxZoom = 5.0;
 
   bool get isCropped => cropL > 0 || cropT > 0 || cropR > 0 || cropB > 0;
+  bool get isPlaceholder => assetId.isEmpty;
+  bool get isShaped => mask != 'none';
+
+  /// Aspect of the cropped photo region.
+  double get croppedAspect => imgAspect * (1 - cropL - cropR) / (1 - cropT - cropB);
 
   @override
   ElementType get type => ElementType.image;
   @override
   double get naturalWidthFrac => 0.45;
   @override
-  double get aspectRatio =>
-      imgAspect * (1 - cropL - cropR) / (1 - cropT - cropB);
+  double get aspectRatio => frameAspect ?? croppedAspect;
 
   @override
   ImageElement clone() => ImageElement(
@@ -451,10 +516,21 @@ class ImageElement extends CanvasElement {
         cropT: cropT,
         cropR: cropR,
         cropB: cropB,
+        mask: mask,
+        maskPoints: maskPoints == null ? null : List.of(maskPoints!),
+        frameAspect: frameAspect,
+        panX: panX,
+        panY: panY,
+        zoom: zoom,
+        outlineColor: outlineColor,
+        outlineWidth: outlineWidth,
+        shadow: shadow,
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() => {
@@ -464,15 +540,24 @@ class ImageElement extends CanvasElement {
         if (flipX) 'flipX': true,
         if (flipY) 'flipY': true,
         if (isCropped) 'crop': [cropL, cropT, cropR, cropB],
+        if (mask != 'none') 'mask': mask,
+        if (maskPoints != null) 'maskPts': [for (final p in maskPoints!) [p.dx, p.dy]],
+        if (frameAspect != null) 'frameAspect': frameAspect,
+        if (panX != 0) 'panX': panX,
+        if (panY != 0) 'panY': panY,
+        if (zoom != 1) 'zoom': zoom,
+        if (outlineWidth > 0) 'outline': [_colorToInt(outlineColor), outlineWidth],
+        if (shadow) 'shadow': true,
       };
 
   factory ImageElement.fromJson(Map<String, dynamic> j) {
     final crop = (j['crop'] as List?)?.map((v) => (v as num).toDouble()).toList();
+    final outline = j['outline'] as List?;
     return ImageElement(
       id: j['id'] as String,
       cx: (j['cx'] as num).toDouble(),
       cy: (j['cy'] as num).toDouble(),
-      assetId: j['assetId'] as String,
+      assetId: j['assetId'] as String? ?? '',
       imgAspect: (j['imgAspect'] as num?)?.toDouble() ?? 1.0,
       flipX: j['flipX'] as bool? ?? false,
       flipY: j['flipY'] as bool? ?? false,
@@ -480,6 +565,17 @@ class ImageElement extends CanvasElement {
       cropT: crop != null && crop.length == 4 ? crop[1] : 0,
       cropR: crop != null && crop.length == 4 ? crop[2] : 0,
       cropB: crop != null && crop.length == 4 ? crop[3] : 0,
+      mask: j['mask'] as String? ?? 'none',
+      maskPoints: (j['maskPts'] as List?)
+          ?.map((e) => Offset(((e as List)[0] as num).toDouble(), (e[1] as num).toDouble()))
+          .toList(),
+      frameAspect: (j['frameAspect'] as num?)?.toDouble(),
+      panX: (j['panX'] as num?)?.toDouble() ?? 0,
+      panY: (j['panY'] as num?)?.toDouble() ?? 0,
+      zoom: (j['zoom'] as num?)?.toDouble() ?? 1,
+      outlineColor: outline != null && outline.length == 2 ? _colorFromInt(outline[0] as int) : const Color(0xFFFFFFFF),
+      outlineWidth: outline != null && outline.length == 2 ? (outline[1] as num).toDouble() : 0,
+      shadow: j['shadow'] as bool? ?? false,
       scale: (j['scale'] as num).toDouble(),
       rotation: (j['rotation'] as num).toDouble(),
       z: j['z'] as int,
@@ -559,7 +655,9 @@ class DrawingElement extends CanvasElement {
         scale: scale,
         rotation: rotation,
         z: z,
-      );
+      )
+        ..hidden = hidden
+        ..locked = locked;
 
   @override
   Map<String, dynamic> toJson() => {

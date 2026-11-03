@@ -5,6 +5,7 @@ import 'dart:ui' show Color, Offset, Size;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../data/shape_catalog.dart';
 import '../../models/aspect_adapt.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
@@ -24,7 +25,10 @@ enum CutMode { points, curves }
 class EditorController extends ChangeNotifier {
   EditorController({required this.project, required List<String> pool})
       : _pool = List.of(pool) {
-    if (project.fills.isEmpty && project.layout.slots.isNotEmpty) autofill();
+    if ((project.fills.isEmpty && project.layout.slots.isNotEmpty) ||
+        project.elements.any((e) => e is ImageElement && e.isPlaceholder)) {
+      autofill();
+    }
     // The opening state is the floor of the history, not an undoable step.
     _flushTimer?.cancel();
     _stale = false;
@@ -160,6 +164,8 @@ class EditorController extends ChangeNotifier {
     guideY = null;
     draggingElementId = null;
     overTrash = false;
+    adjustingImageId = null;
+    editingMaskId = null;
     if (selectedEdgeKey != null && !sharedEdges.any((e) => e.key == selectedEdgeKey)) {
       selectedEdgeKey = null;
     }
@@ -338,6 +344,8 @@ class EditorController extends ChangeNotifier {
 
   // ---- selection ----------------------------------------------------------
   void selectElement(String? id) {
+    if (id != adjustingImageId) adjustingImageId = null;
+    if (id != editingMaskId) editingMaskId = null;
     selectedElementId = id;
     selectedSlotId = null;
     notifyListeners();
@@ -350,6 +358,8 @@ class EditorController extends ChangeNotifier {
   }
 
   void clearSelection() {
+    adjustingImageId = null;
+    editingMaskId = null;
     selectedElementId = null;
     selectedSlotId = null;
     swapSource = null;
@@ -369,6 +379,15 @@ class EditorController extends ChangeNotifier {
       if (i >= available.length) break;
       project.fills[slot.id] = SlotFill(assetId: available[i]);
       i++;
+    }
+    // Photo placeholders of a template (shaped layers saved without their
+    // photo) take the next photos, front-most layer first.
+    for (final e in layers) {
+      if (i >= available.length) break;
+      if (e is ImageElement && e.isPlaceholder) {
+        e.assetId = available[i];
+        i++;
+      }
     }
     _touch();
   }
@@ -886,7 +905,7 @@ class EditorController extends ChangeNotifier {
     final keep = selection.toSet();
     _pool.removeWhere((id) => !keep.contains(id));
     project.fills.removeWhere((_, f) => !f.isVideo && !keep.contains(f.assetId));
-    project.elements.removeWhere((e) => e is ImageElement && !keep.contains(e.assetId));
+    project.elements.removeWhere((e) => e is ImageElement && !e.isPlaceholder && !keep.contains(e.assetId));
     for (final id in selection) {
       if (!_pool.contains(id)) _pool.add(id);
     }
@@ -907,7 +926,7 @@ class EditorController extends ChangeNotifier {
       if (f != null && !f.isVideo && !out.contains(f.assetId)) out.add(f.assetId);
     }
     for (final e in project.elements) {
-      if (e is ImageElement && !out.contains(e.assetId)) out.add(e.assetId);
+      if (e is ImageElement && !e.isPlaceholder && !out.contains(e.assetId)) out.add(e.assetId);
     }
     for (final id in _pool) {
       if (!out.contains(id)) out.add(id);
@@ -1064,6 +1083,7 @@ class EditorController extends ChangeNotifier {
   void updateTransform(String id, {double? cx, double? cy, double? scale, double? rotation}) {
     for (final e in project.elements) {
       if (e.id != id) continue;
+      if (e.locked) return;
       if (cx != null) e.cx = cx.clamp(-0.1, 1.1);
       if (cy != null) e.cy = cy.clamp(-0.1, 1.1);
       if (scale != null) e.scale = scale.clamp(0.15, 6);
@@ -1131,6 +1151,176 @@ class EditorController extends ChangeNotifier {
       _add(CanvasElement.fromJson(j));
       return;
     }
+  }
+
+  // ---- photo layers: frame vs image, masks ------------------------------------
+  ImageElement? _image(String id) {
+    for (final e in project.elements) {
+      if (e.id == id && e is ImageElement) return e;
+    }
+    return null;
+  }
+
+  /// Add a photo as its own layer, optionally already cut into [mask]
+  /// (e.g. a star over the background photo). Shaped layers get a square
+  /// frame for masks that look best square, else the photo's aspect.
+  void addPhotoLayer(String assetId, double aspect, {String mask = 'none'}) {
+    final e = ImageElement(
+      id: _uuid.v4(),
+      cx: 0.5,
+      cy: 0.5,
+      assetId: assetId,
+      imgAspect: aspect,
+      z: _nextZ,
+    );
+    addToPool(assetId);
+    _applyMask(e, mask);
+    _add(e);
+  }
+
+  void _applyMask(ImageElement e, String kind) {
+    e.mask = kind;
+    if (kind == 'none') return;
+    if (kind == 'custom') {
+      e.maskPoints ??= ShapeCatalog.editablePoints('none');
+    }
+    if (ShapeCatalog.prefersSquare(kind)) {
+      e.frameAspect = 1;
+    } else if (kind == 'oval' && (e.frameAspect == null || (e.aspectRatio - 1).abs() < 0.05)) {
+      e.frameAspect = 0.78;
+    } else {
+      e.frameAspect ??= e.aspectRatio;
+    }
+  }
+
+  /// Cut a photo layer into [kind]. Switching to 'custom' starts from the
+  /// polygon nearest to the current shape, so the outline can be edited.
+  void setElementMask(String id, String kind) {
+    final e = _image(id);
+    if (e == null) return;
+    if (kind == 'custom') {
+      e.maskPoints = ShapeCatalog.editablePoints(e.mask);
+    }
+    _applyMask(e, kind);
+    _touch();
+  }
+
+  /// Pan / zoom the image inside its frame (the frame stays put).
+  void setImageFraming(String id, {double? panX, double? panY, double? zoom}) {
+    final e = _image(id);
+    if (e == null) return;
+    if (panX != null) e.panX = panX.clamp(-1.0, 1.0);
+    if (panY != null) e.panY = panY.clamp(-1.0, 1.0);
+    if (zoom != null) e.zoom = zoom.clamp(1.0, ImageElement.maxZoom);
+    _touch();
+  }
+
+  void resetImageFraming(String id) => setImageFraming(id, panX: 0, panY: 0, zoom: 1);
+
+  /// Give a photo layer its own frame proportions (stretching a circle into
+  /// an oval, a rectangle into a banner) without distorting the photo.
+  /// [scale] keeps the frame's width in step when it is resized by a side.
+  void setFrameAspect(String id, double aspect, {double? scale}) {
+    final e = _image(id);
+    if (e == null) return;
+    var a = aspect.clamp(0.2, 5.0);
+    if ((a - 1).abs() < 0.03) a = 1; // snap to square
+    e.frameAspect = a;
+    if (scale != null) e.scale = scale.clamp(0.15, 6.0);
+    _touch();
+  }
+
+  void setImageOutline(String id, {Color? color, double? width, bool? shadow}) {
+    final e = _image(id);
+    if (e == null) return;
+    if (color != null) e.outlineColor = color;
+    if (width != null) e.outlineWidth = width.clamp(0.0, 30.0);
+    if (shadow != null) e.shadow = shadow;
+    _touch();
+  }
+
+  /// Move point [i] of a custom mask to [p] (0..1 of the frame).
+  void moveMaskPoint(String id, int i, Offset p) {
+    final e = _image(id);
+    final pts = e?.maskPoints;
+    if (e == null || pts == null || i < 0 || i >= pts.length) return;
+    final next = List.of(pts)..[i] = Offset(p.dx.clamp(0.0, 1.0), p.dy.clamp(0.0, 1.0));
+    if (!PartitionGeometry.isSimple(next)) return;
+    e.maskPoints = next;
+    _touch();
+  }
+
+  /// Add a point to a custom mask after point [i], halfway to the next.
+  void insertMaskPoint(String id, int i) {
+    final e = _image(id);
+    final pts = e?.maskPoints;
+    if (e == null || pts == null || pts.isEmpty) return;
+    final a = pts[i % pts.length], b = pts[(i + 1) % pts.length];
+    e.maskPoints = List.of(pts)..insert(i + 1, (a + b) / 2);
+    _touch();
+  }
+
+  /// Remove point [i] of a custom mask (a mask keeps at least three).
+  void removeMaskPoint(String id, int i) {
+    final e = _image(id);
+    final pts = e?.maskPoints;
+    if (e == null || pts == null || pts.length <= 3) return;
+    final next = List.of(pts)..removeAt(i);
+    if (!PartitionGeometry.isSimple(next)) return;
+    e.maskPoints = next;
+    _touch();
+  }
+
+  /// Transient: the photo layer whose image (not frame) one-finger drags and
+  /// pinches move — "Adjust photo". Null: gestures move the frame.
+  String? adjustingImageId;
+
+  /// Transient: the custom-mask layer whose outline points are shown.
+  String? editingMaskId;
+
+  void setAdjustingImage(String? id) {
+    adjustingImageId = id;
+    if (id != null) editingMaskId = null;
+    notifyListeners();
+  }
+
+  void setEditingMask(String? id) {
+    editingMaskId = id;
+    if (id != null) adjustingImageId = null;
+    notifyListeners();
+  }
+
+  // ---- layer state ---------------------------------------------------------------
+  CanvasElement? _element(String id) {
+    for (final e in project.elements) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  void setHidden(String id, bool hidden) {
+    final e = _element(id);
+    if (e == null || e.hidden == hidden) return;
+    e.hidden = hidden;
+    if (hidden && selectedElementId == id) selectedElementId = null;
+    _touch();
+  }
+
+  void setLocked(String id, bool locked) {
+    final e = _element(id);
+    if (e == null || e.locked == locked) return;
+    e.locked = locked;
+    _touch();
+  }
+
+  /// Move a layer one step towards the front (+1) or back (-1).
+  void stepLayer(String id, int dir) {
+    final list = layers; // front-most first
+    final i = list.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final j = i - dir.sign;
+    if (j < 0 || j >= list.length) return;
+    reorderLayer(i, j);
   }
 
   // ---- freehand drawing -----------------------------------------------------
