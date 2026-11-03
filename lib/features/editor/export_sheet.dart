@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../services/export_service.dart';
+import '../../state/exports.dart';
+import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
+import '../exports/export_place.dart';
 
 /// Ask how to export: format (PNG / JPG, or animated GIF when [allowGif])
 /// and output width, both pre-set to the last choice so most people just tap
-/// the button. Resolves to null if the user dismisses the sheet.
+/// the button. The place the file will be saved is shown right above the
+/// button and can be changed from here. Resolves to null if dismissed.
 Future<ExportOptions?> showExportSheet(
   BuildContext context,
   ExportOptions initial, {
@@ -18,6 +23,7 @@ Future<ExportOptions?> showExportSheet(
   return showModalBottomSheet<ExportOptions>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: (_) => _ExportSheet(
       // A remembered GIF choice doesn't apply to a collage without GIFs.
       initial: (!allowGif && initial.format == ExportFormat.gif) ||
@@ -30,17 +36,17 @@ Future<ExportOptions?> showExportSheet(
   );
 }
 
-class _ExportSheet extends StatefulWidget {
+class _ExportSheet extends ConsumerStatefulWidget {
   const _ExportSheet({required this.initial, required this.allowGif, required this.allowVideo});
   final ExportOptions initial;
   final bool allowGif;
   final bool allowVideo;
 
   @override
-  State<_ExportSheet> createState() => _ExportSheetState();
+  ConsumerState<_ExportSheet> createState() => _ExportSheetState();
 }
 
-class _ExportSheetState extends State<_ExportSheet> {
+class _ExportSheetState extends ConsumerState<_ExportSheet> {
   late ExportOptions _o = widget.initial;
 
   String _sizeLabel(BuildContext context, ExportSize s) => switch (s) {
@@ -52,8 +58,11 @@ class _ExportSheetState extends State<_ExportSheet> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final c = context.colors;
+    final dest = ref.watch(exportDestinationProvider);
+    final svc = ref.read(exportDestinationServiceProvider);
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -107,13 +116,45 @@ class _ExportSheetState extends State<_ExportSheet> {
               },
               style: context.text.caption,
             ),
-            const SizedBox(height: Space.xl),
-            // Says what happens: images and videos go straight to the gallery;
-            // a PDF is created and then offered to save or share.
+            const SizedBox(height: Space.lg),
+            // Where the file will go, visible before saving — not hidden in
+            // Settings. Tapping it changes the default destination.
+            Material(
+              color: c.surfaceHigh,
+              borderRadius: BorderRadius.circular(Radii.control),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(Radii.control),
+                onTap: () => showDestinationSheet(context, ref),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: Sizes.touchTarget),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                    child: Row(
+                      children: [
+                        Icon(exportPlaceIcon(svc.targetFor(dest, _o.format)), size: 20, color: c.amber),
+                        const SizedBox(width: Space.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(l.t('expSavesTo'), style: context.text.caption.copyWith(color: c.textMid)),
+                              Text(destinationFor(l, dest, svc, _o.format), style: context.text.bodyMd),
+                            ],
+                          ),
+                        ),
+                        Text(l.t('expChange'), style: context.text.labelMd.copyWith(color: c.amber)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: Space.md),
+            // Says what happens and where.
             PrimaryButton(
               onPressed: () => Navigator.of(context).pop(_o),
               icon: _o.format == ExportFormat.pdf ? Icons.picture_as_pdf_outlined : Icons.download_rounded,
-              label: _o.format == ExportFormat.pdf ? l.t('createPdf') : l.t('saveToGallery'),
+              label: saveButtonLabel(l, dest, svc, _o.format),
             ),
           ],
         ),

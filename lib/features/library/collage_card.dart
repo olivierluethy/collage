@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
+import '../../state/exports.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/meta_date.dart';
 import '../../widgets/ui.dart';
+import '../exports/export_history_screen.dart';
 import '../flow.dart';
 import '../info/backup_actions.dart';
 import 'library_actions.dart';
@@ -194,7 +196,7 @@ class _SelectMark extends StatelessWidget {
 }
 
 /// Everything you can do with one collage.
-enum CollageAction { details, edit, share, rename, duplicate, sendForEditing, select, trash }
+enum CollageAction { details, edit, share, exports, rename, duplicate, sendForEditing, select, trash }
 
 /// The ⋯ menu of a card.
 Future<void> showCollageMenu(BuildContext context, WidgetRef ref, CollageProject project) async {
@@ -227,6 +229,7 @@ Future<void> showCollageMenu(BuildContext context, WidgetRef ref, CollageProject
               tile(CollageAction.details, Icons.info_outline_rounded, l.t('libDetails')),
               tile(CollageAction.edit, Icons.edit_rounded, l.t('ctxEdit')),
               tile(CollageAction.share, Icons.ios_share_rounded, l.t('share')),
+              tile(CollageAction.exports, Icons.history_rounded, l.t('expOfCollage')),
               tile(CollageAction.rename, Icons.drive_file_rename_outline_rounded, l.t('renameCollage')),
               tile(CollageAction.duplicate, Icons.copy_rounded, l.t('duplicateCollage')),
               tile(CollageAction.sendForEditing, Icons.people_outline_rounded, l.t('shareForEditing')),
@@ -255,6 +258,10 @@ Future<void> runCollageAction(
       await openCollage(context, ref, project);
     case CollageAction.share:
       await shareCollageImage(context, ref, project);
+    case CollageAction.exports:
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ExportHistoryScreen(projectId: project.id, projectTitle: project.title),
+      ));
     case CollageAction.rename:
       await renameCollage(context, ref, project);
     case CollageAction.duplicate:
@@ -281,12 +288,13 @@ Future<void> showCollageDetails(BuildContext context, WidgetRef ref, CollageProj
   await runCollageAction(context, ref, project, action);
 }
 
-class _DetailsSheet extends StatelessWidget {
+class _DetailsSheet extends ConsumerWidget {
   const _DetailsSheet({required this.project});
   final CollageProject project;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exports = ref.watch(exportsOfProjectProvider(project.id));
     final l = context.l10n;
     final c = context.colors;
     final locale = dateLocaleOf(context);
@@ -359,6 +367,31 @@ class _DetailsSheet extends StatelessWidget {
                 label: l.t('libPhotos'),
                 value: videos > 0 ? '$photos · ${l.t('libVideos')}: $videos' : '$photos',
               ),
+              // Where this collage's exports went, so they can be found again.
+              const SizedBox(height: Space.md),
+              Semantics(
+                header: true,
+                child: Text(
+                  exports.isEmpty ? l.t('expOfCollage') : l.a('expOfCollageCount', {'count': '${exports.length}'}),
+                  style: context.text.labelMd.copyWith(color: c.textMid),
+                ),
+              ),
+              if (exports.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.xs),
+                  child: Text(l.t('expOfCollageNone'), style: context.text.caption.copyWith(color: c.textLo)),
+                )
+              else ...[
+                for (final r in exports.take(3)) ExportTile(record: r, showTitle: false, dense: true),
+                if (exports.length > 3)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context, CollageAction.exports),
+                      child: Text(l.a('expShowAll', {'count': '${exports.length}'})),
+                    ),
+                  ),
+              ],
               const SizedBox(height: Space.xl),
               PrimaryButton(
                 label: l.t('ctxEdit'),

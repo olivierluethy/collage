@@ -544,7 +544,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
       _evictThumbnail();
       await ref.read(draftsProvider.notifier).reload();
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ResultScreen(project: _c.project, result: result)));
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ResultScreen(project: _c.project, result: result, thumbnail: thumb),
+      ));
     } finally {
       if (mounted) {
         setState(() {
