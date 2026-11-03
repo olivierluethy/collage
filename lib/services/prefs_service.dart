@@ -74,4 +74,39 @@ class PrefsService {
     await _prefs.setString(_kCatalogFonts, fonts);
     await _prefs.setString(_kCatalogStickers, stickers);
   }
+
+  // --- v1.7 templates, occasions, birthdays, reminders ----------------------
+  // Generic typed access for the keys below; lib/state/occasions.dart owns
+  // their meaning and defaults.
+
+  static const kTemplateFavourites = 'template_favourites';
+  static const kOccasionSuggestions = 'occasion_suggestions';
+  static const kOccasionRegion = 'occasion_region';
+  static const kOccasionDismissed = 'occasion_dismissed';
+  static const kBirthdays = 'birthdays_json';
+  static const kContactsConnected = 'birthdays_contacts';
+  static const kRemindersOn = 'reminders_on';
+  static const kRemindOccasions = 'reminders_occasions';
+  static const kRemindBirthdays = 'reminders_birthdays';
+  static const kReminderFrequency = 'reminders_frequency';
+  static const kQuietStart = 'reminders_quiet_start';
+  static const kQuietEnd = 'reminders_quiet_end';
+
+  bool? getBool(String key) => _prefs.getBool(key);
+  int? getInt(String key) => _prefs.getInt(key);
+  String? getString(String key) => _prefs.getString(key);
+  List<String>? getStringList(String key) => _prefs.getStringList(key);
+
+  Future<void> setBool(String key, bool v) => _prefs.setBool(key, v);
+  Future<void> setInt(String key, int v) => _prefs.setInt(key, v);
+  Future<void> setStringList(String key, List<String> v) => _prefs.setStringList(key, v);
+
+  /// Stores [v], or removes the key when [v] is null.
+  Future<void> setStringOrRemove(String key, String? v) async {
+    if (v == null) {
+      await _prefs.remove(key);
+    } else {
+      await _prefs.setString(key, v);
+    }
+  }
 }
