@@ -89,7 +89,11 @@ class ReminderPlanner {
 
     final kept = <PlannedReminder>[];
     for (final c in candidates) {
-      final windowStart = c.fireAt.subtract(Duration(days: frequency.windowDays));
+      // Calendar days, not 24 h multiples: across a DST change a fixed
+      // Duration would shift the window by an hour and drop a reminder that
+      // is exactly windowDays later at the same wall-clock time.
+      final windowStart = DateTime(c.fireAt.year, c.fireAt.month, c.fireAt.day - frequency.windowDays,
+          c.fireAt.hour, c.fireAt.minute);
       final inWindow = kept.where((k) => k.fireAt.isAfter(windowStart)).length;
       if (inWindow >= frequency.max) continue;
       kept.add(PlannedReminder(id: 7100 + kept.length, fireAt: c.fireAt, occasion: c.occasion, memory: c.memory));
