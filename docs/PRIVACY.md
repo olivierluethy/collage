@@ -23,6 +23,16 @@ The photos are analysed locally and not uploaded. The cut-out feature uses a
 model provided by Google Play services, which may download it the first time
 it is used.
 
+**Exported files** go where you choose: your gallery, a Download folder, a
+folder you picked (which may be a cloud drive such as Google Drive — then that
+provider stores it), or a place you pick for each file. The app keeps a list
+of recent exports (file name, place and a small preview) in its private
+storage so you can find them again; clearing that list never deletes the files.
+
+**Notifications** are all off until you turn them on, and are created on your
+device. Photo-memory notifications use only the dates of your photos, read on
+your device.
+
 Collages you save in "My Collages" are stored in the app's private storage on
 your device. Deleted collages stay in the app's trash for 30 days. Uninstalling
 the app deletes all of them. Images you saved to your gallery stay there.
