@@ -11,7 +11,7 @@ import '../services/user_template_service.dart';
 import '../state/providers.dart';
 import 'editor/editor_screen.dart';
 import 'permission/permission_screen.dart';
-import 'picker/photo_picker_screen.dart';
+import 'picker/picker_flow.dart';
 
 /// Ensures gallery access, prompting the guided permission flow if needed.
 Future<bool> ensureGalleryAccess(BuildContext context, WidgetRef ref) async {
@@ -30,12 +30,7 @@ Future<bool> ensureGalleryAccess(BuildContext context, WidgetRef ref) async {
 /// chosen automatically to fit the photo count; the editor's Layout tool
 /// changes it (and the canvas shape) in place, so there's no extra step.
 Future<void> startNewCollage(BuildContext context, WidgetRef ref) async {
-  if (!await ensureGalleryAccess(context, ref)) return;
-  if (!context.mounted) return;
-
-  final picked = await Navigator.of(context).push<List<String>>(
-    MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 9, newCollage: true)),
-  );
+  final picked = await pickCollagePhotos(context, ref);
   if (picked == null || picked.isEmpty || !context.mounted) return;
 
   await openPhotosAsCollage(context, ref, picked);
