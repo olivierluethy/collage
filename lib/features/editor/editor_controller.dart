@@ -5,6 +5,7 @@ import 'dart:ui' show Color, Offset, Size;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../models/aspect_adapt.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
@@ -775,8 +776,14 @@ class EditorController extends ChangeNotifier {
     _touch();
   }
 
+  /// Switch the canvas shape. Cells, cuts and photo framing are normalised
+  /// and simply follow; layers are re-sized by [AspectAdapt] so they keep
+  /// their visual weight. One undo step, and switching back is lossless.
   void setRatioLabel(String label) {
+    if (label == project.ratioLabel) return;
+    final from = project.ratio.value;
     project.ratioLabel = label;
+    AspectAdapt.elements(project.elements, from, project.ratio.value);
     _touch();
   }
 
