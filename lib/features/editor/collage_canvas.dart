@@ -15,10 +15,12 @@ import '../../widgets/collage_background.dart';
 import '../../widgets/curved_edges.dart';
 import '../../widgets/drawing_painter.dart';
 import '../../widgets/photo_image.dart';
+import '../../widgets/photo_layer.dart';
 import '../../widgets/poly_clipper.dart';
 import '../../widgets/sharpened.dart';
 import '../../widgets/sticker_image.dart';
 import '../../widgets/video_slot.dart';
+import 'cut_editor.dart';
 import 'editor_controller.dart';
 import 'slot_splits.dart';
 
@@ -72,13 +74,14 @@ class CollageCanvas extends StatelessWidget {
                   ),
                   ..._slots(c, size),
                   for (final e in elements)
+                    if (!e.hidden)
                     _ElementView(
                       key: ValueKey(e.id),
                       controller: c,
                       element: e,
                       canvas: size,
                       // Elements step aside while edges are being shaped.
-                      interactive: interactive && !c.edgeEditing,
+                      interactive: interactive && !c.edgeEditing && !e.locked,
                       onTrashed: onElementTrashed,
                       isOverTrash: isOverTrash,
                     ),
@@ -101,7 +104,11 @@ class CollageCanvas extends StatelessWidget {
                   // Edge shaping: a handle on every shared edge, plus the
                   // Bézier control points of the selected one.
                   if (interactive && c.edgeEditing)
-                    Positioned.fill(child: _EdgeEditor(controller: c, content: _content(c, size))),
+                    Positioned.fill(
+                      child: c.cutMode == CutMode.points
+                          ? CutPointEditor(controller: c, content: _content(c, size))
+                          : _EdgeEditor(controller: c, content: _content(c, size)),
+                    ),
                   // Draw mode: a full-canvas layer that captures strokes.
                   if (interactive && c.drawing)
                     Positioned.fill(child: _DrawLayer(controller: c, canvas: size)),
@@ -122,7 +129,6 @@ class CollageCanvas extends StatelessWidget {
     final gap = c.border.gap * unit;
     final radius = c.border.radius * unit;
     final thickness = c.border.thickness * unit;
-    final edgeShapes = c.project.layout.edgeMap;
 
     final content = Rect.fromLTWH(
       margin,
@@ -143,25 +149,30 @@ class CollageCanvas extends StatelessWidget {
         // outline's bounds with a local (box-relative) path.
         var poly = slot.points!.map(toPx).toList();
         poly = insetConvexPolygon(poly, gap / 2);
-        final curved = curvedEdgesOf(slot, slots, edgeShapes);
+        final curved = c.curvedEdgesFor(slot);
         final outline = curved.isEmpty ? polygonPath(poly) : shapedCellPath(poly, curved);
         final b = curved.isEmpty ? _boundsOf(poly) : safeBounds(outline);
         final local = [for (final p in poly) p - b.topLeft];
         return Positioned(
+          key: ValueKey('slot:${slot.id}'),
           left: b.left,
           top: b.top,
           width: b.width.clamp(0, size.width),
           height: b.height.clamp(0, size.height),
-          child: _PolySlotView(
-            controller: c,
-            slotId: slot.id,
-            unit: unit,
-            polygon: local,
-            outline: curved.isEmpty ? null : outline.shift(-b.topLeft),
-            thickness: thickness,
-            borderColor: c.border.color,
-            interactive: interactive && !c.edgeEditing,
-            onEditSlot: onEditSlot,
+          // Each cell rasters on its own layer, so moving a cut or an overlay
+          // repaints only what changed. Present in export too (same tree).
+          child: RepaintBoundary(
+            child: _PolySlotView(
+              controller: c,
+              slotId: slot.id,
+              unit: unit,
+              polygon: local,
+              outline: curved.isEmpty ? null : outline.shift(-b.topLeft),
+              thickness: thickness,
+              borderColor: c.border.color,
+              interactive: interactive && !c.edgeEditing,
+              onEditSlot: onEditSlot,
+            ),
           ),
         );
       }
@@ -173,19 +184,22 @@ class CollageCanvas extends StatelessWidget {
       );
       r = r.deflate(gap / 2);
       return Positioned(
+        key: ValueKey('slot:${slot.id}'),
         left: r.left,
         top: r.top,
         width: r.width.clamp(0, size.width),
         height: r.height.clamp(0, size.height),
-        child: _SlotView(
-          controller: c,
-          slotId: slot.id,
-          unit: unit,
-          radius: radius,
-          thickness: thickness,
-          borderColor: c.border.color,
-          interactive: interactive && !c.edgeEditing,
-          onEditSlot: onEditSlot,
+        child: RepaintBoundary(
+          child: _SlotView(
+            controller: c,
+            slotId: slot.id,
+            unit: unit,
+            radius: radius,
+            thickness: thickness,
+            borderColor: c.border.color,
+            interactive: interactive && !c.edgeEditing,
+            onEditSlot: onEditSlot,
+          ),
         ),
       );
     }).toList();
@@ -218,7 +232,10 @@ class CollageCanvas extends StatelessWidget {
           split: sp,
           content: content,
         ),
+      // Bent cuts (several pieces between the same cells) are reshaped by
+      // their points in the cut editor; a pill per piece would only clutter.
       for (final sp in c.polySplits)
+        if (c.polySplits.where((o) => o.slots.length == sp.slots.length && o.slots.containsAll(sp.slots)).length == 1)
         _PolySplitHandle(
           key: ValueKey('poly:${(sp.slots.toList()..sort()).join(',')}'),
           controller: c,
@@ -1479,6 +1496,15 @@ class _ElementViewState extends State<_ElementView> {
   double _handleBaseRotation = 0;
   double _handleBaseAngle = 0;
   double _handleBaseDist = 1;
+  // Adjust photo (image inside the frame).
+  double _basePanX = 0;
+  double _basePanY = 0;
+  double _baseZoom = 1;
+  Offset _imgTravel = Offset.zero;
+  // Frame side handles.
+  double _sideBaseScale = 1;
+  double _sideBaseAspect = 1;
+  double _sideTravel = 0;
 
   Offset _center() {
     final rb = _boxKey.currentContext?.findRenderObject() as RenderBox?;
@@ -1509,17 +1535,46 @@ class _ElementViewState extends State<_ElementView> {
     final gestured = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.interactive ? () => c.selectElement(e.id) : null,
+      onDoubleTap: widget.interactive && e is ImageElement && !e.isPlaceholder
+          ? () {
+              HapticFeedback.selectionClick();
+              c.selectElement(e.id);
+              c.setAdjustingImage(c.adjustingImageId == e.id ? null : e.id);
+            }
+          : null,
       onScaleStart: widget.interactive
           ? (_) {
               _baseScale = e.scale;
               _baseRotation = e.rotation;
               _rawCx = e.cx;
               _rawCy = e.cy;
+              if (e is ImageElement) {
+                _basePanX = e.panX;
+                _basePanY = e.panY;
+                _baseZoom = e.zoom;
+                _imgTravel = Offset.zero;
+              }
               c.selectElement(e.id);
             }
           : null,
       onScaleUpdate: widget.interactive
           ? (d) {
+              // Adjust photo: the image moves inside a frame that stays put.
+              if (e is ImageElement && c.adjustingImageId == e.id) {
+                final r = -e.rotation;
+                final fd = d.focalPointDelta;
+                _imgTravel += Offset(fd.dx * math.cos(r) - fd.dy * math.sin(r), fd.dx * math.sin(r) + fd.dy * math.cos(r));
+                final zoom = d.pointerCount >= 2 ? (_baseZoom * d.scale).clamp(1.0, ImageElement.maxZoom) : e.zoom;
+                final probe = e.clone()..zoom = zoom;
+                final o = PhotoLayerGeometry.of(probe, e.naturalWidthFrac * W * e.scale).overflow;
+                c.setImageFraming(
+                  e.id,
+                  panX: o.width > 0.5 ? _basePanX - 2 * _imgTravel.dx / o.width : e.panX,
+                  panY: o.height > 0.5 ? _basePanY - 2 * _imgTravel.dy / o.height : e.panY,
+                  zoom: zoom,
+                );
+                return;
+              }
               _rawCx += d.focalPointDelta.dx / W;
               _rawCy += d.focalPointDelta.dy / H;
               final (cx, cy) = c.snapPosition(e.id, _rawCx, _rawCy);
@@ -1543,6 +1598,7 @@ class _ElementViewState extends State<_ElementView> {
           : null,
       onScaleEnd: widget.interactive
           ? (_) {
+              if (e is ImageElement && c.adjustingImageId == e.id) return;
               c.clearGuides();
               if (c.endElementDrag()) widget.onTrashed?.call(e.id);
             }
@@ -1550,12 +1606,16 @@ class _ElementViewState extends State<_ElementView> {
       child: Padding(padding: const EdgeInsets.all(_hitPad), child: child),
     );
 
+    final adjusting = e is ImageElement && c.adjustingImageId == e.id;
     final boxed = Container(
       key: _boxKey,
       decoration: selected && !dragging
           ? BoxDecoration(
-              border: Border.all(color: context.colors.amber, width: 1.5),
-              boxShadow: Shadows.focusGlow,
+              border: Border.all(
+                color: adjusting ? context.colors.amberBright : context.colors.amber,
+                width: adjusting ? 2.5 : 1.5,
+              ),
+              boxShadow: adjusting ? null : Shadows.focusGlow,
             )
           : const BoxDecoration(),
       child: gestured,
@@ -1563,11 +1623,17 @@ class _ElementViewState extends State<_ElementView> {
 
     final showHandles = widget.interactive && selected && !dragging;
     const h = _handleHit / 2;
+    final frameHandles = showHandles && e is ImageElement && !adjusting && c.editingMaskId != e.id;
+    final maskHandles = showHandles && e is ImageElement && c.editingMaskId == e.id && e.maskPoints != null;
 
     return Positioned(
       left: e.cx * W,
       top: e.cy * H,
-      child: FractionalTranslation(
+      // Locked layers let touches through to what lies below. Always in
+      // the tree so locking never rebuilds the layer.
+      child: IgnorePointer(
+        ignoring: e.locked,
+        child: FractionalTranslation(
         translation: const Offset(-0.5, -0.5),
         child: Transform.rotate(
           angle: e.rotation,
@@ -1630,6 +1696,23 @@ class _ElementViewState extends State<_ElementView> {
                         ),
                       ),
                     ),
+                    // Frame sides: stretch the frame (a circle into an oval)
+                    // without distorting the photo inside it.
+                    if (frameHandles) ...[
+                      Positioned(
+                        right: _hitPad - h,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(child: _sideHandle(context, c, e, horizontal: true)),
+                      ),
+                      Positioned(
+                        bottom: _hitPad - h,
+                        left: 0,
+                        right: 0,
+                        child: Center(child: _sideHandle(context, c, e, horizontal: false)),
+                      ),
+                    ],
+                    if (maskHandles) ..._maskHandles(context, c, e, W),
                   ],
                 ],
               ),
@@ -1637,7 +1720,142 @@ class _ElementViewState extends State<_ElementView> {
           ),
         ),
       ),
+      ),
     );
+  }
+
+  /// A small pill on the right or bottom side of a photo frame; dragging it
+  /// changes the frame's proportions along that axis only.
+  Widget _sideHandle(BuildContext context, EditorController c, ImageElement e, {required bool horizontal}) {
+    return Semantics(
+      label: context.l10n.t(horizontal ? 'frameWidthHandle' : 'frameHeightHandle'),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) {
+          _sideBaseScale = e.scale;
+          _sideBaseAspect = e.aspectRatio;
+          _sideTravel = 0;
+        },
+        onPanUpdate: (d) {
+          // Into the frame's own (rotated) axes.
+          final r = -e.rotation;
+          final local = Offset(d.delta.dx * math.cos(r) - d.delta.dy * math.sin(r), d.delta.dx * math.sin(r) + d.delta.dy * math.cos(r));
+          _sideTravel += horizontal ? local.dx : local.dy;
+          final w0 = e.naturalWidthFrac * widget.canvas.width * _sideBaseScale;
+          final h0 = w0 / _sideBaseAspect;
+          if (horizontal) {
+            // The frame grows from its centre: both sides move.
+            final w1 = math.max(24.0, w0 + 2 * _sideTravel);
+            c.setFrameAspect(e.id, w1 / h0, scale: _sideBaseScale * w1 / w0);
+          } else {
+            final h1 = math.max(24.0, h0 + 2 * _sideTravel);
+            c.setFrameAspect(e.id, w0 / h1);
+          }
+        },
+        child: SizedBox(
+          width: _handleHit,
+          height: _handleHit,
+          child: Center(
+            child: Container(
+              width: horizontal ? 10 : 26,
+              height: horizontal ? 26 : 10,
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                borderRadius: BorderRadius.circular(Radii.pill),
+                border: Border.all(color: context.colors.amber, width: 1.5),
+                boxShadow: Shadows.e1,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Point handles of a custom mask, laid out in the frame's own space (this
+  /// Stack is already rotated with the element), plus a "+" between points.
+  List<Widget> _maskHandles(BuildContext context, EditorController c, ImageElement e, double canvasW) {
+    final pts = e.maskPoints!;
+    final g = PhotoLayerGeometry.of(e, e.naturalWidthFrac * canvasW * e.scale);
+    Offset at(Offset p) => Offset(_hitPad + p.dx * g.frame.width, _hitPad + p.dy * g.frame.height);
+    Offset? frac(Offset global) {
+      final box = _boxKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) return null;
+      final l = box.globalToLocal(global) - const Offset(_hitPad, _hitPad);
+      return Offset(l.dx / g.frame.width, l.dy / g.frame.height);
+    }
+
+    const hit = 36.0;
+    final l10n = context.l10n;
+    return [
+      for (var i = 0; i < pts.length; i++)
+        if ((at(pts[i]) - at(pts[(i + 1) % pts.length])).distance > 40)
+          Positioned(
+            left: (at(pts[i]) + at(pts[(i + 1) % pts.length])).dx / 2 - hit / 2,
+            top: (at(pts[i]) + at(pts[(i + 1) % pts.length])).dy / 2 - hit / 2,
+            child: Semantics(
+              button: true,
+              label: l10n.t('cutAddPoint'),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => c.insertMaskPoint(e.id, i),
+                child: SizedBox(
+                  width: hit,
+                  height: hit,
+                  child: Center(
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+                      ),
+                      child: const Icon(Icons.add_rounded, size: 10, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      for (var i = 0; i < pts.length; i++)
+        Positioned(
+          left: at(pts[i]).dx - hit / 2,
+          top: at(pts[i]).dy - hit / 2,
+          child: Semantics(
+            label: l10n.a('cutPointOf', {'n': '${i + 1}', 'total': '${pts.length}'}),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onLongPress: pts.length > 3
+                  ? () {
+                      HapticFeedback.mediumImpact();
+                      c.removeMaskPoint(e.id, i);
+                    }
+                  : null,
+              onPanUpdate: (d) {
+                final f = frac(d.globalPosition);
+                if (f != null) c.moveMaskPoint(e.id, i, f);
+              },
+              child: SizedBox(
+                width: hit,
+                height: hit,
+                child: Center(
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: context.colors.amber,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: context.colors.onAmber, width: 2),
+                      boxShadow: Shadows.e1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+    ];
   }
 
   /// Transparent touch margin around every element (canvas pixels).
@@ -1680,39 +1898,7 @@ class _ElementViewState extends State<_ElementView> {
           child: Image.network(g.url, fit: BoxFit.contain, gaplessPlayback: true),
         );
       case ImageElement im:
-        final w = im.naturalWidthFrac * canvasW * im.scale;
-        // The full photo is laid out larger than the box and shifted so only
-        // the cropped window shows. Built the same way when uncropped so the
-        // photo keeps its ancestors when a crop is added.
-        final fw = w / (1 - im.cropL - im.cropR);
-        final fh = fw / im.imgAspect;
-        Widget photo = SizedBox(
-          width: w,
-          height: w / im.aspectRatio,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
-              children: [
-                Positioned(
-                  left: -im.cropL * fw,
-                  top: -im.cropT * fh,
-                  width: fw,
-                  height: fh,
-                  child: PhotoImage(assetId: im.assetId, full: true, fit: BoxFit.cover),
-                ),
-              ],
-            ),
-          ),
-        );
-        if (im.flipX || im.flipY) {
-          photo = Transform.scale(
-            scaleX: im.flipX ? -1 : 1,
-            scaleY: im.flipY ? -1 : 1,
-            child: photo,
-          );
-        }
-        return photo;
+        return PhotoLayerView(element: im, width: im.naturalWidthFrac * canvasW * im.scale, unit: canvasW / 1000);
       case DrawingElement d:
         final w = d.naturalWidthFrac * canvasW * d.scale;
         return SizedBox(

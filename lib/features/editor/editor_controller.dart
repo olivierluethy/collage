@@ -1,16 +1,23 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show Color, Offset, Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../data/shape_catalog.dart';
+import '../../models/aspect_adapt.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
+import '../../models/partition_geometry.dart';
 import '../../models/photo_filter.dart';
 import '../../services/vision_service.dart';
 import '../../widgets/curved_edges.dart';
 import 'slot_splits.dart';
+
+/// What the cut editor manipulates (see [EditorController.cutMode]).
+enum CutMode { points, curves }
 
 /// Holds the collage being edited plus selection state, and exposes every
 /// mutation the editor UI performs. A plain [ChangeNotifier] so the canvas and
@@ -18,8 +25,13 @@ import 'slot_splits.dart';
 class EditorController extends ChangeNotifier {
   EditorController({required this.project, required List<String> pool})
       : _pool = List.of(pool) {
-    if (project.fills.isEmpty && project.layout.slots.isNotEmpty) autofill();
+    if ((project.fills.isEmpty && project.layout.slots.isNotEmpty) ||
+        project.elements.any((e) => e is ImageElement && e.isPlaceholder)) {
+      autofill();
+    }
     // The opening state is the floor of the history, not an undoable step.
+    _flushTimer?.cancel();
+    _stale = false;
     _committed = _snapshot();
     _latest = _committed;
     _lastTouch = null;
@@ -45,7 +57,18 @@ class EditorController extends ChangeNotifier {
   bool get canUndo => _undo.isNotEmpty || _hasPendingChange;
   bool get canRedo => _redo.isNotEmpty && !_hasPendingChange;
 
-  bool get _hasPendingChange => _latest != _committed;
+  bool get _hasPendingChange => _stale || _latest != _committed;
+
+  /// True while [_latest] lags behind the project: inside a burst (a drag or
+  /// pinch) the snapshot is taken lazily instead of on every pointer move —
+  /// serialising the whole collage 60× a second was the main source of drag
+  /// lag on big collages. [_flush] brings it up to date.
+  bool _stale = false;
+
+  /// Refreshes the stale snapshot shortly after a burst goes quiet, always
+  /// before the next burst can start ([_flushDelay] < [_settle]).
+  Timer? _flushTimer;
+  static const _flushDelay = Duration(milliseconds: 180);
 
   /// The editable state as JSON, without bookkeeping fields that change on
   /// every touch (so an unchanged collage compares equal).
@@ -56,18 +79,46 @@ class EditorController extends ChangeNotifier {
     return jsonEncode(j);
   }
 
+  /// Take the pending snapshot now, if one is owed.
+  void _flush() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    if (!_stale) return;
+    _stale = false;
+    _latest = _snapshot();
+  }
+
   /// Called after every mutation: closes the previous burst if this edit
-  /// comes after a pause, then remembers the new state.
+  /// comes after a pause, then remembers the new state. The first edit of a
+  /// burst is snapshotted right away; the rest only mark the snapshot stale.
   void _record() {
     final now = DateTime.now();
     final last = _lastTouch;
-    if (last == null || now.difference(last) >= _settle) _commit();
+    final newBurst = last == null || now.difference(last) >= _settle;
+    if (newBurst) {
+      // The previous burst's final state must be captured before this
+      // mutation's state replaces it — the timer normally already did.
+      _commit();
+      _lastTouch = now;
+      _stale = false;
+      _latest = _snapshot();
+      return;
+    }
     _lastTouch = now;
-    _latest = _snapshot();
+    _stale = true;
+    _flushTimer?.cancel();
+    _flushTimer = Timer(_flushDelay, _flush);
+  }
+
+  @override
+  void dispose() {
+    _flushTimer?.cancel();
+    super.dispose();
   }
 
   /// Push the pending burst (if it changed anything) onto the history.
   void _commit() {
+    _flush();
     if (_latest == _committed) return;
     _undo.add(_committed);
     if (_undo.length > _maxHistory) _undo.removeAt(0);
@@ -90,6 +141,8 @@ class EditorController extends ChangeNotifier {
   }
 
   void _restore(String snapshot) {
+    _flushTimer?.cancel();
+    _stale = false;
     _committed = snapshot;
     _latest = snapshot;
     _lastTouch = null;
@@ -111,9 +164,13 @@ class EditorController extends ChangeNotifier {
     guideY = null;
     draggingElementId = null;
     overTrash = false;
+    adjustingImageId = null;
+    editingMaskId = null;
     if (selectedEdgeKey != null && !sharedEdges.any((e) => e.key == selectedEdgeKey)) {
       selectedEdgeKey = null;
     }
+    _vertexDrag = null;
+    if (selectedVertexKey != null && selectedVertex == null) selectedVertexKey = null;
     if (selectedElementId != null && !project.elements.any((e) => e.id == selectedElementId)) {
       selectedElementId = null;
     }
@@ -287,6 +344,8 @@ class EditorController extends ChangeNotifier {
 
   // ---- selection ----------------------------------------------------------
   void selectElement(String? id) {
+    if (id != adjustingImageId) adjustingImageId = null;
+    if (id != editingMaskId) editingMaskId = null;
     selectedElementId = id;
     selectedSlotId = null;
     notifyListeners();
@@ -299,6 +358,8 @@ class EditorController extends ChangeNotifier {
   }
 
   void clearSelection() {
+    adjustingImageId = null;
+    editingMaskId = null;
     selectedElementId = null;
     selectedSlotId = null;
     swapSource = null;
@@ -318,6 +379,15 @@ class EditorController extends ChangeNotifier {
       if (i >= available.length) break;
       project.fills[slot.id] = SlotFill(assetId: available[i]);
       i++;
+    }
+    // Photo placeholders of a template (shaped layers saved without their
+    // photo) take the next photos, front-most layer first.
+    for (final e in layers) {
+      if (i >= available.length) break;
+      if (e is ImageElement && e.isPlaceholder) {
+        e.assetId = available[i];
+        i++;
+      }
     }
     _touch();
   }
@@ -362,10 +432,23 @@ class EditorController extends ChangeNotifier {
 
   // ---- drag-to-resize cells ------------------------------------------------
   /// Edges between rectangular cells that can be dragged to resize them.
-  List<SlotSplit> get splits => findSplits(project.layout.slots);
+  ///
+  /// The derived geometry below is memoised on the identity of the slot list:
+  /// layouts are immutable and replaced on every change, so a rebuild that
+  /// didn't touch the layout (a pan, a selection, a filter) reuses it instead
+  /// of re-running the O(n²) edge searches every frame.
+  List<SlotSplit> get splits => _geo.splits;
 
   /// Shared edges between diagonal / mosaic (polygon) cells.
-  List<PolySplit> get polySplits => findPolySplits(project.layout.slots);
+  List<PolySplit> get polySplits => _geo.polySplits;
+
+  _GeometryCache? _geoCache;
+  _GeometryCache get _geo {
+    final layout = project.layout;
+    final c = _geoCache;
+    if (c != null && identical(c.layout, layout)) return c;
+    return _geoCache = _GeometryCache(layout);
+  }
 
   /// Move [split] to [pos] (layout fraction).
   void moveSplitTo(SlotSplit split, double pos) =>
@@ -413,10 +496,10 @@ class EditorController extends ChangeNotifier {
   /// Interior edges shared by exactly two cells. For a rectangular layout
   /// these are the edges of its polygon equivalent (with T-junction corners
   /// split), which it is turned into on the first actual shape change.
-  List<SharedEdge> get sharedEdges {
-    final slots = project.layout.slots;
-    return findSharedEdges(_needsPolygons ? polygonizeSlots(slots) : slots);
-  }
+  List<SharedEdge> get sharedEdges => _geo.sharedEdges;
+
+  /// The shaped edges of one cell, memoised with the layout.
+  Map<int, (EdgeShape, bool)> curvedEdgesFor(LayoutSlot slot) => _geo.curvedEdges(slot);
 
   /// The shape of [key], straight when it has none yet.
   EdgeShape edgeShape(String key) {
@@ -439,7 +522,191 @@ class EditorController extends ChangeNotifier {
   void endEdgeEditing() {
     edgeEditing = false;
     selectedEdgeKey = null;
+    selectedVertexKey = null;
+    cutGuideX = null;
+    cutGuideY = null;
+    _vertexDrag = null;
     notifyListeners();
+  }
+
+  // ---- cut points (editable partitions) --------------------------------------
+  /// What the cut editor manipulates: the points where cuts meet (move, add,
+  /// remove — diagonals, zigzags, asymmetric polygons) or the curve of each
+  /// cut (Bézier bend and teeth).
+  CutMode cutMode = CutMode.points;
+
+  void setCutMode(CutMode m) {
+    if (cutMode == m) return;
+    cutMode = m;
+    _vertexDrag = null;
+    notifyListeners();
+  }
+
+  /// The selected cut point, by [PartitionVertex.key].
+  String? selectedVertexKey;
+
+  /// Content-area fractions where a dragged cut point is snapped (guides).
+  double? cutGuideX;
+  double? cutGuideY;
+
+  /// Every point shared by two or more cells, of the polygon equivalent of
+  /// the layout (rectangles are converted on the first real change).
+  List<PartitionVertex> get partitionVertices => _geo.vertices;
+
+  PartitionVertex? get selectedVertex {
+    final k = selectedVertexKey;
+    if (k == null) return null;
+    for (final v in partitionVertices) {
+      if (v.key == k) return v;
+    }
+    return null;
+  }
+
+  void selectVertex(String? key) {
+    selectedVertexKey = key;
+    _selectCutAt(selectedVertex?.at);
+    notifyListeners();
+  }
+
+  /// Make a cut touching [at] the selected one, so the panel's cut actions
+  /// apply to what the user just grabbed.
+  void _selectCutAt(Offset? at) {
+    if (at == null) return;
+    final cur = selectedEdgeKey;
+    final touching = [
+      for (final e in sharedEdges)
+        if (PartitionGeometry.near(e.p, at) || PartitionGeometry.near(e.q, at)) e.key,
+    ];
+    if (touching.isEmpty || (cur != null && touching.contains(cur))) return;
+    selectedEdgeKey = touching.first;
+  }
+
+  /// Cells and point as they were when the current point drag began; every
+  /// update is applied to this start state, so a drag that crosses an
+  /// invalid position resumes cleanly once it is valid again.
+  ({List<LayoutSlot> cells, Offset at})? _vertexDrag;
+
+  void beginVertexDrag(PartitionVertex v) {
+    _vertexDrag = (cells: _geo.polygons, at: v.at);
+    selectedVertexKey = v.key;
+    _selectCutAt(v.at);
+    notifyListeners();
+  }
+
+  /// Move the dragged point to [target] (content-area fractions), snapping
+  /// to thirds/halves and to other points. Returns false (leaving the
+  /// layout as it is) when that position would break the partition.
+  bool dragVertexTo(Offset target, {bool snap = true}) {
+    final d = _vertexDrag;
+    if (d == null) return false;
+    var t = target;
+    if (snap) {
+      final others = [for (final v in partitionVertices) if (!PartitionGeometry.near(v.at, d.at)) v.at];
+      final (p, gx, gy) = PartitionGeometry.snap(target, others);
+      t = p;
+      cutGuideX = gx;
+      cutGuideY = gy;
+    }
+    final r = PartitionGeometry.moveVertex(d.cells, d.at, t);
+    if (r == null) {
+      notifyListeners();
+      return false;
+    }
+    _setSlots(r.cells);
+    selectedVertexKey = PartitionVertex(r.at, const {}).key;
+    return true;
+  }
+
+  void endVertexDrag() {
+    _vertexDrag = null;
+    cutGuideX = null;
+    cutGuideY = null;
+    notifyListeners();
+  }
+
+  /// Nudge the selected point by [delta] (content fractions) — the keyboard
+  /// and screen-reader alternative to dragging.
+  bool nudgeSelectedVertex(Offset delta) {
+    final v = selectedVertex;
+    if (v == null) return false;
+    beginVertexDrag(v);
+    final ok = dragVertexTo(v.at + delta, snap: false);
+    _vertexDrag = null;
+    return ok;
+  }
+
+  /// Select [v] and nudge it (screen-reader custom actions).
+  bool nudgeSelectedVertexOr(PartitionVertex v, Offset delta) {
+    selectedVertexKey = v.key;
+    return nudgeSelectedVertex(delta);
+  }
+
+  /// Add a point in the middle of the cut [edge] and select it, ready to be
+  /// dragged into a zigzag or an asymmetric polygon.
+  bool insertCutPoint(SharedEdge edge, {Offset? at}) {
+    final next = PartitionGeometry.insertVertex(_geo.polygons, a: edge.a, b: edge.b, p: edge.p, q: edge.q, at: at);
+    if (next == null) return false;
+    _setSlots(next);
+    selectedVertexKey = PartitionVertex(at ?? (edge.p + edge.q) / 2, const {}).key;
+    selectedEdgeKey = edge.key;
+    return true;
+  }
+
+  /// Remove the selected point when it only bends one cut.
+  bool removeSelectedVertex() {
+    final v = selectedVertex;
+    if (v == null || !v.removable) return false;
+    final next = PartitionGeometry.removeVertex(_geo.polygons, v.at);
+    if (next == null) return false;
+    selectedVertexKey = null;
+    _setSlots(next);
+    return true;
+  }
+
+  /// The two cells of [key] ("a|b").
+  (String, String) _pair(String key) {
+    final ids = key.split('|');
+    return (ids.first, ids.last);
+  }
+
+  /// Layout with the curve of [key] removed (cut points replace it).
+  List<EdgeShape> _edgesWithout(String key) => [for (final e in project.layout.edges) if (e.key != key) e];
+
+  /// Turn the cut [key] into an editable zigzag: it is straightened first,
+  /// then every straight piece gets [teeth] teeth whose points can each be
+  /// dragged. A Bézier/teeth shape on that cut is dropped (the points are
+  /// the shape now).
+  bool zigzagCut(String key, {int teeth = 4, double amplitude = 0.06}) {
+    final (a, b) = _pair(key);
+    var cells = PartitionGeometry.straightenCut(_geo.polygons, a, b);
+    final pieces = [for (final e in findSharedEdges(cells)) if (e.key == key) e];
+    if (pieces.isEmpty) return false;
+    for (final e in pieces) {
+      final next = PartitionGeometry.zigzag(cells, a: a, b: b, p: e.p, q: e.q, teeth: teeth, amplitude: amplitude);
+      if (next != null) cells = next;
+    }
+    _setLayout(cells, _edgesWithout(key));
+    return true;
+  }
+
+  /// Remove every bend point and curve from the cut [key].
+  void straightenCut(String key) {
+    final (a, b) = _pair(key);
+    _setLayout(PartitionGeometry.straightenCut(_geo.polygons, a, b), _edgesWithout(key));
+  }
+
+  /// Angle (degrees) of the cut [key] on the canvas when it is one straight
+  /// piece; null for bent cuts.
+  double? cutAngle(String key) {
+    final pieces = [for (final e in sharedEdges) if (e.key == key) e];
+    if (pieces.length != 1) return null;
+    return PartitionGeometry.angleDegrees(pieces.first.p, pieces.first.q, project.ratio.value);
+  }
+
+  void _setLayout(List<LayoutSlot> slots, List<EdgeShape> edges) {
+    final l = project.layout;
+    project.layout = LayoutTemplate(id: l.id, name: l.name, family: l.family, slots: slots, custom: true, edges: edges);
+    _touch();
   }
 
   void selectEdge(String? key) {
@@ -638,7 +905,7 @@ class EditorController extends ChangeNotifier {
     final keep = selection.toSet();
     _pool.removeWhere((id) => !keep.contains(id));
     project.fills.removeWhere((_, f) => !f.isVideo && !keep.contains(f.assetId));
-    project.elements.removeWhere((e) => e is ImageElement && !keep.contains(e.assetId));
+    project.elements.removeWhere((e) => e is ImageElement && !e.isPlaceholder && !keep.contains(e.assetId));
     for (final id in selection) {
       if (!_pool.contains(id)) _pool.add(id);
     }
@@ -659,7 +926,7 @@ class EditorController extends ChangeNotifier {
       if (f != null && !f.isVideo && !out.contains(f.assetId)) out.add(f.assetId);
     }
     for (final e in project.elements) {
-      if (e is ImageElement && !out.contains(e.assetId)) out.add(e.assetId);
+      if (e is ImageElement && !e.isPlaceholder && !out.contains(e.assetId)) out.add(e.assetId);
     }
     for (final id in _pool) {
       if (!out.contains(id)) out.add(id);
@@ -718,8 +985,14 @@ class EditorController extends ChangeNotifier {
     _touch();
   }
 
+  /// Switch the canvas shape. Cells, cuts and photo framing are normalised
+  /// and simply follow; layers are re-sized by [AspectAdapt] so they keep
+  /// their visual weight. One undo step, and switching back is lossless.
   void setRatioLabel(String label) {
+    if (label == project.ratioLabel) return;
+    final from = project.ratio.value;
     project.ratioLabel = label;
+    AspectAdapt.elements(project.elements, from, project.ratio.value);
     _touch();
   }
 
@@ -810,6 +1083,7 @@ class EditorController extends ChangeNotifier {
   void updateTransform(String id, {double? cx, double? cy, double? scale, double? rotation}) {
     for (final e in project.elements) {
       if (e.id != id) continue;
+      if (e.locked) return;
       if (cx != null) e.cx = cx.clamp(-0.1, 1.1);
       if (cy != null) e.cy = cy.clamp(-0.1, 1.1);
       if (scale != null) e.scale = scale.clamp(0.15, 6);
@@ -877,6 +1151,196 @@ class EditorController extends ChangeNotifier {
       _add(CanvasElement.fromJson(j));
       return;
     }
+  }
+
+  // ---- photo layers: frame vs image, masks ------------------------------------
+  ImageElement? _image(String id) {
+    for (final e in project.elements) {
+      if (e.id == id && e is ImageElement) return e;
+    }
+    return null;
+  }
+
+  /// Add a photo as its own layer, optionally already cut into [mask]
+  /// (e.g. a star over the background photo). Shaped layers get a square
+  /// frame for masks that look best square, else the photo's aspect.
+  void addPhotoLayer(String assetId, double aspect, {String mask = 'none'}) {
+    final e = ImageElement(
+      id: _uuid.v4(),
+      cx: 0.5,
+      cy: 0.5,
+      assetId: assetId,
+      imgAspect: aspect,
+      z: _nextZ,
+    );
+    addToPool(assetId);
+    _applyMask(e, mask);
+    _add(e);
+  }
+
+  void _applyMask(ImageElement e, String kind) {
+    e.mask = kind;
+    if (kind == 'none') return;
+    if (kind == 'custom') {
+      e.maskPoints ??= ShapeCatalog.editablePoints('none');
+    }
+    if (ShapeCatalog.prefersSquare(kind)) {
+      e.frameAspect = 1;
+    } else if (kind == 'oval' && (e.frameAspect == null || (e.aspectRatio - 1).abs() < 0.05)) {
+      e.frameAspect = 0.78;
+    } else {
+      e.frameAspect ??= e.aspectRatio;
+    }
+  }
+
+  /// Cut a photo layer into [kind]. Switching to 'custom' starts from the
+  /// polygon nearest to the current shape, so the outline can be edited.
+  void setElementMask(String id, String kind) {
+    final e = _image(id);
+    if (e == null) return;
+    if (kind == 'custom') {
+      e.maskPoints = ShapeCatalog.editablePoints(e.mask);
+    }
+    _applyMask(e, kind);
+    _touch();
+  }
+
+  /// Put [assetId] into a photo layer (fills a template placeholder, or
+  /// swaps the photo while keeping frame, shape and contour).
+  void setLayerPhoto(String id, String assetId, double aspect) {
+    final e = _image(id);
+    if (e == null) return;
+    addToPool(assetId);
+    e.frameAspect ??= e.aspectRatio; // keep the frame, not the old photo's aspect
+    e
+      ..assetId = assetId
+      ..imgAspect = aspect
+      ..cropL = 0
+      ..cropT = 0
+      ..cropR = 0
+      ..cropB = 0
+      ..panX = 0
+      ..panY = 0
+      ..zoom = 1;
+    _touch();
+  }
+
+  /// Pan / zoom the image inside its frame (the frame stays put).
+  void setImageFraming(String id, {double? panX, double? panY, double? zoom}) {
+    final e = _image(id);
+    if (e == null) return;
+    if (panX != null) e.panX = panX.clamp(-1.0, 1.0);
+    if (panY != null) e.panY = panY.clamp(-1.0, 1.0);
+    if (zoom != null) e.zoom = zoom.clamp(1.0, ImageElement.maxZoom);
+    _touch();
+  }
+
+  void resetImageFraming(String id) => setImageFraming(id, panX: 0, panY: 0, zoom: 1);
+
+  /// Give a photo layer its own frame proportions (stretching a circle into
+  /// an oval, a rectangle into a banner) without distorting the photo.
+  /// [scale] keeps the frame's width in step when it is resized by a side.
+  void setFrameAspect(String id, double aspect, {double? scale}) {
+    final e = _image(id);
+    if (e == null) return;
+    var a = aspect.clamp(0.2, 5.0);
+    if ((a - 1).abs() < 0.03) a = 1; // snap to square
+    e.frameAspect = a;
+    if (scale != null) e.scale = scale.clamp(0.15, 6.0);
+    _touch();
+  }
+
+  void setImageOutline(String id, {Color? color, double? width, bool? shadow}) {
+    final e = _image(id);
+    if (e == null) return;
+    if (color != null) e.outlineColor = color;
+    if (width != null) e.outlineWidth = width.clamp(0.0, 30.0);
+    if (shadow != null) e.shadow = shadow;
+    _touch();
+  }
+
+  /// Move point [i] of a custom mask to [p] (0..1 of the frame).
+  void moveMaskPoint(String id, int i, Offset p) {
+    final e = _image(id);
+    final pts = e?.maskPoints;
+    if (e == null || pts == null || i < 0 || i >= pts.length) return;
+    final next = List.of(pts)..[i] = Offset(p.dx.clamp(0.0, 1.0), p.dy.clamp(0.0, 1.0));
+    if (!PartitionGeometry.isSimple(next)) return;
+    e.maskPoints = next;
+    _touch();
+  }
+
+  /// Add a point to a custom mask after point [i], halfway to the next.
+  void insertMaskPoint(String id, int i) {
+    final e = _image(id);
+    final pts = e?.maskPoints;
+    if (e == null || pts == null || pts.isEmpty) return;
+    final a = pts[i % pts.length], b = pts[(i + 1) % pts.length];
+    e.maskPoints = List.of(pts)..insert(i + 1, (a + b) / 2);
+    _touch();
+  }
+
+  /// Remove point [i] of a custom mask (a mask keeps at least three).
+  void removeMaskPoint(String id, int i) {
+    final e = _image(id);
+    final pts = e?.maskPoints;
+    if (e == null || pts == null || pts.length <= 3) return;
+    final next = List.of(pts)..removeAt(i);
+    if (!PartitionGeometry.isSimple(next)) return;
+    e.maskPoints = next;
+    _touch();
+  }
+
+  /// Transient: the photo layer whose image (not frame) one-finger drags and
+  /// pinches move — "Adjust photo". Null: gestures move the frame.
+  String? adjustingImageId;
+
+  /// Transient: the custom-mask layer whose outline points are shown.
+  String? editingMaskId;
+
+  void setAdjustingImage(String? id) {
+    adjustingImageId = id;
+    if (id != null) editingMaskId = null;
+    notifyListeners();
+  }
+
+  void setEditingMask(String? id) {
+    editingMaskId = id;
+    if (id != null) adjustingImageId = null;
+    notifyListeners();
+  }
+
+  // ---- layer state ---------------------------------------------------------------
+  CanvasElement? _element(String id) {
+    for (final e in project.elements) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  void setHidden(String id, bool hidden) {
+    final e = _element(id);
+    if (e == null || e.hidden == hidden) return;
+    e.hidden = hidden;
+    if (hidden && selectedElementId == id) selectedElementId = null;
+    _touch();
+  }
+
+  void setLocked(String id, bool locked) {
+    final e = _element(id);
+    if (e == null || e.locked == locked) return;
+    e.locked = locked;
+    _touch();
+  }
+
+  /// Move a layer one step towards the front (+1) or back (-1).
+  void stepLayer(String id, int dir) {
+    final list = layers; // front-most first
+    final i = list.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final j = i - dir.sign;
+    if (j < 0 || j >= list.length) return;
+    reorderLayer(i, j);
   }
 
   // ---- freehand drawing -----------------------------------------------------
@@ -988,4 +1452,29 @@ class EditorController extends ChangeNotifier {
     fn(project.background);
     _touch();
   }
+}
+
+/// Geometry derived from one immutable slot list, computed on first use.
+class _GeometryCache {
+  _GeometryCache(this.layout) : slots = layout.slots;
+  final LayoutTemplate layout;
+  final List<LayoutSlot> slots;
+
+  bool get _needsPolygons => slots.length > 1 && slots.any((s) => !s.isPolygon);
+
+  late final List<SlotSplit> splits = findSplits(slots);
+  late final List<PolySplit> polySplits = findPolySplits(slots);
+
+  /// [slots] as polygons (rectangles and T-junctions resolved) — what edge
+  /// shaping and point editing operate on.
+  late final List<LayoutSlot> polygons = _needsPolygons ? polygonizeSlots(slots) : slots;
+  late final List<SharedEdge> sharedEdges = findSharedEdges(polygons);
+  late final List<PartitionVertex> vertices = PartitionGeometry.vertices(polygons);
+
+  late final Map<String, EdgeShape> _edgeMap = layout.edgeMap;
+  final Map<String, Map<int, (EdgeShape, bool)>> _curved = {};
+
+  /// Which of [slot]'s edges are curved / zigzagged (see [curvedEdgesOf]).
+  Map<int, (EdgeShape, bool)> curvedEdges(LayoutSlot slot) =>
+      _curved.putIfAbsent(slot.id, () => curvedEdgesOf(slot, slots, _edgeMap));
 }

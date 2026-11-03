@@ -33,6 +33,10 @@ class PhotoImage extends StatefulWidget {
   static const _maxThumbs = 600;
   static const _maxFull = 24;
 
+  /// Longest side, in pixels, a full-size photo is decoded at (the largest
+  /// export width).
+  static const maxDecodePx = 4096;
+
   /// Asset ids that no longer resolve (deleted, or outside limited access).
   static final Set<String> _missing = {};
 
@@ -128,8 +132,22 @@ class _PhotoImageState extends State<PhotoImage> {
         ),
       );
     }
-    return Image.memory(
-      _bytes!,
+    // Originals are decoded no larger than [maxDecodePx] on their long side.
+    // A 48 MP camera photo otherwise becomes a ~190 MB texture per cell, and
+    // every relayout (switching the canvas shape, dragging a cut) re-rasters
+    // those — the stutter users saw. The cap is at the largest export width,
+    // so saved collages look exactly as before.
+    final ImageProvider provider = widget.full
+        ? ResizeImage(
+            MemoryImage(_bytes!),
+            width: PhotoImage.maxDecodePx,
+            height: PhotoImage.maxDecodePx,
+            policy: ResizeImagePolicy.fit,
+            allowUpscaling: false,
+          )
+        : MemoryImage(_bytes!);
+    return Image(
+      image: provider,
       fit: widget.fit,
       alignment: widget.alignment,
       gaplessPlayback: true,

@@ -405,6 +405,39 @@ Copy never counts what the user hasn't done.
 sub-screens that reuse the grouped surface cards. Reminders use a master switch card that turns
 `amberTint` + `amber` border when on; the controls below are disabled until then.
 
+## 9g. Arrangement editor (v1.8 additions)
+
+**Cut points** — Layout › Edges opens in *Points*. Every point where cuts meet is a handle in a
+44dp target; its shape says how it moves, so no hint text sits on the canvas: a 17dp **circle**
+(inner point, free), a **rounded square** (on the border, slides along it), a **diamond** (canvas
+corner; pulling it along a border splits off the cut's end). `surface` fill with a 2dp `amber`
+ring at rest; selected grows to 22dp, `amber` fill, `onAmber` ring, `focusGlow`. A ghost 16dp "+"
+(`scrim` fill, white hairline) sits mid-cut to add a point. Cuts draw as 1.2dp white lines on a 3dp
+dark underlay (visible on light photos); the selected cut is 2.5dp `amber`. Snap guides are 1dp
+`amber` across the content area. A refused position (it would crack or overlap a cell) gives one
+light haptic tick, never a message. *Curves* is the Bézier/teeth editor from v1.7.
+
+**Photo layers** — a free photo has a *frame* (position, size, rotation, own proportions, mask)
+and an *image inside it* (pan, zoom). Gestures move the frame; double-tap (or *Adjust photo*)
+switches them to the image, shown by a 2.5dp `amberBright` frame line without glow. Two 10×26dp
+side pills stretch the frame on one axis (a circle becomes an oval; the photo never distorts).
+Custom outlines show 16dp `amber` points plus ghost "+" between them; long-press removes.
+
+**Shape & photo panel** — one horizontal row of 56dp mask chips (outline + 35% fill in `textMid`,
+`amber` and `amberTint` when chosen), then chips for *Adjust photo*, *Edit outline*, *Crop*,
+*Reset framing*, then sliders (frame shape on a log scale so 1:2 and 2:1 are symmetric, zoom,
+contour) — the precise, accessible twins of the canvas gestures.
+
+**Layers** — each row carries eye and lock toggles; hidden rows dim to 40–50% and tap to show
+again; a locked layer is drawn but lets touches through to what lies below.
+
+**Keyboard** — Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z, Delete, arrows (Shift = 5%), Cmd/Ctrl+D, `[` `]`,
+Cmd/Ctrl+L, Esc. Never while a text field has focus.
+
+**Canvas shape rule** — cuts and photo framing are normalised and follow the canvas; layers keep
+their size relative to √(W·H), so switching shapes never balloons or shrinks them and switching
+back is lossless (`lib/models/aspect_adapt.dart`).
+
 ---
 
 ## 10. How to use this file

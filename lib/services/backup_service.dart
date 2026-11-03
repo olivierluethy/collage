@@ -175,7 +175,7 @@ class BackupService {
   static Set<String> _assetIds(CollageProject p) => {
         ...p.fills.values.map((f) => f.assetId),
         for (final e in p.elements)
-          if (e is ImageElement) e.assetId,
+          if (e is ImageElement && !e.isPlaceholder) e.assetId,
         if (p.background.imageAssetId != null) p.background.imageAssetId!,
       };
 

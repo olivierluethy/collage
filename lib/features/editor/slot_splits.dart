@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/painting.dart' show Axis;
 
 import '../../models/layout_template.dart';
+import '../../models/partition_geometry.dart';
 
 /// A shared edge between neighbouring rectangular slots that the user can drag
 /// to resize them: a vertical line at x = [pos] (for [Axis.vertical]) or a
@@ -207,21 +208,9 @@ double _signedArea(List<Offset> pts) {
   return a / 2;
 }
 
-bool _convex(List<Offset> pts) {
-  var sign = 0;
-  for (var i = 0; i < pts.length; i++) {
-    final a = pts[i], b = pts[(i + 1) % pts.length], c = pts[(i + 2) % pts.length];
-    final cross = (b.dx - a.dx) * (c.dy - b.dy) - (b.dy - a.dy) * (c.dx - b.dx);
-    if (cross.abs() < 1e-9) continue;
-    final s = cross > 0 ? 1 : -1;
-    if (sign == 0) sign = s;
-    if (s != sign) return false;
-  }
-  return true;
-}
-
 /// [slots] with [split] shifted by [d] along its normal, or null when that
-/// would leave a cell too small, concave, flipped or outside the layout.
+/// would leave a cell too small, self-intersecting, flipped or outside the
+/// layout. Concave cells (from moved cut points) are fine.
 List<LayoutSlot>? movePolySplit(List<LayoutSlot> slots, PolySplit split, double d, {double minArea = 0.01}) {
   final n = split.normal;
   if (n == Offset.zero) return null;
@@ -250,7 +239,7 @@ List<LayoutSlot>? movePolySplit(List<LayoutSlot> slots, PolySplit split, double 
     final before = _signedArea(pts);
     final after = _signedArea(moved);
     final inside = moved.every((m) => m.dx >= -_eps && m.dx <= 1 + _eps && m.dy >= -_eps && m.dy <= 1 + _eps);
-    if (!inside || after.abs() < minArea || before.sign != after.sign || !_convex(moved)) return null;
+    if (!inside || after.abs() < minArea || before.sign != after.sign || !PartitionGeometry.isSimple(moved)) return null;
     out.add(LayoutSlot.poly(s.id, moved));
   }
   return out;

@@ -10,6 +10,14 @@ Color _uc(int v) => Color(v);
 /// Persisted schema version for saved collages. Bumped to 2 for the v1.2
 /// additions (guaranteed `createdAt`/`updatedAt`, per-cell filters and polygon
 /// layout slots). [DraftService] uses it to backfill missing fields on load.
+///
+/// v1.8 (editable cut points, shaped photo layers, layer hide/lock) only adds
+/// optional fields with defaults that reproduce the old rendering: concave or
+/// many-pointed cells are still `pts` polygons, photo layers without `mask`,
+/// `frameAspect`, `panX/panY`, `zoom` render as before, and `hidden`/`locked`
+/// default to false. Old files therefore load unchanged and need no
+/// migration, so the version stays at 2 (bumping it would rewrite every
+/// draft on first load for nothing).
 const int collageSchemaVersion = 2;
 
 /// A canvas aspect ratio the user can pick, with the spec label they asked to

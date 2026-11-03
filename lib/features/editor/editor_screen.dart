@@ -18,6 +18,7 @@ import '../../theme/typography.dart';
 import '../../widgets/coach_tour.dart';
 import '../../widgets/sharpened.dart';
 import '../../widgets/ui.dart';
+import '../picker/photo_picker_screen.dart';
 import '../picker/picker_flow.dart';
 import '../picker/video_picker_screen.dart';
 import '../result/result_screen.dart';
@@ -27,13 +28,16 @@ import 'edge_panel.dart';
 import 'editor_panels.dart';
 import 'export_sheet.dart';
 
-enum _Panel { none, layout, borders, background, filter, add, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace, edges }
+enum _Panel { none, layout, borders, background, filter, add, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace, edges, photoLayer }
 
 /// The three panels grouped under the "Style" tool, in segment order.
 const _stylePanels = [_Panel.borders, _Panel.background, _Panel.filter];
 
 /// The panels reached from the "Add" grid; each shows a back arrow to it.
 const _addPanels = [_Panel.text, _Panel.stickers, _Panel.emoji, _Panel.shapes, _Panel.gif, _Panel.draw];
+
+/// Pseudo-panel of the Add grid: pick a photo and add it as its own layer.
+const _addPhotoLayer = _Panel.photoLayer;
 
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key, required this.project, required this.pool});
@@ -70,6 +74,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   String? _replaceSlotId;
   String? _cropElementId;
   String? _styleSlotId;
+  String? _photoLayerId;
 
   @override
   void initState() {
@@ -240,6 +245,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     WidgetsBinding.instance.removeObserver(this);
     _c.removeListener(_markChanged);
     _c.dispose();
+    _keysNode.dispose();
     super.dispose();
   }
 
@@ -257,6 +263,47 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     // Leaving the draw tool keeps what was drawn as one movable element.
     if (_panel == _Panel.draw && _c.drawing) _c.finishDrawing(_canvasSize());
     if (_panel == _Panel.edges && _c.edgeEditing) _c.endEdgeEditing();
+    if (_panel == _Panel.photoLayer) {
+      if (_c.adjustingImageId != null) _c.setAdjustingImage(null);
+      if (_c.editingMaskId != null) _c.setEditingMask(null);
+    }
+  }
+
+  /// Open shape & photo controls for a photo layer.
+  void _openPhotoLayer(String id) {
+    setState(() {
+      _cleanupPanel();
+      _photoLayerId = id;
+      _panel = _Panel.photoLayer;
+    });
+  }
+
+  /// Pick one photo from the gallery: (asset id, aspect) or null.
+  Future<(String, double)?> _pickOnePhoto() async {
+    final picked = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 1)),
+    );
+    if (picked == null || picked.isEmpty) return null;
+    final gallery = ref.read(galleryServiceProvider);
+    final asset = await gallery.byId(picked.first);
+    return (picked.first, asset == null ? 1.0 : gallery.aspectOf(asset));
+  }
+
+  /// Add: a photo as its own layer over the collage, then straight to its
+  /// shape controls (star, oval, …).
+  Future<void> _addPhotoLayerFlow() async {
+    _closePanel();
+    final p = await _pickOnePhoto();
+    if (p == null || !mounted) return;
+    _c.addPhotoLayer(p.$1, p.$2);
+    final id = _c.selectedElementId;
+    if (id != null) _openPhotoLayer(id);
+  }
+
+  Future<void> _chooseLayerPhoto(String id) async {
+    final p = await _pickOnePhoto();
+    if (p == null || !mounted) return;
+    _c.setLayerPhoto(id, p.$1, p.$2);
   }
 
   void _openEdges() {
@@ -380,6 +427,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
       _cleanupPanel();
       _panel = _Panel.none;
     });
+    // Back to the editor's own keys once a panel (and its text field) is gone.
+    if (mounted && !_keysNode.hasFocus) _keysNode.requestFocus();
   }
 
   void _openPanel(_Panel p) {
@@ -506,8 +555,101 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     }
   }
 
+  // ---- keyboard ---------------------------------------------------------------
+  final _keysNode = FocusNode(debugLabel: 'editor-keys');
+
+  static const _keyMap = <ShortcutActivator, _KeyIntent>{
+    SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _KeyIntent('undo'),
+    SingleActivator(LogicalKeyboardKey.keyZ, control: true): _KeyIntent('undo'),
+    SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _KeyIntent('redo'),
+    SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _KeyIntent('redo'),
+    SingleActivator(LogicalKeyboardKey.keyY, control: true): _KeyIntent('redo'),
+    SingleActivator(LogicalKeyboardKey.delete): _KeyIntent('delete'),
+    SingleActivator(LogicalKeyboardKey.backspace): _KeyIntent('delete'),
+    SingleActivator(LogicalKeyboardKey.keyD, meta: true): _KeyIntent('duplicate'),
+    SingleActivator(LogicalKeyboardKey.keyD, control: true): _KeyIntent('duplicate'),
+    SingleActivator(LogicalKeyboardKey.bracketRight): _KeyIntent('forward'),
+    SingleActivator(LogicalKeyboardKey.bracketLeft): _KeyIntent('backward'),
+    SingleActivator(LogicalKeyboardKey.keyL, meta: true): _KeyIntent('lock'),
+    SingleActivator(LogicalKeyboardKey.keyL, control: true): _KeyIntent('lock'),
+    SingleActivator(LogicalKeyboardKey.escape): _KeyIntent('escape'),
+    SingleActivator(LogicalKeyboardKey.arrowLeft): _KeyIntent('left'),
+    SingleActivator(LogicalKeyboardKey.arrowRight): _KeyIntent('right'),
+    SingleActivator(LogicalKeyboardKey.arrowUp): _KeyIntent('up'),
+    SingleActivator(LogicalKeyboardKey.arrowDown): _KeyIntent('down'),
+    SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): _KeyIntent('left', big: true),
+    SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): _KeyIntent('right', big: true),
+    SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): _KeyIntent('up', big: true),
+    SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): _KeyIntent('down', big: true),
+  };
+
+  void _onKey(_KeyIntent k) {
+    if (_saving) return;
+    final el = _c.selectedElement;
+    final step = k.big ? 0.05 : 0.01;
+    final delta = switch (k.id) {
+      'left' => Offset(-step, 0),
+      'right' => Offset(step, 0),
+      'up' => Offset(0, -step),
+      'down' => Offset(0, step),
+      _ => null,
+    };
+    if (delta != null) {
+      if (_c.edgeEditing && _c.selectedVertex != null) {
+        _c.nudgeSelectedVertex(delta);
+      } else if (el is ImageElement && _c.adjustingImageId == el.id) {
+        _c.setImageFraming(el.id, panX: el.panX - delta.dx * 4, panY: el.panY - delta.dy * 4);
+      } else if (el != null) {
+        _c.updateTransform(el.id, cx: el.cx + delta.dx, cy: el.cy + delta.dy);
+      }
+      return;
+    }
+    switch (k.id) {
+      case 'undo':
+        if (_c.canUndo) _undo();
+      case 'redo':
+        if (_c.canRedo) _redo();
+      case 'delete':
+        if (el != null) {
+          _deleteElement(el.id);
+        } else if (_c.edgeEditing) {
+          _c.removeSelectedVertex();
+        } else if (_c.selectedSlotId != null) {
+          _removeSlotPhoto(_c.selectedSlotId!);
+        }
+      case 'duplicate':
+        if (el != null) _c.duplicateElement(el.id);
+      case 'forward':
+        if (el != null) _c.stepLayer(el.id, 1);
+      case 'backward':
+        if (el != null) _c.stepLayer(el.id, -1);
+      case 'lock':
+        if (el != null) _c.setLocked(el.id, !el.locked);
+      case 'escape':
+        if (_panel != _Panel.none) {
+          _closePanel();
+        } else {
+          _c.clearSelection();
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: _keyMap,
+      child: Actions(
+        actions: {_KeyIntent: _EditorKeyAction(_onKey)},
+        child: Focus(
+          focusNode: _keysNode,
+          autofocus: true,
+          child: _buildScaffold(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -632,13 +774,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
               onEditText: (e) {
                 setState(() { _editingTextId = e.id; _panel = _Panel.text; });
               },
-              onCrop: (e) {
-                setState(() {
-                  _cleanupPanel();
-                  _cropElementId = e.id;
-                  _panel = _Panel.crop;
-                });
-              },
+              onShape: (e) => _openPhotoLayer(e.id),
               onDelete: (e) => _deleteElement(e.id),
             ),
             _SlotBar(
@@ -715,6 +851,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   }
 
   void _onTool(_Panel p) {
+    if (p == _addPhotoLayer) { _addPhotoLayerFlow(); return; }
     if (p == _Panel.text) { _openText(); return; }
     if (p == _Panel.draw) { _openDraw(); return; }
     _openPanel(p);
@@ -737,6 +874,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
       _Panel.gif => (context.l10n.t('panelGif'), GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.layers => (context.l10n.t('panelLayers'), LayersPanel(c: _c), (h * 0.40).clamp(280, 420)),
       _Panel.crop => (context.l10n.t('panelCrop'), CropPanel(c: _c, elementId: _cropElementId ?? ''), 290.0),
+      _Panel.photoLayer => (
+          context.l10n.t('panelPhotoLayer'),
+          PhotoLayerPanel(
+            c: _c,
+            elementId: _photoLayerId ?? '',
+            onCrop: () => setState(() {
+              _cleanupPanel();
+              _cropElementId = _photoLayerId;
+              _panel = _Panel.crop;
+            }),
+            onChoosePhoto: () => _chooseLayerPhoto(_photoLayerId ?? ''),
+          ),
+          (h * 0.46).clamp(340, 460),
+        ),
       _Panel.photoStyle => (
           context.l10n.t('panelPhotoStyle'),
           PhotoStylePanel(c: _c, slotId: _styleSlotId ?? '', onCutout: _closePanel),
@@ -871,6 +1022,7 @@ class _AddGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final items = <(_Panel, IconData, String)>[
+      (_addPhotoLayer, Icons.add_photo_alternate_outlined, l.t('toolPhotoLayer')),
       (_Panel.text, Icons.title_rounded, l.t('toolText')),
       (_Panel.stickers, Icons.emoji_emotions_outlined, l.t('toolStickers')),
       (_Panel.emoji, Icons.tag_faces_rounded, l.t('toolEmoji')),
@@ -920,12 +1072,12 @@ class _ContextBar extends StatelessWidget {
   const _ContextBar({
     required this.controller,
     required this.onEditText,
-    required this.onCrop,
+    required this.onShape,
     required this.onDelete,
   });
   final EditorController controller;
   final void Function(TextElement e) onEditText;
-  final void Function(ImageElement e) onCrop;
+  final void Function(ImageElement e) onShape;
   final void Function(CanvasElement e) onDelete;
 
   @override
@@ -948,7 +1100,7 @@ class _ContextBar extends StatelessWidget {
               if (el is TextElement)
                 Expanded(child: _CtxBtn(icon: Icons.edit_rounded, label: context.l10n.t('ctxEdit'), onTap: () => onEditText(el))),
               if (el is ImageElement)
-                Expanded(child: _CtxBtn(icon: Icons.crop_rounded, label: context.l10n.t('ctxCrop'), onTap: () => onCrop(el))),
+                Expanded(child: _CtxBtn(icon: Icons.interests_outlined, label: context.l10n.t('ctxShape'), onTap: () => onShape(el))),
               Expanded(child: _CtxBtn(icon: Icons.copy_rounded, label: context.l10n.t('ctxDuplicate'), onTap: () => controller.duplicateElement(el.id))),
               Expanded(child: _CtxBtn(icon: Icons.more_horiz_rounded, label: context.l10n.t('ctxMore'), onTap: () => _more(context, el))),
               Expanded(
@@ -976,14 +1128,19 @@ class _ContextBar extends StatelessWidget {
         (Icons.flip_rounded, 1, l.t('ctxFlipV'), () => c.flipElement(el.id, vertical: true)),
       ],
       (Icons.flip_to_front_rounded, 0, l.t('ctxForward'), () => c.bringForward(el.id)),
+      (Icons.arrow_upward_rounded, 0, l.t('ctxForwardOne'), () => c.stepLayer(el.id, 1)),
+      (Icons.arrow_downward_rounded, 0, l.t('ctxBackOne'), () => c.stepLayer(el.id, -1)),
       (Icons.flip_to_back_rounded, 0, l.t('ctxBack'), () => c.sendBackward(el.id)),
+      (el.locked ? Icons.lock_open_rounded : Icons.lock_rounded, 0, l.t(el.locked ? 'layerUnlock' : 'layerLock'), () => c.setLocked(el.id, !el.locked)),
+      (Icons.visibility_off_outlined, 0, l.t('layerHide'), () => c.setHidden(el.id, true)),
       (Icons.restart_alt_rounded, 0, l.t('ctxStraighten'), () => c.updateTransform(el.id, rotation: 0)),
     ];
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheet) => SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final (icon, turns, label, action) in items)
@@ -996,6 +1153,7 @@ class _ContextBar extends StatelessWidget {
                 },
               ),
           ],
+          ),
         ),
       ),
     );
@@ -1347,5 +1505,34 @@ class _TrashTarget extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// A keyboard command of the editor (see `_keyMap`).
+class _KeyIntent extends Intent {
+  const _KeyIntent(this.id, {this.big = false});
+  final String id;
+
+  /// Shift held: nudge in bigger steps.
+  final bool big;
+}
+
+/// Runs editor key commands — but stands aside while a text field has focus,
+/// so Backspace deletes a letter, not the selected layer.
+class _EditorKeyAction extends Action<_KeyIntent> {
+  _EditorKeyAction(this.onKey);
+  final void Function(_KeyIntent) onKey;
+
+  @override
+  bool isEnabled(_KeyIntent intent) {
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    if (ctx == null) return true;
+    return ctx.widget is! EditableText && ctx.findAncestorWidgetOfExactType<EditableText>() == null;
+  }
+
+  @override
+  Object? invoke(_KeyIntent intent) {
+    onKey(intent);
+    return null;
   }
 }
