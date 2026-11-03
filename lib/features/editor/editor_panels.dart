@@ -457,7 +457,7 @@ class LayoutPanel extends StatelessWidget {
   Future<void> _makeCustom(BuildContext context, int count) async {
     final t = await Navigator.of(
       context,
-    ).push<LayoutTemplate>(MaterialPageRoute(builder: (_) => CustomTemplateScreen(count: count)));
+    ).push<LayoutTemplate>(MaterialPageRoute(builder: (_) => CustomTemplateScreen(count: count, ratio: c.project.ratio)));
     if (t != null) c.setLayout(t);
   }
 

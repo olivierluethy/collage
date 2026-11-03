@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/layout_template.dart';
 import '../theme/palette.dart';
+import 'curved_edges.dart';
 import 'poly_clipper.dart';
 
 /// Draws a tiny illustration of a layout's slots so the user can see, at a
@@ -62,6 +63,7 @@ class _MiniPainter extends CustomPainter {
       return;
     }
 
+    final shapes = template.edgeMap;
     for (final slot in template.slots) {
       if (slot.isPolygon) {
         final pts = [
@@ -69,7 +71,9 @@ class _MiniPainter extends CustomPainter {
             Offset(p.dx * size.width, p.dy * size.height),
         ];
         final inset = insetConvexPolygon(pts, gap / 2);
-        final path = polygonPath(inset);
+        // Curved / waved cuts, so the miniature matches the collage.
+        final curved = shapes.isEmpty ? const <int, (EdgeShape, bool)>{} : curvedEdgesOf(slot, template.slots, shapes);
+        final path = curved.isEmpty ? polygonPath(inset) : shapedCellPath(inset, curved);
         canvas.drawPath(path, fill);
         canvas.drawPath(path, stroke);
         continue;
