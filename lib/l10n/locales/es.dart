@@ -142,10 +142,8 @@ const Map<String, String> es = {
 
   // Result
   'yourCollage': 'Tu collage',
-  'savedToGallery': 'Guardado en tu galería',
   'saveToGallery': 'Guardar en la galería',
   'keepEditing': 'Seguir editando',
-  'couldNotSave': 'No se pudo guardar: comprueba los permisos de fotos.',
 
   // AI
   'aiTitle': 'Autocollage con AI',
@@ -359,7 +357,6 @@ const Map<String, String> es = {
   'noVideos': 'No hay vídeos en este dispositivo.',
   'exportPdfHint': 'Para imprimir. Los collages A4 obtienen una página A4 exacta.',
   'exportMp4Hint': 'Vídeo de 6 segundos; las celdas de vídeo siguen reproduciéndose.',
-  'savePdf': 'Guardar PDF',
   'gridSave': 'Guardar como cuadrícula de perfil (3×{rows})',
   'gridSaved': '{count} mosaicos guardados. Publícalos en orden: primero post 1.',
   'insertDatePlace': 'Fecha y lugar',
@@ -388,7 +385,6 @@ const Map<String, String> es = {
   'browseTemplates': 'Ver plantillas',
   'closePanel': 'Cerrar',
   'createFirstCollage': 'Crea tu primer collage',
-  'createPdf': 'Crear PDF',
   'createWithNPhotos': 'Crear collage con {count} fotos',
   'createWithOnePhoto': 'Crear collage con 1 foto',
   'ctxMore': 'Más',
@@ -431,7 +427,6 @@ const Map<String, String> es = {
   'obPageOf': 'Página {page} de {count}',
   'obPickPhotos': 'Elegir fotos',
   'obPrivacyNote': 'Tus fotos se quedan en tu móvil.',
-  'pdfHint': 'Toca abajo para guardar el PDF en Archivos o enviarlo.',
   'pickerEmptyTitle': 'Aún no hay fotos',
   'pickerEmptyMessage': 'Haz una foto o comparte más fotos con Collage y vuelve.',
   'pickerLimited': 'Collage solo ve las fotos que compartiste.',
@@ -449,7 +444,6 @@ const Map<String, String> es = {
   'ratioA4': 'A4 para imprimir',
   'ratioA4Landscape': 'A4 horizontal',
   'restored': 'Collage restaurado',
-  'savingToGallery': 'Guardando en tu galería…',
   'showTour': 'Ver el recorrido',
   'tabMore': 'Más',
   'toolAdd': 'Añadir',

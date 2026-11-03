@@ -39,6 +39,9 @@ class OccasionPrefs {
     this.frequency = ReminderFrequency.weekly1,
     this.quietStart = 21 * 60,
     this.quietEnd = 9 * 60,
+    this.discoverSuggestions = true,
+    this.remindMemories = false,
+    this.notifyExports = false,
   });
 
   /// Show the occasion card in the Templates tab and New collage sheet.
@@ -61,6 +64,17 @@ class OccasionPrefs {
   final int quietStart;
   final int quietEnd;
 
+  /// Personalised "on this day" / unused-day suggestions in Discover. Worked
+  /// out on the device from photo dates; no notification needed.
+  final bool discoverSuggestions;
+
+  /// Notify on days with photos from the same day in earlier years (opt-in,
+  /// needs the master switch).
+  final bool remindMemories;
+
+  /// Notify when an export finishes while the app is in the background.
+  final bool notifyExports;
+
   OccasionPrefs copyWith({
     bool? suggestions,
     String? region,
@@ -72,6 +86,9 @@ class OccasionPrefs {
     ReminderFrequency? frequency,
     int? quietStart,
     int? quietEnd,
+    bool? discoverSuggestions,
+    bool? remindMemories,
+    bool? notifyExports,
   }) =>
       OccasionPrefs(
         suggestions: suggestions ?? this.suggestions,
@@ -83,6 +100,9 @@ class OccasionPrefs {
         frequency: frequency ?? this.frequency,
         quietStart: quietStart ?? this.quietStart,
         quietEnd: quietEnd ?? this.quietEnd,
+        discoverSuggestions: discoverSuggestions ?? this.discoverSuggestions,
+        remindMemories: remindMemories ?? this.remindMemories,
+        notifyExports: notifyExports ?? this.notifyExports,
       );
 }
 
@@ -103,6 +123,9 @@ class OccasionPrefsNotifier extends Notifier<OccasionPrefs> {
       frequency: ReminderFrequency.parse(p.getString(PrefsService.kReminderFrequency)),
       quietStart: p.getInt(PrefsService.kQuietStart) ?? d.quietStart,
       quietEnd: p.getInt(PrefsService.kQuietEnd) ?? d.quietEnd,
+      discoverSuggestions: p.getBool(PrefsService.kDiscoverSuggestions) ?? d.discoverSuggestions,
+      remindMemories: p.getBool(PrefsService.kRemindMemories) ?? d.remindMemories,
+      notifyExports: p.getBool(PrefsService.kNotifyExports) ?? d.notifyExports,
     );
   }
 
@@ -140,6 +163,21 @@ class OccasionPrefsNotifier extends Notifier<OccasionPrefs> {
   void setFrequency(ReminderFrequency f) {
     _p.setStringOrRemove(PrefsService.kReminderFrequency, f.name);
     state = state.copyWith(frequency: f);
+  }
+
+  void setDiscoverSuggestions(bool v) {
+    _p.setBool(PrefsService.kDiscoverSuggestions, v);
+    state = state.copyWith(discoverSuggestions: v);
+  }
+
+  void setRemindMemories(bool v) {
+    _p.setBool(PrefsService.kRemindMemories, v);
+    state = state.copyWith(remindMemories: v);
+  }
+
+  void setNotifyExports(bool v) {
+    _p.setBool(PrefsService.kNotifyExports, v);
+    state = state.copyWith(notifyExports: v);
   }
 
   void setQuietHours({int? start, int? end}) {

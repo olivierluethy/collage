@@ -5,24 +5,35 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/collage_project.dart';
+import '../../models/export_record.dart';
+import '../../services/export_destination_service.dart';
 import '../../services/export_service.dart';
-import '../../state/providers.dart';
+import '../../state/exports.dart';
+import '../../state/occasions.dart';
+import '../../state/reminders.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
+import '../exports/export_history_screen.dart';
+import '../exports/export_place.dart';
 
-/// Shown right after "Save to gallery": the collage is already being saved
-/// when this opens, so the screen confirms it and leads with the next likely
-/// step — sharing. Instagram-specific exports sit in their own group.
+/// Shown right after Save: the export is written to the chosen destination
+/// as this opens, and the screen then says exactly what was saved and where
+/// — file name, format and place — with ways to open, find and share it.
+/// Sharing is a separate action that sends a copy and saves nothing.
 class ResultScreen extends ConsumerStatefulWidget {
-  const ResultScreen({super.key, required this.project, required this.result});
+  const ResultScreen({super.key, required this.project, required this.result, this.thumbnail});
   final CollageProject project;
   final ExportResult result;
+
+  /// Small PNG of the collage for the export history.
+  final Uint8List? thumbnail;
 
   Uint8List get bytes => result.bytes;
 
@@ -30,51 +41,142 @@ class ResultScreen extends ConsumerStatefulWidget {
   ConsumerState<ResultScreen> createState() => _ResultScreenState();
 }
 
-class _ResultScreenState extends ConsumerState<ResultScreen> {
-  bool _saved = false;
-  bool _busy = false;
-  bool _failed = false;
+enum _Phase { saving, saved, failed }
 
-  bool get _isPdf => widget.result.format == ExportFormat.pdf;
+class _ResultScreenState extends ConsumerState<ResultScreen> {
+  _Phase _phase = _Phase.saving;
+  ExportRecord? _record;
+  ExportFailure? _failure;
+  ExportTarget? _failedTarget;
+  bool _busy = false;
+
+  ExportDestinationService get _svc => ref.read(exportDestinationServiceProvider);
 
   @override
   void initState() {
     super.initState();
-    // The user already chose "Save to gallery" — don't ask twice.
-    if (!_isPdf) WidgetsBinding.instance.addPostFrameCallback((_) => _saveToGallery());
+    // The user already chose Save — don't ask twice.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _save());
   }
 
-  Future<void> _saveToGallery() async {
+  /// Saves to [target], or to the default destination.
+  Future<void> _save({ExportTarget? target}) async {
+    setState(() {
+      _phase = _Phase.saving;
+      _failure = null;
+    });
     final format = widget.result.format;
-    // A PDF can't live in the gallery: hand it to the share sheet, where
-    // "Save to Files" / Drive are offered.
-    if (format == ExportFormat.pdf) return _share();
-    setState(() {
-      _busy = true;
-      _failed = false;
-    });
-    final gallery = ref.read(galleryServiceProvider);
-    final filename = 'collage_${DateTime.now().millisecondsSinceEpoch}.${format.extension}';
-    final asset = format == ExportFormat.mp4
-        ? await gallery.saveVideo(widget.bytes, filename: filename)
-        : await gallery.saveImage(widget.bytes, filename: filename);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _saved = asset != null;
-      _failed = asset == null;
-    });
+    try {
+      final r = await ref.read(exportHistoryProvider.notifier).saveAndRecord(
+            bytes: widget.bytes,
+            format: format,
+            projectId: widget.project.id,
+            projectTitle: widget.project.title,
+            thumbnail: widget.thumbnail ?? (format.isImage ? null : widget.result.previewBytes),
+            target: target,
+          );
+      if (!mounted) return;
+      setState(() {
+        _record = r;
+        _phase = _Phase.saved;
+      });
+      _notifyIfAway(r);
+    } on ExportSaveException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _failure = e.reason;
+        _failedTarget = target ?? _svc.targetFor(ref.read(exportDestinationProvider), format);
+        // A cancelled picker after an earlier save keeps showing that save.
+        _phase = _record != null && e.reason == ExportFailure.cancelled ? _Phase.saved : _Phase.failed;
+      });
+      if (_record != null && e.reason != ExportFailure.cancelled) {
+        showAppSnack(context, exportFailureText(context.l10n, e.reason), kind: SnackKind.error);
+      }
+    }
+  }
+
+  /// A long export (video) can finish while the app is in the background;
+  /// when the user opted in, a notification says where it went.
+  void _notifyIfAway(ExportRecord r) {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == null || state == AppLifecycleState.resumed) return;
+    if (!ref.read(occasionPrefsProvider).notifyExports) return;
+    final l = context.l10n;
+    ref.read(reminderServiceProvider).showExportDone(
+          l,
+          fileName: r.fileName,
+          place: exportPlaceLabel(l, r.target, r.locationLabel),
+        );
   }
 
   Future<void> _share() async {
     final l = context.l10n;
     final dir = await getTemporaryDirectory();
     final format = widget.result.format;
-    final file = File('${dir.path}/collage_share.${format.extension}');
+    final file = File('${dir.path}/${exportFileName(widget.project.title, DateTime.now(), format.extension)}');
     await file.writeAsBytes(widget.bytes);
     await SharePlus.instance.share(
       ShareParams(files: [XFile(file.path, mimeType: format.mimeType)], text: l.t('madeWithCollage')),
     );
+  }
+
+  Future<void> _chooseFolderAndSave() async {
+    final ok = await ref.read(exportDestinationProvider.notifier).chooseFolder();
+    if (ok && mounted) await _save(target: ExportTarget.folder);
+  }
+
+  /// "Save another copy": the same export to another place, once.
+  Future<void> _saveCopy() async {
+    final l = context.l10n;
+    final d = ref.read(exportDestinationProvider);
+    final format = widget.result.format;
+    final system = _svc.systemTargetFor(format);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) {
+        final c = sheet.colors;
+        Widget tile(String id, IconData icon, String title, String sub) => ListTile(
+              minTileHeight: Sizes.touchTarget,
+              leading: Icon(icon, color: c.textMid),
+              title: Text(title),
+              subtitle: Text(sub),
+              onTap: () => Navigator.pop(sheet, id),
+            );
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.sm),
+                  child: Text(l.t('expSaveCopy'), style: sheet.text.titleMd),
+                ),
+                tile('system', exportPlaceIcon(system), l.t('expDestSystem'),
+                    destinationFor(l, const ExportDestination(), _svc, format)),
+                if (_svc.canPickFolder && d.hasFolder)
+                  tile('folder', Icons.folder_outlined, l.t('expDestFolder'), destinationSummary(l, d)),
+                if (_svc.canPickFolder)
+                  tile('pick', Icons.drive_folder_upload_outlined, l.t('expChooseFolder'), l.t('expChooseFolderHint')),
+                tile('ask', Icons.save_as_outlined, l.t('expSaveAs'), l.t('expSaveAsHint')),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'system':
+        await _save(target: system);
+      case 'folder':
+        await _save(target: ExportTarget.folder);
+      case 'pick':
+        await _chooseFolderAndSave();
+      case 'ask':
+        await _save(target: ExportTarget.picked);
+    }
   }
 
   bool get _isStill =>
@@ -90,40 +192,79 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     return rows >= 2 && rows <= 5 ? rows : 0;
   }
 
-  /// Cut the export into a 3-wide profile grid and save the tiles in the
-  /// order they have to be posted.
-  Future<void> _grid() async {
+  /// Where split pieces go: the picked folder when that is the default, else
+  /// the gallery (a Save-as dialog per slide would be tiring).
+  ExportTarget get _piecesTarget {
+    final d = ref.read(exportDestinationProvider);
+    return d.mode == ExportDestinationMode.folder && d.hasFolder ? ExportTarget.folder : ExportTarget.gallery;
+  }
+
+  /// Saves [pieces] (posting order) and records them as one export.
+  Future<void> _savePieces(List<Uint8List> pieces, String kind, String successKey) async {
     final l = context.l10n;
+    final format = widget.result.format;
+    final d = ref.read(exportDestinationProvider);
+    final target = _piecesTarget;
+    final now = DateTime.now();
+    SavedFile? first;
+    var ok = 0;
+    ExportFailure? failure;
+    for (var i = 0; i < pieces.length; i++) {
+      try {
+        final s = await _svc.save(
+          bytes: pieces[i],
+          format: format,
+          fileName: exportFileName(widget.project.title, now, format.extension, suffix: '$kind ${i + 1}'),
+          target: target,
+          folderUri: d.folderUri,
+          folderLabel: d.folderLabel,
+        );
+        first ??= s;
+        ok++;
+      } on ExportSaveException catch (e) {
+        failure = e.reason;
+        break;
+      }
+    }
+    if (first != null) {
+      await ref.read(exportHistoryProvider.notifier).record(
+            saved: first,
+            format: format,
+            projectId: widget.project.id,
+            projectTitle: widget.project.title,
+            thumbnail: widget.thumbnail,
+            count: ok,
+            at: now,
+          );
+    }
+    if (!mounted) return;
+    if (ok == pieces.length && first != null) {
+      showAppSnack(
+        context,
+        '${l.a(successKey, {'count': '$ok'})}\n${exportPlaceLabel(l, first.target, first.label)}',
+        kind: SnackKind.success,
+        duration: const Duration(seconds: 6),
+      );
+    } else {
+      showAppSnack(context, exportFailureText(l, failure ?? ExportFailure.failed), kind: SnackKind.error);
+    }
+  }
+
+  Future<void> _grid() async {
     setState(() => _busy = true);
     try {
       final bytes = widget.bytes;
       final rows = _gridRows;
       final format = widget.result.format;
       final tiles = await Isolate.run(() => splitGrid(bytes, rows, 3, format));
-      final stamp = DateTime.now().millisecondsSinceEpoch;
-      var ok = 0;
-      for (var i = 0; i < tiles.length; i++) {
-        final a = await ref.read(galleryServiceProvider).saveImage(
-              tiles[i],
-              filename: 'collage_${stamp}_post${i + 1}.${format.extension}',
-            );
-        if (a != null) ok++;
-      }
-      if (mounted) {
-        showAppSnack(
-          context,
-          ok == tiles.length ? l.a('gridSaved', {'count': '$ok'}) : l.t('couldNotSave'),
-          kind: ok == tiles.length ? SnackKind.success : SnackKind.error,
-          duration: const Duration(seconds: 6),
-        );
-      }
+      await _savePieces(tiles, 'post', 'gridSaved');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  /// Cut the export into its carousel slides, then save them to the gallery
-  /// in posting order, or share them all at once.
+  /// Cut the export into its carousel slides, then save them in posting
+  /// order, or share them all at once.
   Future<void> _carousel({required bool share}) async {
     final l = context.l10n;
     setState(() => _busy = true);
@@ -142,22 +283,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         }
         await SharePlus.instance.share(ShareParams(files: files, text: l.t('madeWithCollage')));
       } else {
-        final stamp = DateTime.now().millisecondsSinceEpoch;
-        var ok = 0;
-        for (var i = 0; i < pieces.length; i++) {
-          final a = await ref.read(galleryServiceProvider).saveImage(
-                pieces[i],
-                filename: 'collage_${stamp}_${i + 1}.${format.extension}',
-              );
-          if (a != null) ok++;
-        }
-        if (mounted) {
-          showAppSnack(
-            context,
-            ok == pieces.length ? l.a('carouselSaved', {'count': '$ok'}) : l.t('couldNotSave'),
-            kind: ok == pieces.length ? SnackKind.success : SnackKind.error,
-          );
-        }
+        await _savePieces(pieces, 'slide', 'carouselSaved');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -173,6 +299,15 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       appBar: AppBar(
         leading: CloseButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
         title: Text(l.t('yourCollage')),
+        actions: [
+          IconButton(
+            tooltip: l.t('expHistoryTitle'),
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ExportHistoryScreen(projectId: widget.project.id, projectTitle: widget.project.title),
+            )),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -193,12 +328,22 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
             ),
           ),
-          _StatusLine(
-            saving: _busy && !_saved,
-            saved: _saved,
-            failed: _failed,
-            pdf: _isPdf,
-            onRetry: _saveToGallery,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+            child: _SaveCard(
+              phase: _phase,
+              record: _record,
+              failure: _failure,
+              failedTarget: _failedTarget,
+              format: widget.result.format,
+              folderLabel: ref.watch(exportDestinationProvider).folderLabel,
+              svc: _svc,
+              onRetry: () => _save(target: _failedTarget),
+              onSystem: () => _save(target: _svc.systemTargetFor(widget.result.format)),
+              onSaveAs: () => _save(target: ExportTarget.picked),
+              onChooseFolder: _chooseFolderAndSave,
+              onSaveCopy: _saveCopy,
+            ),
           ),
           SafeArea(
             child: Padding(
@@ -206,8 +351,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               child: Column(
                 children: [
                   PrimaryButton(
-                    label: _isPdf ? l.t('savePdf') : l.t('share'),
-                    icon: _isPdf ? Icons.picture_as_pdf_outlined : Icons.ios_share_rounded,
+                    label: l.t('share'),
+                    icon: Icons.ios_share_rounded,
                     onPressed: _share,
                   ),
                   const SizedBox(height: Space.sm),
@@ -289,67 +434,187 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   }
 }
 
-/// One line under the preview saying where the collage is: saving, saved, or
-/// not saved (with a way to try again). PDFs aren't saved to the gallery, so
-/// they get a hint about where to keep them instead.
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({
-    required this.saving,
-    required this.saved,
-    required this.failed,
-    required this.pdf,
+/// Where the export is: saving, saved (name, format, place and what can be
+/// done with it), or not saved with the next step that fixes it.
+class _SaveCard extends ConsumerWidget {
+  const _SaveCard({
+    required this.phase,
+    required this.record,
+    required this.failure,
+    required this.failedTarget,
+    required this.format,
+    required this.folderLabel,
+    required this.svc,
     required this.onRetry,
+    required this.onSystem,
+    required this.onSaveAs,
+    required this.onChooseFolder,
+    required this.onSaveCopy,
   });
-  final bool saving;
-  final bool saved;
-  final bool failed;
-  final bool pdf;
+
+  final _Phase phase;
+  final ExportRecord? record;
+  final ExportFailure? failure;
+  final ExportTarget? failedTarget;
+  final ExportFormat format;
+  final String? folderLabel;
+  final ExportDestinationService svc;
   final VoidCallback onRetry;
+  final VoidCallback onSystem;
+  final VoidCallback onSaveAs;
+  final VoidCallback onChooseFolder;
+  final VoidCallback onSaveCopy;
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final Widget child;
-    if (pdf) {
-      child = _row(context, Icons.info_outline_rounded, c.info, l.t('pdfHint'));
-    } else if (saved) {
-      child = _row(context, Icons.check_circle_rounded, c.success, l.t('savedToGallery'));
-    } else if (failed) {
-      child = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline_rounded, color: c.danger, size: 18),
-          const SizedBox(width: 6),
-          Flexible(child: Text(l.t('couldNotSave'), style: context.text.bodyMd.copyWith(color: c.danger))),
-          TextButton(onPressed: onRetry, child: Text(l.t('tryAgain'))),
-        ],
-      );
-    } else {
-      child = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: c.amber)),
-          const SizedBox(width: Space.sm),
-          Text(l.t('savingToGallery'), style: context.text.bodyMd.copyWith(color: c.textMid)),
-        ],
-      );
+    final c = context.colors;
+    final Widget body;
+
+    switch (phase) {
+      case _Phase.saving:
+        body = Row(
+          children: [
+            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: c.amber)),
+            const SizedBox(width: Space.md),
+            Expanded(child: Text(l.t('expSaving'), style: context.text.bodyMd.copyWith(color: c.textMid))),
+          ],
+        );
+      case _Phase.saved:
+        final r = record!;
+        final place = exportPlaceLabel(l, r.target, r.locationLabel);
+        body = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: c.success, size: 20),
+                const SizedBox(width: Space.sm),
+                Expanded(child: Text(l.t('expSaved'), style: context.text.labelLg.copyWith(color: c.success))),
+                SpecChip(r.format.toUpperCase()),
+              ],
+            ),
+            const SizedBox(height: Space.sm),
+            Text(r.fileName, style: context.text.bodyMd, maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(exportPlaceIcon(r.target), size: 16, color: c.amber),
+                ),
+                const SizedBox(width: 6),
+                Expanded(child: Text(place, style: context.text.bodyMd.copyWith(color: c.amber))),
+              ],
+            ),
+            if (r.target == ExportTarget.picked && !svc.canReopenPicked) ...[
+              const SizedBox(height: Space.xs),
+              Text(l.t('expPickedIosNote'), style: context.text.caption.copyWith(color: c.textLo)),
+            ],
+            const SizedBox(height: Space.sm),
+            Wrap(
+              spacing: Space.xs,
+              runSpacing: 0,
+              children: [
+                if (svc.canOpen(r))
+                  _Action(
+                    icon: Icons.open_in_new_rounded,
+                    label: l.t('expOpen'),
+                    onTap: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      if (!await svc.open(r)) showAppSnackOn(messenger, l.t('expCantOpen'), kind: SnackKind.error);
+                    },
+                  ),
+                if (svc.canShowLocation(r))
+                  _Action(
+                    icon: Icons.folder_open_rounded,
+                    label: r.target == ExportTarget.gallery ? l.t('expShowGallery') : l.t('expShowFolder'),
+                    onTap: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      if (!await svc.showLocation(r)) {
+                        showAppSnackOn(messenger, l.a('expCantShowFolder', {'place': place}), kind: SnackKind.error);
+                      }
+                    },
+                  ),
+                _Action(icon: Icons.add_to_photos_outlined, label: l.t('expSaveCopy'), onTap: onSaveCopy),
+              ],
+            ),
+          ],
+        );
+      case _Phase.failed:
+        final f = failure ?? ExportFailure.failed;
+        final actions = <Widget>[
+          switch (f) {
+            ExportFailure.folderUnavailable =>
+              _Action(icon: Icons.drive_folder_upload_outlined, label: l.t('expChooseFolderAgain'), onTap: onChooseFolder),
+            ExportFailure.galleryDenied =>
+              _Action(icon: Icons.settings_outlined, label: l.t('expOpenSettings'), onTap: () => openAppSettings()),
+            _ => _Action(icon: Icons.refresh_rounded, label: l.t('tryAgain'), onTap: onRetry),
+          },
+          if (failedTarget != svc.systemTargetFor(format))
+            _Action(icon: Icons.verified_outlined, label: l.t('expSaveRecommended'), onTap: onSystem)
+          else if (failedTarget != ExportTarget.picked)
+            _Action(icon: Icons.save_as_outlined, label: l.t('expSaveAs'), onTap: onSaveAs),
+        ];
+        final cancelled = f == ExportFailure.cancelled;
+        body = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(cancelled ? Icons.info_outline_rounded : Icons.error_outline_rounded,
+                    color: cancelled ? c.info : c.danger, size: 20),
+                const SizedBox(width: Space.sm),
+                Expanded(
+                  child: Text(
+                    exportFailureText(l, f, folder: folderLabel),
+                    style: context.text.bodyMd.copyWith(color: cancelled ? c.textHi : c.danger),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Space.xs),
+            Text(l.t('expWorkKept'), style: context.text.caption.copyWith(color: c.textMid)),
+            const SizedBox(height: Space.xs),
+            Wrap(spacing: Space.xs, children: actions),
+          ],
+        );
     }
+
     return Semantics(
       liveRegion: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-        child: SizedBox(height: Sizes.touchTarget, child: Center(child: child)),
+      container: true,
+      child: AnimatedSize(
+        duration: Motion.fast,
+        alignment: Alignment.topCenter,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.sm),
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(Radii.card),
+            border: Border.all(color: phase == _Phase.failed && failure != ExportFailure.cancelled ? c.danger : c.line),
+          ),
+          child: body,
+        ),
       ),
     );
   }
+}
 
-  Widget _row(BuildContext context, IconData icon, Color color, String text) => Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 6),
-          Flexible(child: Text(text, style: context.text.bodyMd.copyWith(color: color))),
-        ],
+class _Action extends StatelessWidget {
+  const _Action({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+        style: TextButton.styleFrom(minimumSize: const Size(0, Sizes.touchTarget)),
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
       );
 }

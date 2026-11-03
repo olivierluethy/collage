@@ -142,10 +142,8 @@ const Map<String, String> id = {
 
   // Result
   'yourCollage': 'Kolasemu',
-  'savedToGallery': 'Tersimpan di galerimu',
   'saveToGallery': 'Simpan ke galeri',
   'keepEditing': 'Lanjut mengedit',
-  'couldNotSave': 'Tidak bisa menyimpan — periksa izin foto.',
 
   // AI
   'aiTitle': 'Kolase otomatis AI',
@@ -359,7 +357,6 @@ const Map<String, String> id = {
   'noVideos': 'Tidak ada video di perangkat ini.',
   'exportPdfHint': 'Untuk dicetak. Kolase A4 mendapat halaman A4 yang pas.',
   'exportMp4Hint': 'Video, 6 detik, sel video tetap diputar.',
-  'savePdf': 'Simpan PDF',
   'gridSave': 'Simpan sebagai grid profil (3×{rows})',
   'gridSaved': '{count} potongan disimpan. Unggah sesuai urutan: post 1 lebih dulu.',
   'insertDatePlace': 'Tanggal & tempat',
@@ -388,7 +385,6 @@ const Map<String, String> id = {
   'browseTemplates': 'Lihat templat',
   'closePanel': 'Tutup',
   'createFirstCollage': 'Buat kolase pertamamu',
-  'createPdf': 'Buat PDF',
   'createWithNPhotos': 'Buat kolase dengan {count} foto',
   'createWithOnePhoto': 'Buat kolase dengan 1 foto',
   'ctxMore': 'Lainnya',
@@ -431,7 +427,6 @@ const Map<String, String> id = {
   'obPageOf': 'Halaman {page} dari {count}',
   'obPickPhotos': 'Pilih foto',
   'obPrivacyNote': 'Fotomu tetap di ponselmu.',
-  'pdfHint': 'Ketuk di bawah untuk menyimpan PDF ke File atau mengirimnya.',
   'pickerEmptyTitle': 'Belum ada foto di sini',
   'pickerEmptyMessage': 'Ambil foto atau bagikan lebih banyak foto ke Collage, lalu kembali lagi.',
   'pickerLimited': 'Collage hanya bisa melihat foto yang kamu bagikan.',
@@ -449,7 +444,6 @@ const Map<String, String> id = {
   'ratioA4': 'Cetak A4',
   'ratioA4Landscape': 'A4 lanskap',
   'restored': 'Kolase dipulihkan',
-  'savingToGallery': 'Menyimpan ke galerimu…',
   'showTour': 'Tampilkan tur',
   'tabMore': 'Lainnya',
   'toolAdd': 'Tambah',

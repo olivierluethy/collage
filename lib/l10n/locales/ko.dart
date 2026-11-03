@@ -142,10 +142,8 @@ const Map<String, String> ko = {
 
   // Result
   'yourCollage': '내 콜라주',
-  'savedToGallery': '갤러리에 저장했어요',
   'saveToGallery': '갤러리에 저장',
   'keepEditing': '계속 편집',
-  'couldNotSave': '저장하지 못했어요 — 사진 권한을 확인해 주세요.',
 
   // AI
   'aiTitle': 'AI 자동 콜라주',
@@ -359,7 +357,6 @@ const Map<String, String> ko = {
   'noVideos': '이 기기에 동영상이 없어요.',
   'exportPdfHint': '인쇄용이에요. A4 콜라주는 정확한 A4 페이지로 만들어져요.',
   'exportMp4Hint': '동영상, 6초, 동영상 칸이 계속 재생돼요.',
-  'savePdf': 'PDF 저장',
   'gridSave': '프로필 그리드로 저장 (3×{rows})',
   'gridSaved': '타일 {count}개를 저장했어요. post 1부터 순서대로 올려 주세요.',
   'insertDatePlace': '날짜·장소',
@@ -388,7 +385,6 @@ const Map<String, String> ko = {
   'browseTemplates': '템플릿 둘러보기',
   'closePanel': '닫기',
   'createFirstCollage': '첫 콜라주 만들기',
-  'createPdf': 'PDF 만들기',
   'createWithNPhotos': '사진 {count}장으로 콜라주 만들기',
   'createWithOnePhoto': '사진 1장으로 콜라주 만들기',
   'ctxMore': '더보기',
@@ -431,7 +427,6 @@ const Map<String, String> ko = {
   'obPageOf': '{count}페이지 중 {page}페이지',
   'obPickPhotos': '사진 선택',
   'obPrivacyNote': '사진은 내 휴대폰에만 저장돼요.',
-  'pdfHint': '아래를 탭해 PDF를 파일 앱에 저장하거나 보내세요.',
   'pickerEmptyTitle': '아직 사진이 없어요',
   'pickerEmptyMessage': '사진을 찍거나 Collage에 더 많은 사진을 공유한 뒤 다시 와 주세요.',
   'pickerLimited': 'Collage는 공유한 사진만 볼 수 있어요.',
@@ -449,7 +444,6 @@ const Map<String, String> ko = {
   'ratioA4': 'A4 인쇄',
   'ratioA4Landscape': 'A4 가로',
   'restored': '콜라주를 복원했어요',
-  'savingToGallery': '갤러리에 저장하는 중…',
   'showTour': '둘러보기 보기',
   'tabMore': '더보기',
   'toolAdd': '추가',

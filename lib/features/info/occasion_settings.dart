@@ -10,20 +10,34 @@ import '../../theme/typography.dart';
 import 'birthdays_screen.dart';
 import 'reminders_screen.dart';
 
-/// The "Occasions" group of the More tab: in-app suggestions, region,
-/// birthdays and reminders. Rows match the More tab's own rows.
+/// The "Notifications & suggestions" group of the More tab: notifications
+/// (all off by default) first, then in-app suggestions — which never need
+/// notification or contacts permission — region and birthdays.
 List<Widget> occasionSettingsRows(BuildContext context, WidgetRef ref) {
   final l = context.l10n;
   final p = ref.watch(occasionPrefsProvider);
   final region = ref.watch(occasionRegionProvider);
   final birthdays = ref.watch(birthdaysProvider).length;
   return [
+    SettingsRow(
+      icon: Icons.notifications_none_rounded,
+      title: l.t('notifTitle'),
+      value: p.remindersOn || p.notifyExports ? l.t('remOn') : l.t('remOff'),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RemindersScreen())),
+    ),
     SettingsSwitchRow(
       icon: Icons.event_available_rounded,
       title: l.t('setOccasionSuggestions'),
       subtitle: l.t('setOccasionSuggestionsHint'),
       value: p.suggestions,
       onChanged: ref.read(occasionPrefsProvider.notifier).setSuggestions,
+    ),
+    SettingsSwitchRow(
+      icon: Icons.auto_awesome_outlined,
+      title: l.t('setMemorySuggestions'),
+      subtitle: l.t('setMemorySuggestionsHint'),
+      value: p.discoverSuggestions,
+      onChanged: ref.read(occasionPrefsProvider.notifier).setDiscoverSuggestions,
     ),
     SettingsRow(
       icon: Icons.public_rounded,
@@ -38,12 +52,6 @@ List<Widget> occasionSettingsRows(BuildContext context, WidgetRef ref) {
       title: l.t('bdayTitle'),
       subtitle: birthdays == 0 ? l.t('setBirthdaysNone') : l.a('setBirthdaysCount', {'count': '$birthdays'}),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BirthdaysScreen())),
-    ),
-    SettingsRow(
-      icon: Icons.notifications_none_rounded,
-      title: l.t('remTitle'),
-      value: p.remindersOn ? l.t('remOn') : l.t('remOff'),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RemindersScreen())),
     ),
   ];
 }

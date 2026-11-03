@@ -142,10 +142,8 @@ const Map<String, String> tr = {
 
   // Result
   'yourCollage': 'Kolajın',
-  'savedToGallery': 'Galerine kaydedildi',
   'saveToGallery': 'Galeriye kaydet',
   'keepEditing': 'Düzenlemeye devam et',
-  'couldNotSave': 'Kaydedilemedi — fotoğraf izinlerini kontrol et.',
 
   // AI
   'aiTitle': 'AI otomatik kolaj',
@@ -359,7 +357,6 @@ const Map<String, String> tr = {
   'noVideos': 'Bu cihazda video yok.',
   'exportPdfHint': 'Baskı için. A4 kolajlar tam bir A4 sayfası alır.',
   'exportMp4Hint': 'Video, 6 saniye, video hücreleri oynamaya devam eder.',
-  'savePdf': 'PDF kaydet',
   'gridSave': 'Profil ızgarası olarak kaydet (3×{rows})',
   'gridSaved': '{count} parça kaydedildi. Sırayla paylaş: önce post 1.',
   'insertDatePlace': 'Tarih ve yer',
@@ -388,7 +385,6 @@ const Map<String, String> tr = {
   'browseTemplates': 'Şablonlara göz at',
   'closePanel': 'Kapat',
   'createFirstCollage': 'İlk kolajını yap',
-  'createPdf': 'PDF oluştur',
   'createWithNPhotos': '{count} fotoğrafla kolaj yap',
   'createWithOnePhoto': '1 fotoğrafla kolaj yap',
   'ctxMore': 'Diğer',
@@ -431,7 +427,6 @@ const Map<String, String> tr = {
   'obPageOf': 'Sayfa {page} / {count}',
   'obPickPhotos': 'Fotoğraf seç',
   'obPrivacyNote': 'Fotoğrafların telefonunda kalır.',
-  'pdfHint': 'PDF\'i Dosyalar\'a kaydetmek veya göndermek için aşağıya dokun.',
   'pickerEmptyTitle': 'Henüz fotoğraf yok',
   'pickerEmptyMessage': 'Bir fotoğraf çek veya Collage ile daha fazla fotoğraf paylaş, sonra geri gel.',
   'pickerLimited': 'Collage yalnızca paylaştığın fotoğrafları görebilir.',
@@ -449,7 +444,6 @@ const Map<String, String> tr = {
   'ratioA4': 'A4 baskı',
   'ratioA4Landscape': 'A4 yatay',
   'restored': 'Kolaj geri yüklendi',
-  'savingToGallery': 'Galerine kaydediliyor…',
   'showTour': 'Turu göster',
   'tabMore': 'Diğer',
   'toolAdd': 'Ekle',

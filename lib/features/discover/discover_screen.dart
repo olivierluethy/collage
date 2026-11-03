@@ -7,6 +7,7 @@ import '../../services/library_index_service.dart';
 import '../../services/moments_service.dart';
 import '../../services/permission_service.dart';
 import '../../state/library_index.dart';
+import '../../state/occasions.dart';
 import '../../state/providers.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
@@ -259,6 +260,10 @@ class _Suggestions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Personalised suggestions can be turned off in Settings.
+    if (!ref.watch(occasionPrefsProvider.select((p) => p.discoverSuggestions))) {
+      return const SizedBox.shrink();
+    }
     final list = ref.watch(discoverSuggestionsProvider);
     if (list.isEmpty) return const SizedBox.shrink();
     final l = context.l10n;

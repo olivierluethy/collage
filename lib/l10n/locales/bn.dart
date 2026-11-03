@@ -142,10 +142,8 @@ const Map<String, String> bn = {
 
   // Result
   'yourCollage': 'আপনার কোলাজ',
-  'savedToGallery': 'আপনার গ্যালারিতে সংরক্ষিত',
   'saveToGallery': 'গ্যালারিতে সংরক্ষণ করুন',
   'keepEditing': 'সম্পাদনা চালিয়ে যান',
-  'couldNotSave': 'সংরক্ষণ করা যায়নি — ছবির অনুমতি দেখুন।',
 
   // AI
   'aiTitle': 'AI অটো-কোলাজ',
@@ -359,7 +357,6 @@ const Map<String, String> bn = {
   'noVideos': 'এই ডিভাইসে কোনো ভিডিও নেই।',
   'exportPdfHint': 'প্রিন্টের জন্য। A4 কোলাজ একদম মাপমতো A4 পৃষ্ঠা পায়।',
   'exportMp4Hint': 'ভিডিও, 6 সেকেন্ড, ভিডিও সেল চলতে থাকে।',
-  'savePdf': 'PDF সংরক্ষণ',
   'gridSave': 'প্রোফাইল গ্রিড হিসেবে সংরক্ষণ (3×{rows})',
   'gridSaved': '{count}টি টাইল সংরক্ষিত হয়েছে। ক্রম অনুযায়ী পোস্ট করুন: আগে post 1।',
   'insertDatePlace': 'তারিখ ও স্থান',
@@ -388,7 +385,6 @@ const Map<String, String> bn = {
   'browseTemplates': 'টেমপ্লেট দেখুন',
   'closePanel': 'বন্ধ করুন',
   'createFirstCollage': 'আপনার প্রথম কোলাজ তৈরি করুন',
-  'createPdf': 'PDF তৈরি করুন',
   'createWithNPhotos': '{count}টি ছবি দিয়ে কোলাজ তৈরি করুন',
   'createWithOnePhoto': '1টি ছবি দিয়ে কোলাজ তৈরি করুন',
   'ctxMore': 'আরও',
@@ -431,7 +427,6 @@ const Map<String, String> bn = {
   'obPageOf': 'পৃষ্ঠা {page} / {count}',
   'obPickPhotos': 'ছবি বাছুন',
   'obPrivacyNote': 'আপনার ছবি আপনার ফোনেই থাকে।',
-  'pdfHint': 'PDF-টি ফাইলস-এ সংরক্ষণ করতে বা পাঠাতে নিচে ট্যাপ করুন।',
   'pickerEmptyTitle': 'এখনও কোনো ছবি নেই',
   'pickerEmptyMessage': 'একটি ছবি তুলুন বা Collage-এর সাথে আরও ছবি শেয়ার করুন, তারপর ফিরে আসুন।',
   'pickerLimited': 'আপনার শেয়ার করা ছবিগুলোই শুধু Collage দেখতে পায়।',
@@ -449,7 +444,6 @@ const Map<String, String> bn = {
   'ratioA4': 'A4 প্রিন্ট',
   'ratioA4Landscape': 'A4 ল্যান্ডস্কেপ',
   'restored': 'কোলাজ ফেরানো হয়েছে',
-  'savingToGallery': 'আপনার গ্যালারিতে সংরক্ষণ হচ্ছে…',
   'showTour': 'ট্যুর দেখান',
   'tabMore': 'আরও',
   'toolAdd': 'যোগ',

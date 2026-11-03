@@ -142,10 +142,8 @@ const Map<String, String> fr = {
 
   // Result
   'yourCollage': 'Votre collage',
-  'savedToGallery': 'Enregistré dans votre galerie',
   'saveToGallery': 'Enregistrer dans la galerie',
   'keepEditing': 'Continuer à modifier',
-  'couldNotSave': 'Enregistrement impossible — vérifiez les autorisations photos.',
 
   // AI
   'aiTitle': 'Auto-collage avec AI',
@@ -359,7 +357,6 @@ const Map<String, String> fr = {
   'noVideos': 'Aucune vidéo sur cet appareil.',
   'exportPdfHint': 'Pour l\'impression. Les collages A4 obtiennent une page A4 exacte.',
   'exportMp4Hint': 'Vidéo de 6 secondes, les cellules vidéo continuent de jouer.',
-  'savePdf': 'Enregistrer en PDF',
   'gridSave': 'Enregistrer en grille de profil (3×{rows})',
   'gridSaved': '{count} vignettes enregistrées. Publiez-les dans l\'ordre, en commençant par post 1.',
   'insertDatePlace': 'Date et lieu',
@@ -388,7 +385,6 @@ const Map<String, String> fr = {
   'browseTemplates': 'Parcourir les modèles',
   'closePanel': 'Fermer',
   'createFirstCollage': 'Créer votre premier collage',
-  'createPdf': 'Créer un PDF',
   'createWithNPhotos': 'Créer un collage avec {count} photos',
   'createWithOnePhoto': 'Créer un collage avec 1 photo',
   'ctxMore': 'Plus',
@@ -431,7 +427,6 @@ const Map<String, String> fr = {
   'obPageOf': 'Page {page} sur {count}',
   'obPickPhotos': 'Choisir des photos',
   'obPrivacyNote': 'Vos photos restent sur votre téléphone.',
-  'pdfHint': 'Touchez ci-dessous pour enregistrer le PDF dans Fichiers ou l\'envoyer.',
   'pickerEmptyTitle': 'Pas encore de photos',
   'pickerEmptyMessage': 'Prenez une photo ou partagez plus de photos avec Collage, puis revenez.',
   'pickerLimited': 'Collage ne voit que les photos que vous avez partagées.',
@@ -449,7 +444,6 @@ const Map<String, String> fr = {
   'ratioA4': 'Impression A4',
   'ratioA4Landscape': 'A4 paysage',
   'restored': 'Collage restauré',
-  'savingToGallery': 'Enregistrement dans la galerie…',
   'showTour': 'Voir la visite',
   'tabMore': 'Plus',
   'toolAdd': 'Ajouter',

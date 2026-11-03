@@ -12,7 +12,11 @@ import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../../widgets/ui.dart';
+import '../../state/exports.dart';
 import '../books/books_screen.dart';
+import '../exports/export_history_screen.dart';
+import '../exports/export_place.dart';
+import '../exports/export_settings_screen.dart';
 import '../trash/trash_screen.dart';
 import 'backup_actions.dart';
 import 'occasion_settings.dart';
@@ -30,6 +34,8 @@ class MoreTab extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final code = activeLanguageCode(context, ref);
     final trashCount = ref.watch(trashProvider).valueOrNull?.length ?? 0;
+    final destination = ref.watch(exportDestinationProvider);
+    final exportCount = ref.watch(exportHistoryProvider).valueOrNull?.length ?? 0;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: Space.xxl),
@@ -50,6 +56,24 @@ class MoreTab extends ConsumerWidget {
             badge: trashCount > 0 ? '$trashCount' : null,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const TrashScreen()),
+            ),
+          ),
+        ]),
+        _Group(l.t('expSettingsTitle'), [
+          _Tile(
+            icon: Icons.save_alt_rounded,
+            title: l.t('expSavesTo'),
+            value: destinationSummary(l, destination),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ExportSettingsScreen()),
+            ),
+          ),
+          _Tile(
+            icon: Icons.history_rounded,
+            title: l.t('expHistoryTitle'),
+            subtitle: exportCount == 0 ? l.t('expHistoryNone') : l.a('expHistoryCount', {'count': '$exportCount'}),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ExportHistoryScreen()),
             ),
           ),
         ]),
@@ -93,7 +117,7 @@ class MoreTab extends ConsumerWidget {
             },
           ),
         ]),
-        _Group(l.t('setOccasionsGroup'), occasionSettingsRows(context, ref)),
+        _Group(l.t('setNotifGroup'), occasionSettingsRows(context, ref)),
         _Group(l.t('moreAbout'), [
           _Tile(
             icon: Icons.info_outline_rounded,

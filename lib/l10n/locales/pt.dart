@@ -142,10 +142,8 @@ const Map<String, String> pt = {
 
   // Result
   'yourCollage': 'Sua colagem',
-  'savedToGallery': 'Salvo na sua galeria',
   'saveToGallery': 'Salvar na galeria',
   'keepEditing': 'Continuar editando',
-  'couldNotSave': 'Não foi possível salvar — verifique as permissões de fotos.',
 
   // AI
   'aiTitle': 'Colagem automática com IA',
@@ -359,7 +357,6 @@ const Map<String, String> pt = {
   'noVideos': 'Nenhum vídeo neste dispositivo.',
   'exportPdfHint': 'Para impressão. Colagens A4 recebem uma página A4 exata.',
   'exportMp4Hint': 'Vídeo de 6 segundos, as células de vídeo continuam rodando.',
-  'savePdf': 'Salvar PDF',
   'gridSave': 'Salvar como grade do perfil (3×{rows})',
   'gridSaved': '{count} blocos salvos. Publique na ordem, começando pelo post 1.',
   'insertDatePlace': 'Data e local',
@@ -388,7 +385,6 @@ const Map<String, String> pt = {
   'browseTemplates': 'Ver modelos',
   'closePanel': 'Fechar',
   'createFirstCollage': 'Crie sua primeira colagem',
-  'createPdf': 'Criar PDF',
   'createWithNPhotos': 'Criar colagem com {count} fotos',
   'createWithOnePhoto': 'Criar colagem com 1 foto',
   'ctxMore': 'Mais',
@@ -431,7 +427,6 @@ const Map<String, String> pt = {
   'obPageOf': 'Página {page} de {count}',
   'obPickPhotos': 'Escolher fotos',
   'obPrivacyNote': 'Suas fotos ficam no seu celular.',
-  'pdfHint': 'Toque abaixo para salvar o PDF em Arquivos ou enviá-lo.',
   'pickerEmptyTitle': 'Nenhuma foto aqui ainda',
   'pickerEmptyMessage': 'Tire uma foto ou compartilhe mais fotos com o Collage e depois volte.',
   'pickerLimited': 'O Collage só vê as fotos que você compartilhou.',
@@ -449,7 +444,6 @@ const Map<String, String> pt = {
   'ratioA4': 'Impressão A4',
   'ratioA4Landscape': 'A4 paisagem',
   'restored': 'Colagem restaurada',
-  'savingToGallery': 'Salvando na galeria…',
   'showTour': 'Ver o tour',
   'tabMore': 'Mais',
   'toolAdd': 'Adicionar',

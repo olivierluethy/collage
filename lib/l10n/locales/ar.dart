@@ -142,10 +142,8 @@ const Map<String, String> ar = {
 
   // Result
   'yourCollage': 'الكولاج الخاص بك',
-  'savedToGallery': 'تم الحفظ في معرض الصور',
   'saveToGallery': 'حفظ في المعرض',
   'keepEditing': 'متابعة التعديل',
-  'couldNotSave': 'تعذّر الحفظ — تحقق من أذونات الصور.',
 
   // AI
   'aiTitle': 'كولاج تلقائي بـ AI',
@@ -359,7 +357,6 @@ const Map<String, String> ar = {
   'noVideos': 'لا توجد مقاطع فيديو على هذا الجهاز.',
   'exportPdfHint': 'للطباعة. تحصل الكولاجات بمقاس A4 على صفحة A4 مطابقة.',
   'exportMp4Hint': 'فيديو، 6 ثوانٍ، تظل خلايا الفيديو قيد التشغيل.',
-  'savePdf': 'حفظ PDF',
   'gridSave': 'حفظ كشبكة للملف الشخصي (3×{rows})',
   'gridSaved': 'تم حفظ {count} مربع. انشرها بالترتيب، بدءًا من post 1.',
   'insertDatePlace': 'التاريخ والمكان',
@@ -388,7 +385,6 @@ const Map<String, String> ar = {
   'browseTemplates': 'تصفّح القوالب',
   'closePanel': 'إغلاق',
   'createFirstCollage': 'أنشئ أول كولاج لك',
-  'createPdf': 'إنشاء PDF',
   'createWithNPhotos': 'إنشاء كولاج من {count} صور',
   'createWithOnePhoto': 'إنشاء كولاج من صورة واحدة',
   'ctxMore': 'المزيد',
@@ -431,7 +427,6 @@ const Map<String, String> ar = {
   'obPageOf': 'الصفحة {page} من {count}',
   'obPickPhotos': 'اختيار الصور',
   'obPrivacyNote': 'تبقى صورك على هاتفك.',
-  'pdfHint': 'اضغط أدناه لحفظ ملف PDF في الملفات أو إرساله.',
   'pickerEmptyTitle': 'لا توجد صور هنا بعد',
   'pickerEmptyMessage': 'التقط صورة أو شارك المزيد من الصور مع Collage، ثم عد إلى هنا.',
   'pickerLimited': 'يرى Collage الصور التي شاركتها فقط.',
@@ -449,7 +444,6 @@ const Map<String, String> ar = {
   'ratioA4': 'طباعة A4',
   'ratioA4Landscape': 'A4 أفقي',
   'restored': 'تمت استعادة الكولاج',
-  'savingToGallery': 'جارٍ الحفظ في معرض الصور…',
   'showTour': 'عرض الجولة',
   'tabMore': 'المزيد',
   'toolAdd': 'إضافة',

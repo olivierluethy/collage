@@ -65,6 +65,10 @@ Leaving the editor keeps your collage in **My Collages** automatically, so you c
 - Undo and redo for every edit
 
 **Saving & sharing**
+- Choose where exports go: the recommended place (gallery → *Pictures/Collage*, PDFs → *Download/Collage*), one folder you pick with the system folder picker (phone, SD card, Google Drive, …), or *Ask where to save* every time
+- After saving, the app says exactly what was saved and where (file name, format, place), with *Open*, *Show in gallery/folder*, *Share* and *Save another copy*
+- *Recent exports* lists every saved file with its place and checks whether it's still there; each collage shows its own exports in My Collages
+- Exports never overwrite a file: names come from the collage title and time, with "(2)" added on a clash
 - Export as PNG or JPG in three sizes (1080, 2048 or 4096 px), as an animated GIF when the collage has GIF stickers, as MP4 for video collages, or as PDF
 - Instagram carousels that save or share as separate square slides
 - Instagram profile grids: split a collage into 3×N tiles, numbered in posting order
@@ -129,13 +133,23 @@ flutter run --dart-define=AI_API_KEY=your_key
 Without either, the AI suggestion is simply not offered in the *New collage*
 sheet, and everything else — including making collages by hand — works fully.
 
+### Where exports are saved, per platform
+
+| | Android | iOS |
+|---|---|---|
+| Recommended | Gallery *Pictures/Collage* (videos *Movies/Collage*); PDFs in *Download/Collage* | Photos app; PDFs in Files › On My iPhone › Collage › Exports |
+| A folder you choose | Any folder from the system folder picker; access is kept until you change or reset it, and a lost folder is reported instead of failing silently | Not offered: iOS doesn't let apps remember folders |
+| Ask every time | System *Save as* dialog | Files dialog; the app can't reopen such files later and says so |
+
 ## More tab (library, backup, settings, legal)
 
 The **More** tab on the home screen groups everything that isn't making a collage:
 
 - **Library** — photo books and the trash (with a count of what's in it)
+- **Saving & export** — where exports go (recommended place, a folder you choose, or ask every time), Recent exports, and what "saved", "exported" and "shared" mean
 - **Backup** — back up all collages to a file, restore a backup, or import a collage someone sent you
 - **Settings** — language, theme (light/dark/system) and "Show tips again"
+- **Notifications & suggestions** — every notification is off until you turn it on: holidays, birthdays, photo memories (with quiet hours and a frequency limit) and "export finished". In-app suggestions work without any notification or contacts permission and can be turned off too
 - **About** — app info and version, Privacy Policy and Terms of Service
 
  The app ships with 15 languages (English, 中文, हिन्दी, Español, العربية, বাংলা, Français, Русский, Português, Bahasa Indonesia, Deutsch, 日本語, Türkçe, Italiano, 한국어).

@@ -142,10 +142,8 @@ const Map<String, String> ru = {
 
   // Result
   'yourCollage': 'Ваш коллаж',
-  'savedToGallery': 'Сохранено в галерее',
   'saveToGallery': 'Сохранить в галерею',
   'keepEditing': 'Продолжить редактирование',
-  'couldNotSave': 'Не удалось сохранить — проверьте доступ к фото.',
 
   // AI
   'aiTitle': 'Автоколлаж с AI',
@@ -359,7 +357,6 @@ const Map<String, String> ru = {
   'noVideos': 'На этом устройстве нет видео.',
   'exportPdfHint': 'Для печати. Коллажи A4 получают точную страницу A4.',
   'exportMp4Hint': 'Видео, 6 секунд, видео в ячейках продолжают воспроизводиться.',
-  'savePdf': 'Сохранить PDF',
   'gridSave': 'Сохранить как сетку профиля (3×{rows})',
   'gridSaved': 'Сохранено фрагментов: {count}. Публикуйте по порядку, начиная с post 1.',
   'insertDatePlace': 'Дата и место',
@@ -388,7 +385,6 @@ const Map<String, String> ru = {
   'browseTemplates': 'Смотреть шаблоны',
   'closePanel': 'Закрыть',
   'createFirstCollage': 'Создать первый коллаж',
-  'createPdf': 'Создать PDF',
   'createWithNPhotos': 'Создать коллаж из {count} фото',
   'createWithOnePhoto': 'Создать коллаж из 1 фото',
   'ctxMore': 'Ещё',
@@ -431,7 +427,6 @@ const Map<String, String> ru = {
   'obPageOf': 'Страница {page} из {count}',
   'obPickPhotos': 'Выбрать фото',
   'obPrivacyNote': 'Ваши фото остаются на телефоне.',
-  'pdfHint': 'Нажмите ниже, чтобы сохранить PDF в «Файлы» или отправить его.',
   'pickerEmptyTitle': 'Здесь пока нет фото',
   'pickerEmptyMessage': 'Сделайте снимок или откройте Collage доступ к другим фото, затем вернитесь.',
   'pickerLimited': 'Collage видит только те фото, к которым вы дали доступ.',
@@ -449,7 +444,6 @@ const Map<String, String> ru = {
   'ratioA4': 'Печать A4',
   'ratioA4Landscape': 'A4 альбомная',
   'restored': 'Коллаж восстановлен',
-  'savingToGallery': 'Сохранение в галерею…',
   'showTour': 'Показать обзор',
   'tabMore': 'Ещё',
   'toolAdd': 'Добавить',
