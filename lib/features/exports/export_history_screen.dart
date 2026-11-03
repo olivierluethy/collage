@@ -204,7 +204,8 @@ class _Thumb extends StatelessWidget {
 Future<void> showExportActions(BuildContext context, WidgetRef ref, ExportRecord r) async {
   final l = context.l10n;
   final svc = ref.read(exportDestinationServiceProvider);
-  final avail = await ref.read(exportAvailabilityProvider(r).future);
+  // Checked fresh: the file may have been moved since the list was shown.
+  final avail = await svc.check(r);
   if (!context.mounted) return;
   final gone = avail == ExportAvailability.missing || avail == ExportAvailability.noAccess;
   final place = exportPlaceLabel(l, r.target, r.locationLabel);
