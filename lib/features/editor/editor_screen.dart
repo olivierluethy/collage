@@ -245,6 +245,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     WidgetsBinding.instance.removeObserver(this);
     _c.removeListener(_markChanged);
     _c.dispose();
+    _keysNode.dispose();
     super.dispose();
   }
 
@@ -426,6 +427,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
       _cleanupPanel();
       _panel = _Panel.none;
     });
+    // Back to the editor's own keys once a panel (and its text field) is gone.
+    if (mounted && !_keysNode.hasFocus) _keysNode.requestFocus();
   }
 
   void _openPanel(_Panel p) {
@@ -552,8 +555,101 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     }
   }
 
+  // ---- keyboard ---------------------------------------------------------------
+  final _keysNode = FocusNode(debugLabel: 'editor-keys');
+
+  static const _keyMap = <ShortcutActivator, _KeyIntent>{
+    SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _KeyIntent('undo'),
+    SingleActivator(LogicalKeyboardKey.keyZ, control: true): _KeyIntent('undo'),
+    SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true): _KeyIntent('redo'),
+    SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _KeyIntent('redo'),
+    SingleActivator(LogicalKeyboardKey.keyY, control: true): _KeyIntent('redo'),
+    SingleActivator(LogicalKeyboardKey.delete): _KeyIntent('delete'),
+    SingleActivator(LogicalKeyboardKey.backspace): _KeyIntent('delete'),
+    SingleActivator(LogicalKeyboardKey.keyD, meta: true): _KeyIntent('duplicate'),
+    SingleActivator(LogicalKeyboardKey.keyD, control: true): _KeyIntent('duplicate'),
+    SingleActivator(LogicalKeyboardKey.bracketRight): _KeyIntent('forward'),
+    SingleActivator(LogicalKeyboardKey.bracketLeft): _KeyIntent('backward'),
+    SingleActivator(LogicalKeyboardKey.keyL, meta: true): _KeyIntent('lock'),
+    SingleActivator(LogicalKeyboardKey.keyL, control: true): _KeyIntent('lock'),
+    SingleActivator(LogicalKeyboardKey.escape): _KeyIntent('escape'),
+    SingleActivator(LogicalKeyboardKey.arrowLeft): _KeyIntent('left'),
+    SingleActivator(LogicalKeyboardKey.arrowRight): _KeyIntent('right'),
+    SingleActivator(LogicalKeyboardKey.arrowUp): _KeyIntent('up'),
+    SingleActivator(LogicalKeyboardKey.arrowDown): _KeyIntent('down'),
+    SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): _KeyIntent('left', big: true),
+    SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): _KeyIntent('right', big: true),
+    SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): _KeyIntent('up', big: true),
+    SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): _KeyIntent('down', big: true),
+  };
+
+  void _onKey(_KeyIntent k) {
+    if (_saving) return;
+    final el = _c.selectedElement;
+    final step = k.big ? 0.05 : 0.01;
+    final delta = switch (k.id) {
+      'left' => Offset(-step, 0),
+      'right' => Offset(step, 0),
+      'up' => Offset(0, -step),
+      'down' => Offset(0, step),
+      _ => null,
+    };
+    if (delta != null) {
+      if (_c.edgeEditing && _c.selectedVertex != null) {
+        _c.nudgeSelectedVertex(delta);
+      } else if (el is ImageElement && _c.adjustingImageId == el.id) {
+        _c.setImageFraming(el.id, panX: el.panX - delta.dx * 4, panY: el.panY - delta.dy * 4);
+      } else if (el != null) {
+        _c.updateTransform(el.id, cx: el.cx + delta.dx, cy: el.cy + delta.dy);
+      }
+      return;
+    }
+    switch (k.id) {
+      case 'undo':
+        if (_c.canUndo) _undo();
+      case 'redo':
+        if (_c.canRedo) _redo();
+      case 'delete':
+        if (el != null) {
+          _deleteElement(el.id);
+        } else if (_c.edgeEditing) {
+          _c.removeSelectedVertex();
+        } else if (_c.selectedSlotId != null) {
+          _removeSlotPhoto(_c.selectedSlotId!);
+        }
+      case 'duplicate':
+        if (el != null) _c.duplicateElement(el.id);
+      case 'forward':
+        if (el != null) _c.stepLayer(el.id, 1);
+      case 'backward':
+        if (el != null) _c.stepLayer(el.id, -1);
+      case 'lock':
+        if (el != null) _c.setLocked(el.id, !el.locked);
+      case 'escape':
+        if (_panel != _Panel.none) {
+          _closePanel();
+        } else {
+          _c.clearSelection();
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: _keyMap,
+      child: Actions(
+        actions: {_KeyIntent: _EditorKeyAction(_onKey)},
+        child: Focus(
+          focusNode: _keysNode,
+          autofocus: true,
+          child: _buildScaffold(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -1409,5 +1505,34 @@ class _TrashTarget extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// A keyboard command of the editor (see `_keyMap`).
+class _KeyIntent extends Intent {
+  const _KeyIntent(this.id, {this.big = false});
+  final String id;
+
+  /// Shift held: nudge in bigger steps.
+  final bool big;
+}
+
+/// Runs editor key commands — but stands aside while a text field has focus,
+/// so Backspace deletes a letter, not the selected layer.
+class _EditorKeyAction extends Action<_KeyIntent> {
+  _EditorKeyAction(this.onKey);
+  final void Function(_KeyIntent) onKey;
+
+  @override
+  bool isEnabled(_KeyIntent intent) {
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    if (ctx == null) return true;
+    return ctx.widget is! EditableText && ctx.findAncestorWidgetOfExactType<EditableText>() == null;
+  }
+
+  @override
+  Object? invoke(_KeyIntent intent) {
+    onKey(intent);
+    return null;
   }
 }
