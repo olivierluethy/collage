@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show Color, Offset, Size;
 
@@ -20,6 +21,8 @@ class EditorController extends ChangeNotifier {
       : _pool = List.of(pool) {
     if (project.fills.isEmpty && project.layout.slots.isNotEmpty) autofill();
     // The opening state is the floor of the history, not an undoable step.
+    _flushTimer?.cancel();
+    _stale = false;
     _committed = _snapshot();
     _latest = _committed;
     _lastTouch = null;
@@ -45,7 +48,18 @@ class EditorController extends ChangeNotifier {
   bool get canUndo => _undo.isNotEmpty || _hasPendingChange;
   bool get canRedo => _redo.isNotEmpty && !_hasPendingChange;
 
-  bool get _hasPendingChange => _latest != _committed;
+  bool get _hasPendingChange => _stale || _latest != _committed;
+
+  /// True while [_latest] lags behind the project: inside a burst (a drag or
+  /// pinch) the snapshot is taken lazily instead of on every pointer move —
+  /// serialising the whole collage 60× a second was the main source of drag
+  /// lag on big collages. [_flush] brings it up to date.
+  bool _stale = false;
+
+  /// Refreshes the stale snapshot shortly after a burst goes quiet, always
+  /// before the next burst can start ([_flushDelay] < [_settle]).
+  Timer? _flushTimer;
+  static const _flushDelay = Duration(milliseconds: 180);
 
   /// The editable state as JSON, without bookkeeping fields that change on
   /// every touch (so an unchanged collage compares equal).
@@ -56,18 +70,46 @@ class EditorController extends ChangeNotifier {
     return jsonEncode(j);
   }
 
+  /// Take the pending snapshot now, if one is owed.
+  void _flush() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    if (!_stale) return;
+    _stale = false;
+    _latest = _snapshot();
+  }
+
   /// Called after every mutation: closes the previous burst if this edit
-  /// comes after a pause, then remembers the new state.
+  /// comes after a pause, then remembers the new state. The first edit of a
+  /// burst is snapshotted right away; the rest only mark the snapshot stale.
   void _record() {
     final now = DateTime.now();
     final last = _lastTouch;
-    if (last == null || now.difference(last) >= _settle) _commit();
+    final newBurst = last == null || now.difference(last) >= _settle;
+    if (newBurst) {
+      // The previous burst's final state must be captured before this
+      // mutation's state replaces it — the timer normally already did.
+      _commit();
+      _lastTouch = now;
+      _stale = false;
+      _latest = _snapshot();
+      return;
+    }
     _lastTouch = now;
-    _latest = _snapshot();
+    _stale = true;
+    _flushTimer?.cancel();
+    _flushTimer = Timer(_flushDelay, _flush);
+  }
+
+  @override
+  void dispose() {
+    _flushTimer?.cancel();
+    super.dispose();
   }
 
   /// Push the pending burst (if it changed anything) onto the history.
   void _commit() {
+    _flush();
     if (_latest == _committed) return;
     _undo.add(_committed);
     if (_undo.length > _maxHistory) _undo.removeAt(0);
@@ -90,6 +132,8 @@ class EditorController extends ChangeNotifier {
   }
 
   void _restore(String snapshot) {
+    _flushTimer?.cancel();
+    _stale = false;
     _committed = snapshot;
     _latest = snapshot;
     _lastTouch = null;
@@ -362,10 +406,23 @@ class EditorController extends ChangeNotifier {
 
   // ---- drag-to-resize cells ------------------------------------------------
   /// Edges between rectangular cells that can be dragged to resize them.
-  List<SlotSplit> get splits => findSplits(project.layout.slots);
+  ///
+  /// The derived geometry below is memoised on the identity of the slot list:
+  /// layouts are immutable and replaced on every change, so a rebuild that
+  /// didn't touch the layout (a pan, a selection, a filter) reuses it instead
+  /// of re-running the O(n²) edge searches every frame.
+  List<SlotSplit> get splits => _geo.splits;
 
   /// Shared edges between diagonal / mosaic (polygon) cells.
-  List<PolySplit> get polySplits => findPolySplits(project.layout.slots);
+  List<PolySplit> get polySplits => _geo.polySplits;
+
+  _GeometryCache? _geoCache;
+  _GeometryCache get _geo {
+    final layout = project.layout;
+    final c = _geoCache;
+    if (c != null && identical(c.layout, layout)) return c;
+    return _geoCache = _GeometryCache(layout);
+  }
 
   /// Move [split] to [pos] (layout fraction).
   void moveSplitTo(SlotSplit split, double pos) =>
@@ -413,10 +470,10 @@ class EditorController extends ChangeNotifier {
   /// Interior edges shared by exactly two cells. For a rectangular layout
   /// these are the edges of its polygon equivalent (with T-junction corners
   /// split), which it is turned into on the first actual shape change.
-  List<SharedEdge> get sharedEdges {
-    final slots = project.layout.slots;
-    return findSharedEdges(_needsPolygons ? polygonizeSlots(slots) : slots);
-  }
+  List<SharedEdge> get sharedEdges => _geo.sharedEdges;
+
+  /// The shaped edges of one cell, memoised with the layout.
+  Map<int, (EdgeShape, bool)> curvedEdgesFor(LayoutSlot slot) => _geo.curvedEdges(slot);
 
   /// The shape of [key], straight when it has none yet.
   EdgeShape edgeShape(String key) {
@@ -988,4 +1045,28 @@ class EditorController extends ChangeNotifier {
     fn(project.background);
     _touch();
   }
+}
+
+/// Geometry derived from one immutable slot list, computed on first use.
+class _GeometryCache {
+  _GeometryCache(this.layout) : slots = layout.slots;
+  final LayoutTemplate layout;
+  final List<LayoutSlot> slots;
+
+  bool get _needsPolygons => slots.length > 1 && slots.any((s) => !s.isPolygon);
+
+  late final List<SlotSplit> splits = findSplits(slots);
+  late final List<PolySplit> polySplits = findPolySplits(slots);
+
+  /// [slots] as polygons (rectangles and T-junctions resolved) — what edge
+  /// shaping and point editing operate on.
+  late final List<LayoutSlot> polygons = _needsPolygons ? polygonizeSlots(slots) : slots;
+  late final List<SharedEdge> sharedEdges = findSharedEdges(polygons);
+
+  late final Map<String, EdgeShape> _edgeMap = layout.edgeMap;
+  final Map<String, Map<int, (EdgeShape, bool)>> _curved = {};
+
+  /// Which of [slot]'s edges are curved / zigzagged (see [curvedEdgesOf]).
+  Map<int, (EdgeShape, bool)> curvedEdges(LayoutSlot slot) =>
+      _curved.putIfAbsent(slot.id, () => curvedEdgesOf(slot, slots, _edgeMap));
 }

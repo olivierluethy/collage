@@ -122,7 +122,6 @@ class CollageCanvas extends StatelessWidget {
     final gap = c.border.gap * unit;
     final radius = c.border.radius * unit;
     final thickness = c.border.thickness * unit;
-    final edgeShapes = c.project.layout.edgeMap;
 
     final content = Rect.fromLTWH(
       margin,
@@ -143,25 +142,30 @@ class CollageCanvas extends StatelessWidget {
         // outline's bounds with a local (box-relative) path.
         var poly = slot.points!.map(toPx).toList();
         poly = insetConvexPolygon(poly, gap / 2);
-        final curved = curvedEdgesOf(slot, slots, edgeShapes);
+        final curved = c.curvedEdgesFor(slot);
         final outline = curved.isEmpty ? polygonPath(poly) : shapedCellPath(poly, curved);
         final b = curved.isEmpty ? _boundsOf(poly) : safeBounds(outline);
         final local = [for (final p in poly) p - b.topLeft];
         return Positioned(
+          key: ValueKey('slot:${slot.id}'),
           left: b.left,
           top: b.top,
           width: b.width.clamp(0, size.width),
           height: b.height.clamp(0, size.height),
-          child: _PolySlotView(
-            controller: c,
-            slotId: slot.id,
-            unit: unit,
-            polygon: local,
-            outline: curved.isEmpty ? null : outline.shift(-b.topLeft),
-            thickness: thickness,
-            borderColor: c.border.color,
-            interactive: interactive && !c.edgeEditing,
-            onEditSlot: onEditSlot,
+          // Each cell rasters on its own layer, so moving a cut or an overlay
+          // repaints only what changed. Present in export too (same tree).
+          child: RepaintBoundary(
+            child: _PolySlotView(
+              controller: c,
+              slotId: slot.id,
+              unit: unit,
+              polygon: local,
+              outline: curved.isEmpty ? null : outline.shift(-b.topLeft),
+              thickness: thickness,
+              borderColor: c.border.color,
+              interactive: interactive && !c.edgeEditing,
+              onEditSlot: onEditSlot,
+            ),
           ),
         );
       }
@@ -173,19 +177,22 @@ class CollageCanvas extends StatelessWidget {
       );
       r = r.deflate(gap / 2);
       return Positioned(
+        key: ValueKey('slot:${slot.id}'),
         left: r.left,
         top: r.top,
         width: r.width.clamp(0, size.width),
         height: r.height.clamp(0, size.height),
-        child: _SlotView(
-          controller: c,
-          slotId: slot.id,
-          unit: unit,
-          radius: radius,
-          thickness: thickness,
-          borderColor: c.border.color,
-          interactive: interactive && !c.edgeEditing,
-          onEditSlot: onEditSlot,
+        child: RepaintBoundary(
+          child: _SlotView(
+            controller: c,
+            slotId: slot.id,
+            unit: unit,
+            radius: radius,
+            thickness: thickness,
+            borderColor: c.border.color,
+            interactive: interactive && !c.edgeEditing,
+            onEditSlot: onEditSlot,
+          ),
         ),
       );
     }).toList();
