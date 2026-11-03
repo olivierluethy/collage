@@ -1205,6 +1205,26 @@ class EditorController extends ChangeNotifier {
     _touch();
   }
 
+  /// Put [assetId] into a photo layer (fills a template placeholder, or
+  /// swaps the photo while keeping frame, shape and contour).
+  void setLayerPhoto(String id, String assetId, double aspect) {
+    final e = _image(id);
+    if (e == null) return;
+    addToPool(assetId);
+    e.frameAspect ??= e.aspectRatio; // keep the frame, not the old photo's aspect
+    e
+      ..assetId = assetId
+      ..imgAspect = aspect
+      ..cropL = 0
+      ..cropT = 0
+      ..cropR = 0
+      ..cropB = 0
+      ..panX = 0
+      ..panY = 0
+      ..zoom = 1;
+    _touch();
+  }
+
   /// Pan / zoom the image inside its frame (the frame stays put).
   void setImageFraming(String id, {double? panX, double? panY, double? zoom}) {
     final e = _image(id);

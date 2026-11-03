@@ -18,6 +18,7 @@ import '../../theme/typography.dart';
 import '../../widgets/coach_tour.dart';
 import '../../widgets/sharpened.dart';
 import '../../widgets/ui.dart';
+import '../picker/photo_picker_screen.dart';
 import '../picker/picker_flow.dart';
 import '../picker/video_picker_screen.dart';
 import '../result/result_screen.dart';
@@ -27,13 +28,16 @@ import 'edge_panel.dart';
 import 'editor_panels.dart';
 import 'export_sheet.dart';
 
-enum _Panel { none, layout, borders, background, filter, add, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace, edges }
+enum _Panel { none, layout, borders, background, filter, add, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace, edges, photoLayer }
 
 /// The three panels grouped under the "Style" tool, in segment order.
 const _stylePanels = [_Panel.borders, _Panel.background, _Panel.filter];
 
 /// The panels reached from the "Add" grid; each shows a back arrow to it.
 const _addPanels = [_Panel.text, _Panel.stickers, _Panel.emoji, _Panel.shapes, _Panel.gif, _Panel.draw];
+
+/// Pseudo-panel of the Add grid: pick a photo and add it as its own layer.
+const _addPhotoLayer = _Panel.photoLayer;
 
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({super.key, required this.project, required this.pool});
@@ -70,6 +74,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   String? _replaceSlotId;
   String? _cropElementId;
   String? _styleSlotId;
+  String? _photoLayerId;
 
   @override
   void initState() {
@@ -257,6 +262,47 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     // Leaving the draw tool keeps what was drawn as one movable element.
     if (_panel == _Panel.draw && _c.drawing) _c.finishDrawing(_canvasSize());
     if (_panel == _Panel.edges && _c.edgeEditing) _c.endEdgeEditing();
+    if (_panel == _Panel.photoLayer) {
+      if (_c.adjustingImageId != null) _c.setAdjustingImage(null);
+      if (_c.editingMaskId != null) _c.setEditingMask(null);
+    }
+  }
+
+  /// Open shape & photo controls for a photo layer.
+  void _openPhotoLayer(String id) {
+    setState(() {
+      _cleanupPanel();
+      _photoLayerId = id;
+      _panel = _Panel.photoLayer;
+    });
+  }
+
+  /// Pick one photo from the gallery: (asset id, aspect) or null.
+  Future<(String, double)?> _pickOnePhoto() async {
+    final picked = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 1)),
+    );
+    if (picked == null || picked.isEmpty) return null;
+    final gallery = ref.read(galleryServiceProvider);
+    final asset = await gallery.byId(picked.first);
+    return (picked.first, asset == null ? 1.0 : gallery.aspectOf(asset));
+  }
+
+  /// Add: a photo as its own layer over the collage, then straight to its
+  /// shape controls (star, oval, …).
+  Future<void> _addPhotoLayerFlow() async {
+    _closePanel();
+    final p = await _pickOnePhoto();
+    if (p == null || !mounted) return;
+    _c.addPhotoLayer(p.$1, p.$2);
+    final id = _c.selectedElementId;
+    if (id != null) _openPhotoLayer(id);
+  }
+
+  Future<void> _chooseLayerPhoto(String id) async {
+    final p = await _pickOnePhoto();
+    if (p == null || !mounted) return;
+    _c.setLayerPhoto(id, p.$1, p.$2);
   }
 
   void _openEdges() {
@@ -632,13 +678,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
               onEditText: (e) {
                 setState(() { _editingTextId = e.id; _panel = _Panel.text; });
               },
-              onCrop: (e) {
-                setState(() {
-                  _cleanupPanel();
-                  _cropElementId = e.id;
-                  _panel = _Panel.crop;
-                });
-              },
+              onShape: (e) => _openPhotoLayer(e.id),
               onDelete: (e) => _deleteElement(e.id),
             ),
             _SlotBar(
@@ -715,6 +755,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   }
 
   void _onTool(_Panel p) {
+    if (p == _addPhotoLayer) { _addPhotoLayerFlow(); return; }
     if (p == _Panel.text) { _openText(); return; }
     if (p == _Panel.draw) { _openDraw(); return; }
     _openPanel(p);
@@ -737,6 +778,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
       _Panel.gif => (context.l10n.t('panelGif'), GiphyPanel(c: _c, giphy: ref.read(giphyServiceProvider), onAdded: _closePanel), (h * 0.46).clamp(340, 480)),
       _Panel.layers => (context.l10n.t('panelLayers'), LayersPanel(c: _c), (h * 0.40).clamp(280, 420)),
       _Panel.crop => (context.l10n.t('panelCrop'), CropPanel(c: _c, elementId: _cropElementId ?? ''), 290.0),
+      _Panel.photoLayer => (
+          context.l10n.t('panelPhotoLayer'),
+          PhotoLayerPanel(
+            c: _c,
+            elementId: _photoLayerId ?? '',
+            onCrop: () => setState(() {
+              _cleanupPanel();
+              _cropElementId = _photoLayerId;
+              _panel = _Panel.crop;
+            }),
+            onChoosePhoto: () => _chooseLayerPhoto(_photoLayerId ?? ''),
+          ),
+          (h * 0.46).clamp(340, 460),
+        ),
       _Panel.photoStyle => (
           context.l10n.t('panelPhotoStyle'),
           PhotoStylePanel(c: _c, slotId: _styleSlotId ?? '', onCutout: _closePanel),
@@ -871,6 +926,7 @@ class _AddGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final items = <(_Panel, IconData, String)>[
+      (_addPhotoLayer, Icons.add_photo_alternate_outlined, l.t('toolPhotoLayer')),
       (_Panel.text, Icons.title_rounded, l.t('toolText')),
       (_Panel.stickers, Icons.emoji_emotions_outlined, l.t('toolStickers')),
       (_Panel.emoji, Icons.tag_faces_rounded, l.t('toolEmoji')),
@@ -920,12 +976,12 @@ class _ContextBar extends StatelessWidget {
   const _ContextBar({
     required this.controller,
     required this.onEditText,
-    required this.onCrop,
+    required this.onShape,
     required this.onDelete,
   });
   final EditorController controller;
   final void Function(TextElement e) onEditText;
-  final void Function(ImageElement e) onCrop;
+  final void Function(ImageElement e) onShape;
   final void Function(CanvasElement e) onDelete;
 
   @override
@@ -948,7 +1004,7 @@ class _ContextBar extends StatelessWidget {
               if (el is TextElement)
                 Expanded(child: _CtxBtn(icon: Icons.edit_rounded, label: context.l10n.t('ctxEdit'), onTap: () => onEditText(el))),
               if (el is ImageElement)
-                Expanded(child: _CtxBtn(icon: Icons.crop_rounded, label: context.l10n.t('ctxCrop'), onTap: () => onCrop(el))),
+                Expanded(child: _CtxBtn(icon: Icons.interests_outlined, label: context.l10n.t('ctxShape'), onTap: () => onShape(el))),
               Expanded(child: _CtxBtn(icon: Icons.copy_rounded, label: context.l10n.t('ctxDuplicate'), onTap: () => controller.duplicateElement(el.id))),
               Expanded(child: _CtxBtn(icon: Icons.more_horiz_rounded, label: context.l10n.t('ctxMore'), onTap: () => _more(context, el))),
               Expanded(
@@ -976,14 +1032,19 @@ class _ContextBar extends StatelessWidget {
         (Icons.flip_rounded, 1, l.t('ctxFlipV'), () => c.flipElement(el.id, vertical: true)),
       ],
       (Icons.flip_to_front_rounded, 0, l.t('ctxForward'), () => c.bringForward(el.id)),
+      (Icons.arrow_upward_rounded, 0, l.t('ctxForwardOne'), () => c.stepLayer(el.id, 1)),
+      (Icons.arrow_downward_rounded, 0, l.t('ctxBackOne'), () => c.stepLayer(el.id, -1)),
       (Icons.flip_to_back_rounded, 0, l.t('ctxBack'), () => c.sendBackward(el.id)),
+      (el.locked ? Icons.lock_open_rounded : Icons.lock_rounded, 0, l.t(el.locked ? 'layerUnlock' : 'layerLock'), () => c.setLocked(el.id, !el.locked)),
+      (Icons.visibility_off_outlined, 0, l.t('layerHide'), () => c.setHidden(el.id, true)),
       (Icons.restart_alt_rounded, 0, l.t('ctxStraighten'), () => c.updateTransform(el.id, rotation: 0)),
     ];
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheet) => SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final (icon, turns, label, action) in items)
@@ -996,6 +1057,7 @@ class _ContextBar extends StatelessWidget {
                 },
               ),
           ],
+          ),
         ),
       ),
     );

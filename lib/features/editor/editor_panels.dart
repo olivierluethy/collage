@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1088,7 +1090,7 @@ class LayersPanel extends StatelessWidget {
         ShapeElement _ => context.l10n.t('layerShape'),
         EmojiElement em => em.emoji,
         GifElement _ => context.l10n.t('layerGif'),
-        ImageElement _ => context.l10n.t('layerPhoto'),
+        ImageElement im => im.isShaped ? '${context.l10n.t('layerPhoto')} · ${maskName(context, im.mask)}' : context.l10n.t('layerPhoto'),
         DrawingElement _ => context.l10n.t('layerDrawing'),
       };
 
@@ -1129,12 +1131,29 @@ class LayersPanel extends StatelessWidget {
               dense: true,
               selected: sel,
               selectedColor: context.colors.amber,
-              leading: Icon(_icon(e)),
-              title: Text(_label(context, e), maxLines: 1, overflow: TextOverflow.ellipsis),
-              onTap: () => c.selectElement(e.id),
+              // Hidden layers stay listed, dimmed, so they can be shown again.
+              leading: Opacity(opacity: e.hidden ? 0.4 : 1, child: Icon(_icon(e))),
+              title: Opacity(
+                opacity: e.hidden ? 0.5 : 1,
+                child: Text(_label(context, e), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              onTap: e.hidden ? () => c.setHidden(e.id, false) : () => c.selectElement(e.id),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    tooltip: context.l10n.t(e.hidden ? 'layerShow' : 'layerHide'),
+                    isSelected: e.hidden,
+                    icon: Icon(e.hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
+                    onPressed: () => c.setHidden(e.id, !e.hidden),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.t(e.locked ? 'layerUnlock' : 'layerLock'),
+                    isSelected: e.locked,
+                    icon: Icon(e.locked ? Icons.lock_rounded : Icons.lock_open_rounded, size: 20,
+                        color: e.locked ? context.colors.amber : null),
+                    onPressed: () => c.setLocked(e.id, !e.locked),
+                  ),
                   IconButton(
                     tooltip: context.l10n.t('ctxDuplicate'),
                     icon: const Icon(Icons.copy_rounded, size: 20),
@@ -1644,4 +1663,216 @@ class DrawPanel extends StatelessWidget {
       },
     );
   }
+}
+
+/// The localized name of a photo mask kind.
+String maskName(BuildContext context, String kind) {
+  final key = switch (kind) {
+    'none' => 'maskRectangle',
+    'rounded' => 'maskRounded',
+    'circle' => 'maskCircle',
+    'oval' => 'maskOval',
+    'triangle' => 'maskTriangle',
+    'star' => 'maskStar',
+    'heart' => 'maskHeart',
+    'diamond' => 'maskDiamond',
+    'hexagon' => 'maskHexagon',
+    'poly8' => 'maskOctagon',
+    'bubble' => 'maskSpeech',
+    'custom' => 'maskCustom',
+    _ => 'maskCustom',
+  };
+  return context.l10n.t(key);
+}
+
+/// Shape & photo controls for a photo layer: cut it into a shape, choose
+/// whether gestures move the frame or the image inside it, set the frame's
+/// proportions and the photo's zoom, add a contour or shadow. Every control
+/// has a direct-manipulation twin on the canvas; the sliders are the precise
+/// (and accessible) alternative.
+class PhotoLayerPanel extends StatelessWidget {
+  const PhotoLayerPanel({
+    super.key,
+    required this.c,
+    required this.elementId,
+    required this.onCrop,
+    required this.onChoosePhoto,
+  });
+  final EditorController c;
+  final String elementId;
+  final VoidCallback onCrop;
+  final VoidCallback onChoosePhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, _) {
+        ImageElement? im;
+        for (final e in c.project.elements) {
+          if (e.id == elementId && e is ImageElement) im = e;
+        }
+        if (im == null) return const SizedBox.shrink();
+        final e = im;
+        final l = context.l10n;
+        final adjusting = c.adjustingImageId == e.id;
+        final editingOutline = c.editingMaskId == e.id;
+        // Frame proportions on a log scale, so 1:2 and 2:1 sit symmetric.
+        final logAspect = (math.log(e.aspectRatio) / math.ln2).clamp(-2.0, 2.0);
+        return ListView(
+          padding: const EdgeInsets.only(bottom: Space.md),
+          children: [
+            SizedBox(
+              height: 76,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.sm),
+                itemCount: ShapeCatalog.photoMasks.length,
+                separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
+                itemBuilder: (context, i) {
+                  final kind = ShapeCatalog.photoMasks[i].$1;
+                  final sel = e.mask == kind;
+                  final name = maskName(context, kind);
+                  return Tooltip(
+                    message: name,
+                    child: Semantics(
+                      button: true,
+                      selected: sel,
+                      label: name,
+                      child: InkWell(
+                        onTap: () => c.setElementMask(e.id, kind),
+                        borderRadius: BorderRadius.circular(Radii.control),
+                        child: Container(
+                          width: 56,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: sel ? context.colors.amberTint : context.colors.surfaceInput,
+                            borderRadius: BorderRadius.circular(Radii.control),
+                            border: Border.all(color: sel ? context.colors.amber : Colors.transparent, width: 1.5),
+                          ),
+                          child: CustomPaint(
+                            painter: _MaskChipPainter(
+                              kind: kind,
+                              color: sel ? context.colors.amber : context.colors.textMid,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+              child: Wrap(
+                spacing: Space.sm,
+                runSpacing: Space.xs,
+                children: [
+                  if (e.isPlaceholder)
+                    FilledButton.icon(
+                      onPressed: onChoosePhoto,
+                      icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                      label: Text(l.t('chooseLayerPhoto')),
+                    )
+                  else
+                    FilterChip(
+                      selected: adjusting,
+                      showCheckmark: false,
+                      avatar: Icon(adjusting ? Icons.pan_tool_rounded : Icons.open_with_rounded, size: 18),
+                      label: Text(l.t(adjusting ? 'adjustingPhoto' : 'adjustPhoto')),
+                      onSelected: (v) => c.setAdjustingImage(v ? e.id : null),
+                    ),
+                  if (e.mask == 'custom')
+                    FilterChip(
+                      selected: editingOutline,
+                      showCheckmark: false,
+                      avatar: const Icon(Icons.polyline_rounded, size: 18),
+                      label: Text(l.t('editOutline')),
+                      onSelected: (v) => c.setEditingMask(v ? e.id : null),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.crop_rounded, size: 18),
+                    label: Text(l.t('ctxCrop')),
+                    onPressed: onCrop,
+                  ),
+                  if (e.zoom != 1 || e.panX != 0 || e.panY != 0)
+                    ActionChip(
+                      avatar: const Icon(Icons.center_focus_strong_rounded, size: 18),
+                      label: Text(l.t('resetFraming')),
+                      onPressed: () => c.resetImageFraming(e.id),
+                    ),
+                ],
+              ),
+            ),
+            if (adjusting)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Space.lg, Space.xs, Space.lg, 0),
+                child: Text(l.t('adjustPhotoHint'), style: context.text.caption.copyWith(color: context.colors.textLo)),
+              ),
+            LabeledSlider(
+              label: l.t('frameShape'),
+              value: logAspect * 50,
+              min: -100,
+              max: 100,
+              onChanged: (v) => c.setFrameAspect(e.id, math.pow(2, v / 50).toDouble()),
+            ),
+            LabeledSlider(
+              label: l.t('photoZoom'),
+              value: e.zoom * 100,
+              min: 100,
+              max: ImageElement.maxZoom * 100,
+              suffix: '%',
+              onChanged: (v) => c.setImageFraming(e.id, zoom: v / 100),
+            ),
+            LabeledSlider(
+              label: l.t('contour'),
+              value: e.outlineWidth,
+              min: 0,
+              max: 20,
+              onChanged: (v) => c.setImageOutline(e.id, width: v),
+            ),
+            if (e.outlineWidth > 0)
+              SwatchRow(colors: Palette.swatches, selected: e.outlineColor, onPick: (col) => c.setImageOutline(e.id, color: col)),
+            SwitchListTile(
+              value: e.shadow,
+              onChanged: (v) => c.setImageOutline(e.id, shadow: v),
+              title: Text(l.t('photoShadow'), style: context.text.bodyMd),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MaskChipPainter extends CustomPainter {
+  _MaskChipPainter({required this.kind, required this.color});
+  final String kind;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path path;
+    if (kind == 'none') {
+      path = Path()..addRect(Offset.zero & size);
+    } else if (kind == 'custom') {
+      path = ShapeCatalog.pointsPath(const [Offset(0.1, 0.2), Offset(0.7, 0), Offset(1, 0.6), Offset(0.45, 1), Offset(0, 0.75)], size);
+    } else if (kind == 'oval') {
+      path = ShapeCatalog.pathFor(kind, Size(size.width, size.height * 0.7)).shift(Offset(0, size.height * 0.15));
+    } else {
+      path = ShapeCatalog.pathFor(kind, size);
+    }
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.35));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MaskChipPainter old) => old.kind != kind || old.color != color;
 }
