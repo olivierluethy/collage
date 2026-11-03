@@ -16,6 +16,7 @@ import 'locales/pt.dart';
 import 'locales/ru.dart';
 import 'locales/tr.dart';
 import 'locales/zh.dart';
+import 'strings/arrange.dart';
 import 'strings/discover.dart';
 import 'strings/editor.dart';
 import 'strings/library.dart';
@@ -119,6 +120,7 @@ class AppLocalizations {
     discoverStrings,
     templatesStrings,
     libraryStrings,
+    arrangeStrings,
   ];
 
   /// Every locale map (base + feature areas), keyed by language code. Public
