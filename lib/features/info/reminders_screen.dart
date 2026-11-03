@@ -46,6 +46,27 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
     }
   }
 
+  /// Export notifications stand on their own: they don't need the reminder
+  /// switch, but they do need the OS permission, asked for only now.
+  Future<void> _setExports(bool on) async {
+    final notifier = ref.read(occasionPrefsProvider.notifier);
+    if (!on) {
+      notifier.setNotifyExports(false);
+      return;
+    }
+    final l = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    final granted = await ref.read(reminderServiceProvider).requestPermission();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (granted) {
+      notifier.setNotifyExports(true);
+    } else {
+      showAppSnackOn(messenger, l.t('remPermissionDenied'));
+    }
+  }
+
   Future<void> _pickTime({required bool start}) async {
     final p = ref.read(occasionPrefsProvider);
     final minutes = start ? p.quietStart : p.quietEnd;
@@ -150,6 +171,14 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
               enabled: on,
               onChanged: ref.read(occasionPrefsProvider.notifier).setRemindBirthdays,
             ),
+            SettingsSwitchRow(
+              icon: Icons.photo_album_outlined,
+              title: l.t('remMemories'),
+              subtitle: l.t('remMemoriesHint'),
+              value: p.remindMemories,
+              enabled: on,
+              onChanged: ref.read(occasionPrefsProvider.notifier).setRemindMemories,
+            ),
           ]),
           group(l.t('remHowOften'), [
             RadioGroup<ReminderFrequency>(
@@ -187,6 +216,20 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.xl, Space.md, Space.xl, 0),
             child: Text(l.t('remTimezoneNote'), style: context.text.caption.copyWith(color: c.textLo)),
+          ),
+          group(l.t('remOther'), [
+            SettingsSwitchRow(
+              icon: Icons.download_done_rounded,
+              title: l.t('remExports'),
+              subtitle: l.t('remExportsHint'),
+              value: p.notifyExports,
+              enabled: !_busy,
+              onChanged: _setExports,
+            ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.xl, Space.md, Space.xl, 0),
+            child: Text(l.t('remPrivacyNote'), style: context.text.caption.copyWith(color: c.textLo)),
           ),
         ],
       ),

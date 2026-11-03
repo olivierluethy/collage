@@ -9,16 +9,33 @@ import '../state/occasions.dart' show ReminderFrequency;
 import 'occasion_copy.dart';
 import 'occasion_service.dart';
 
-/// One local notification to schedule.
+/// A day with photos from the same date in earlier years ("photo memory").
+@immutable
+class MemoryDate {
+  const MemoryDate({required this.date, required this.yearsAgo, required this.photos});
+
+  /// The upcoming local calendar day the memory falls on.
+  final DateTime date;
+
+  /// How many years ago the most recent of those photos were taken.
+  final int yearsAgo;
+  final int photos;
+}
+
+/// One local notification to schedule: an occasion/birthday or a memory.
 @immutable
 class PlannedReminder {
-  const PlannedReminder({required this.id, required this.fireAt, required this.occasion});
+  const PlannedReminder({required this.id, required this.fireAt, this.occasion, this.memory})
+      : assert(occasion != null || memory != null);
 
   final int id;
 
   /// Local wall-clock time.
   final DateTime fireAt;
-  final OccasionDate occasion;
+  final OccasionDate? occasion;
+  final MemoryDate? memory;
+
+  DateTime get day => occasion?.date ?? memory!.date;
 }
 
 /// Decides when reminders fire. Pure, so the rules are easy to reason about:
@@ -27,7 +44,9 @@ class PlannedReminder {
 ///   as possible when that has passed, never after the day itself);
 /// * the preferred time is 10:00; inside quiet hours it moves to their end;
 /// * at most [ReminderFrequency.max] reminders in any rolling window of
-///   [ReminderFrequency.windowDays] days — nearer occasions win.
+///   [ReminderFrequency.windowDays] days — nearer occasions win; all
+///   categories (occasions, birthdays, memories) share that limit;
+/// * photo memories are announced on the day itself, never ahead.
 class ReminderPlanner {
   ReminderPlanner._();
 
@@ -37,23 +56,32 @@ class ReminderPlanner {
   static List<PlannedReminder> plan({
     required DateTime now,
     required List<OccasionDate> upcoming,
+    List<MemoryDate> memories = const [],
     required ReminderFrequency frequency,
     required int quietStart,
     required int quietEnd,
   }) {
     final today = DateTime(now.year, now.month, now.day);
     final candidates = <PlannedReminder>[];
-    for (final o in upcoming) {
-      final lead = o.birthday != null ? 2 : 3;
-      var day = DateTime(o.date.year, o.date.month, o.date.day - lead);
+    DateTime? fireFor(DateTime date, int lead) {
+      var day = DateTime(date.year, date.month, date.day - lead);
       if (day.isBefore(today)) day = today;
       var at = _at(day, _allowedMinute(preferredMinutes, quietStart, quietEnd));
       if (!at.isAfter(now.add(const Duration(minutes: 15)))) {
         day = DateTime(day.year, day.month, day.day + 1);
         at = _at(day, _allowedMinute(preferredMinutes, quietStart, quietEnd));
       }
-      if (daysBetween(day, o.date) < 0) continue; // would arrive after the day
-      candidates.add(PlannedReminder(id: 0, fireAt: at, occasion: o));
+      if (daysBetween(day, date) < 0) return null; // would arrive after the day
+      return at;
+    }
+
+    for (final o in upcoming) {
+      final at = fireFor(o.date, o.birthday != null ? 2 : 3);
+      if (at != null) candidates.add(PlannedReminder(id: 0, fireAt: at, occasion: o));
+    }
+    for (final m in memories) {
+      final at = fireFor(m.date, 0);
+      if (at != null) candidates.add(PlannedReminder(id: 0, fireAt: at, memory: m));
     }
     candidates.sort((a, b) => a.fireAt.compareTo(b.fireAt));
 
@@ -62,7 +90,7 @@ class ReminderPlanner {
       final windowStart = c.fireAt.subtract(Duration(days: frequency.windowDays));
       final inWindow = kept.where((k) => k.fireAt.isAfter(windowStart)).length;
       if (inWindow >= frequency.max) continue;
-      kept.add(PlannedReminder(id: 7100 + kept.length, fireAt: c.fireAt, occasion: c.occasion));
+      kept.add(PlannedReminder(id: 7100 + kept.length, fireAt: c.fireAt, occasion: c.occasion, memory: c.memory));
       if (kept.length >= maxScheduled) break;
     }
     return kept;
@@ -95,6 +123,8 @@ class ReminderService {
   Future<void> _queue = Future.value();
 
   static const _channelId = 'occasion_reminders';
+  static const _exportChannelId = 'export_done';
+  static const exportNotificationId = 7000;
 
   Future<void> _init() async {
     if (_ready) return;
@@ -183,16 +213,45 @@ class ReminderService {
             r.fireAt.minute,
           );
           final fireDay = DateTime(r.fireAt.year, r.fireAt.month, r.fireAt.day);
+          final o = r.occasion;
+          final m = r.memory;
           await _plugin.zonedSchedule(
             id: r.id,
             scheduledDate: when,
             notificationDetails: details,
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-            title: occasionHeadline(l, r.occasion, fireDay),
-            body: l.t('remBody'),
-            payload: r.occasion.id,
+            title: o != null
+                ? occasionHeadline(l, o, fireDay)
+                : (m!.yearsAgo == 1
+                    ? l.t('remMemoryTitleOne')
+                    : l.a('remMemoryTitle', {'years': '${m.yearsAgo}'})),
+            body: o != null ? l.t('remBody') : l.t('remMemoryBody'),
+            payload: o?.id ?? 'memory',
           );
         }
+      });
+
+  /// Says right away that an export finished and where it was saved. Only
+  /// used when the user turned this on; never prompts for permission.
+  Future<void> showExportDone(AppLocalizations l, {required String fileName, required String place}) =>
+      _serial(() async {
+        if (!await hasPermission()) return;
+        await _plugin.show(
+          id: exportNotificationId,
+          title: l.t('expNotifTitle'),
+          body: l.a('expNotifBody', {'file': fileName, 'place': place}),
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              _exportChannelId,
+              l.t('expNotifChannel'),
+              channelDescription: l.t('expNotifChannelHint'),
+              importance: Importance.low,
+              priority: Priority.low,
+            ),
+            iOS: const DarwinNotificationDetails(presentSound: false),
+          ),
+          payload: 'export',
+        );
       });
 
   /// Runs [job] after any previous one, so rapid setting changes never
