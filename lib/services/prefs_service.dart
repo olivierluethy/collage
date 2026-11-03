@@ -16,6 +16,7 @@ class PrefsService {
   static const _kCatalogStickers = 'catalog_stickers_json';
   static const _kExportFormat = 'export_format';
   static const _kExportSize = 'export_size';
+  static const _kLibraryActivity = 'library_activity_open';
 
   bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
   Future<void> setOnboardingDone() => _prefs.setBool(_kOnboardingDone, true);
@@ -45,6 +46,10 @@ class PrefsService {
     await _prefs.setString(_kExportFormat, format);
     await _prefs.setString(_kExportSize, size);
   }
+
+  /// Whether the creation-activity strip in My Collages is expanded.
+  bool get libraryActivityOpen => _prefs.getBool(_kLibraryActivity) ?? false;
+  Future<void> setLibraryActivityOpen(bool open) => _prefs.setBool(_kLibraryActivity, open);
 
   /// Show every in-app tip and the editor tour again (onboarding stays done).
   Future<void> resetCoachMarks() async {
