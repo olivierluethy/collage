@@ -369,6 +369,7 @@ class _Chip extends StatelessWidget {
       selected: selected,
       label: semanticsLabel ?? label,
       excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: selected ? c.amberTint : c.surfaceInput,
         shape: RoundedRectangleBorder(
@@ -435,6 +436,8 @@ class _UserTemplateTile extends ConsumerWidget {
       label: template.title,
       onLongPressHint: context.l10n.t('deleteTemplate'),
       excludeSemantics: true,
+      onTap: () => openUserTemplate(context, ref, template),
+      onLongPress: () => _confirmDelete(context, ref),
       child: GestureDetector(
         onTap: () => openUserTemplate(context, ref, template),
         onLongPress: () => _confirmDelete(context, ref),

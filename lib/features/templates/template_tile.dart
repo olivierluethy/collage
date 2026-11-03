@@ -38,6 +38,8 @@ class TemplateTile extends ConsumerWidget {
       hint: l.t('tplOpenHint'),
       onLongPressHint: fav ? l.t('tplUnstar') : l.t('tplStar'),
       excludeSemantics: true,
+      onTap: onTap,
+      onLongPress: () => toggleFavourite(context, ref, template),
       child: Material(
         color: c.surface,
         shape: RoundedRectangleBorder(
