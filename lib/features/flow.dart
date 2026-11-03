@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/layout_templates.dart';
+import '../data/template_catalog.dart';
+import '../l10n/app_localizations.dart';
 import '../models/collage_project.dart';
 import '../models/collage_template.dart';
 import '../models/layout_template.dart';
@@ -90,16 +92,19 @@ Future<void> openCollage(BuildContext context, WidgetRef ref, CollageProject pro
 /// Open a ready-made template in the editor with empty slots: the styling,
 /// background, text and stickers are applied, and the user drops their own
 /// photos into the slots. No gallery permission is needed up front — the
-/// editor asks for it when the user picks photos.
+/// editor asks for it when the user picks photos. [occasionId] records the
+/// occasion the collage is made for (from an occasion suggestion).
 Future<void> openTemplate(
   BuildContext context,
   WidgetRef ref,
-  CollageTemplate template,
-) async {
+  CollageTemplate template, {
+  String? occasionId,
+}) async {
   final project = template.toProject(
     id: const Uuid().v4(),
     now: DateTime.now().millisecondsSinceEpoch,
-  );
+  )..occasionId = occasionId;
+  TemplateText.localizeAll(project.elements, context.l10n.t);
   await Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => EditorScreen(project: project, pool: const []),

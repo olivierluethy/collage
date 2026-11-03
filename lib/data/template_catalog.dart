@@ -24,9 +24,38 @@ class TemplateCatalog {
   static List<TemplateStyle> get styles => TemplateStyle.values;
 
   static List<CollageTemplate>? _all;
+  static Map<String, CollageTemplate>? _byId;
 
   /// The whole library. Built once, then cached.
   static List<CollageTemplate> all() => _all ??= _generate();
+
+  /// One template by id, or null (e.g. an id from an older app version).
+  static CollageTemplate? byId(String id) =>
+      (_byId ??= {for (final t in all()) t.id: t})[id];
+
+  /// Templates carrying any of [tags], ordered by the first tag they match
+  /// (so an occasion's own designs come before related styles).
+  static List<CollageTemplate> withAnyTag(List<String> tags) {
+    final buckets = [for (final _ in tags) <CollageTemplate>[]];
+    for (final t in all()) {
+      for (var i = 0; i < tags.length; i++) {
+        if (t.tags.contains(tags[i])) {
+          buckets[i].add(t);
+          break;
+        }
+      }
+    }
+    return [for (final b in buckets) ...b];
+  }
+
+  /// Tag on every occasion design (holidays, birthdays …).
+  static const String occasionTag = 'occasion';
+
+  /// Tag on invitation designs (text placeholders for what, when, where).
+  static const String invitationTag = 'invitation';
+
+  /// The `occ:<id>` tag for an occasion id (see `OccasionService`).
+  static String occasionTagFor(String occasionId) => 'occ:$occasionId';
 
   /// Templates for one photo count, optionally narrowed to one style.
   static List<CollageTemplate> forBucket(int count, TemplateStyle? style) => [
@@ -62,6 +91,9 @@ class TemplateCatalog {
         }
       }
     }
+    out
+      ..addAll(_occasionTemplates())
+      ..addAll(_invitationTemplates());
     return out;
   }
 
@@ -261,6 +293,228 @@ class TemplateCatalog {
     });
   }
 
+  // --- occasion and invitation designs --------------------------------------
+
+  /// A handful of designs per occasion (5 each: 1, 2, 3, 4 and 6 photos),
+  /// tagged `occasion` + `occ:<id>` so the occasion flow can list them. They
+  /// sit in the closest existing style bucket, so style filters still work.
+  static List<CollageTemplate> _occasionTemplates() {
+    final out = <CollageTemplate>[];
+    for (final o in _occasionSpecs) {
+      final stickerPaths = _stickerPathsFor(o.stickers);
+      for (var i = 0; i < _occasionCounts.length; i++) {
+        final count = _occasionCounts[i];
+        final ratio = _ratios[i % _ratios.length];
+        final layouts = LayoutTemplates.forCount(count);
+        final variant = i % _variants;
+        final look = o.looks[i % o.looks.length];
+        final id = 'occ-${o.id}-$count-${ratio.label.replaceAll(':', 'x')}';
+        final top = i.isEven;
+        final elements = <CanvasElement>[
+          if (variant >= 2)
+            ShapeElement(
+              id: '${id}_shape',
+              cx: 0.5,
+              cy: top ? 0.15 : 0.85,
+              shapeKind: _shapeKinds[i % _shapeKinds.length],
+              fill: look.deco.withValues(alpha: 0.25),
+              scale: 3.4,
+              z: 0,
+            ),
+          for (var s = 0; s < (stickerPaths.isEmpty ? 0 : 2); s++)
+            StickerElement(
+              id: '${id}_st$s',
+              cx: _stickerSpots[(s + i) % 4].$1,
+              cy: _stickerSpots[(s + i) % 4].$2,
+              assetPath: stickerPaths[(s + i) % stickerPaths.length],
+              scale: 0.75,
+              rotation: (s.isEven ? -1 : 1) * 0.1,
+              z: 1,
+            ),
+          for (var e = 0; e < o.emoji.length && e < 2; e++)
+            EmojiElement(
+              id: '${id}_em$e',
+              cx: _stickerSpots[(e + i + 2) % 4].$1,
+              cy: _stickerSpots[(e + i + 2) % 4].$2,
+              emoji: o.emoji[(e + i) % o.emoji.length],
+              scale: 0.9,
+              z: 1,
+            ),
+          TextElement(
+            id: '${id}_title',
+            cx: 0.5,
+            cy: top ? 0.11 : 0.89,
+            text: o.title,
+            color: look.text,
+            fontKey: o.fonts[i % o.fonts.length],
+            bold: true,
+            scale: 1.4,
+            z: 2,
+          ),
+        ];
+        out.add(CollageTemplate(
+          id: id,
+          name: '${o.name} ${layouts[i % layouts.length].name}',
+          style: o.style,
+          photoCount: count,
+          ratioLabel: ratio.label,
+          layout: layouts[i % layouts.length],
+          border: _border(look, variant),
+          background: _background(look, variant),
+          elements: elements,
+          tags: [occasionTag, occasionTagFor(o.id), o.style.name, ratio.label, '${count}p'],
+        ));
+      }
+    }
+    return out;
+  }
+
+  static const List<int> _occasionCounts = [1, 2, 3, 4, 6];
+
+  /// Invitation cards: photos on top, then "You're invited", a date line and a
+  /// place line as editable text placeholders. Two per theme (1 photo in 4:5,
+  /// 2 photos in 9:16).
+  static List<CollageTemplate> _invitationTemplates() {
+    final out = <CollageTemplate>[];
+    for (final inv in _invitationSpecs) {
+      final stickerPaths = _stickerPathsFor(inv.stickers);
+      for (var i = 0; i < 2; i++) {
+        final count = i + 1;
+        final ratio = i == 0 ? CanvasRatio.portrait : CanvasRatio.story;
+        final look = inv.looks[i % inv.looks.length];
+        final id = 'inv-${inv.id}-$count';
+        final layout = LayoutTemplate(
+          id: 'invitation-$count',
+          name: 'Invitation',
+          family: LayoutFamily.featured,
+          slots: [
+            for (var s = 0; s < count; s++)
+              LayoutSlot(id: 's$s', rect: Rect.fromLTRB(s / count, 0, (s + 1) / count, 0.58)),
+          ],
+        );
+        out.add(CollageTemplate(
+          id: id,
+          name: '${inv.name} invitation',
+          style: inv.style,
+          photoCount: count,
+          ratioLabel: ratio.label,
+          layout: layout,
+          border: BorderSettings(
+            gap: 8,
+            margin: 22,
+            radius: 12,
+            thickness: 0,
+            color: look.light ? look.accent : const Color(0xFFFFFFFF),
+          ),
+          background: _background(look, 0),
+          elements: [
+            if (stickerPaths.isNotEmpty)
+              StickerElement(
+                id: '${id}_st',
+                cx: 0.86,
+                cy: 0.62,
+                assetPath: stickerPaths[i % stickerPaths.length],
+                scale: 0.7,
+                rotation: 0.12,
+                z: 1,
+              ),
+            if (inv.emoji != null)
+              EmojiElement(id: '${id}_em', cx: 0.14, cy: 0.62, emoji: inv.emoji!, scale: 0.8, z: 1),
+            TextElement(
+              id: '${id}_title',
+              cx: 0.5,
+              cy: 0.70,
+              text: TemplateText.invited,
+              color: look.text,
+              fontKey: inv.font,
+              bold: true,
+              scale: 1.3,
+              z: 2,
+            ),
+            TextElement(
+              id: '${id}_date',
+              cx: 0.5,
+              cy: 0.80,
+              text: TemplateText.dateTime,
+              color: look.text.withValues(alpha: 0.9),
+              fontKey: 'inter',
+              bold: true,
+              scale: 0.8,
+              z: 2,
+            ),
+            TextElement(
+              id: '${id}_place',
+              cx: 0.5,
+              cy: 0.87,
+              text: TemplateText.place,
+              color: look.text.withValues(alpha: 0.85),
+              fontKey: 'inter',
+              scale: 0.75,
+              z: 2,
+            ),
+          ],
+          tags: [
+            invitationTag,
+            if (inv.occasion != null) ...[occasionTag, occasionTagFor(inv.occasion!)],
+            inv.style.name,
+            ratio.label,
+            '${count}p',
+          ],
+        ));
+      }
+    }
+    return out;
+  }
+
+  static List<String> _stickerPathsFor(List<String> dirs) => [
+        for (final cat in StickerCatalog.categories)
+          if (dirs.contains(cat.dir)) ...cat.assetPaths,
+      ];
+
+  static const List<_OccasionSpec> _occasionSpecs = [
+    _OccasionSpec('new_year', 'New Year', TemplateStyle.party, TemplateText.newYear,
+        stickers: ['newyear'], fonts: ['bebas', 'playfair', 'lobster'], looks: [_gold, _midnight, _dusk]),
+    _OccasionSpec('lunar_new_year', 'Lunar New Year', TemplateStyle.party, TemplateText.lunarNewYear,
+        emoji: ['🧧', '🏮', '🐉'], fonts: ['playfair', 'bebas'], looks: [_lantern, _sunset]),
+    _OccasionSpec('valentines', "Valentine's", TemplateStyle.love, TemplateText.valentines,
+        stickers: ['love'], fonts: ['pacifico', 'fraunces', 'lobster'], looks: [_rose, _candy, _paper]),
+    _OccasionSpec('easter', 'Easter', TemplateStyle.family, TemplateText.easter,
+        emoji: ['🐣', '🌷', '🥚'], stickers: ['paint'], fonts: ['caveat', 'pacifico'], looks: [_pastel, _cream, _dots]),
+    _OccasionSpec('mothers_day', "Mother's Day", TemplateStyle.family, TemplateText.mothersDay,
+        emoji: ['💐', '🌸'], stickers: ['love'], fonts: ['fraunces', 'pacifico', 'playfair'], looks: [_pastel, _cream, _rose]),
+    _OccasionSpec('fathers_day', "Father's Day", TemplateStyle.family, TemplateText.fathersDay,
+        emoji: ['⭐', '🏆'], stickers: ['notes'], fonts: ['oswald', 'bebas', 'playfair'], looks: [_cocoa, _ink, _lagoon]),
+    _OccasionSpec('national_day', 'National Day', TemplateStyle.party, TemplateText.nationalDay,
+        emoji: ['🎆', '🎉'], stickers: ['newyear'], fonts: ['bebas', 'oswald'], looks: [_sunset, _midnight, _paper]),
+    _OccasionSpec('halloween', 'Halloween', TemplateStyle.party, TemplateText.halloween,
+        emoji: ['🎃', '👻', '🦇'], fonts: ['lobster', 'bebas', 'caveat'], looks: [_pumpkin, _ink]),
+    _OccasionSpec('diwali', 'Diwali', TemplateStyle.party, TemplateText.diwali,
+        emoji: ['🪔', '✨'], fonts: ['playfair', 'fraunces'], looks: [_diya, _sunset]),
+    _OccasionSpec('thanksgiving', 'Thanksgiving', TemplateStyle.family, TemplateText.thanksgiving,
+        emoji: ['🍂', '🥧', '🦃'], fonts: ['fraunces', 'caveat'], looks: [_harvest, _cream]),
+    _OccasionSpec('christmas', 'Christmas', TemplateStyle.winter, TemplateText.christmas,
+        stickers: ['christmas', 'winter'], fonts: ['fraunces', 'lobster', 'playfair'], looks: [_festive, _midnight, _cream]),
+    _OccasionSpec('eid', 'Eid', TemplateStyle.family, TemplateText.eid,
+        emoji: ['🌙', '✨', '🕌'], fonts: ['playfair', 'fraunces'], looks: [_oasis, _midnight]),
+    _OccasionSpec('birthday', 'Birthday', TemplateStyle.birthday, TemplateText.birthday,
+        stickers: ['birthday'], fonts: ['pacifico', 'lobster', 'bebas'], looks: [_sunset, _candy, _cream]),
+  ];
+
+  static const List<_InvitationSpec> _invitationSpecs = [
+    _InvitationSpec('birthday', 'Birthday', TemplateStyle.birthday, 'birthday',
+        stickers: ['birthday'], font: 'pacifico', looks: [_candy, _sunset]),
+    _InvitationSpec('party', 'Party', TemplateStyle.party, null,
+        stickers: ['newyear'], font: 'bebas', looks: [_dusk, _midnight]),
+    _InvitationSpec('halloween', 'Halloween', TemplateStyle.party, 'halloween',
+        emoji: '🎃', font: 'lobster', looks: [_pumpkin, _ink]),
+    _InvitationSpec('christmas', 'Christmas', TemplateStyle.winter, 'christmas',
+        stickers: ['christmas'], font: 'fraunces', looks: [_festive, _cream]),
+    _InvitationSpec('new_year', 'New Year', TemplateStyle.party, 'new_year',
+        stickers: ['newyear'], font: 'playfair', looks: [_gold, _midnight]),
+    _InvitationSpec('simple', 'Simple', TemplateStyle.minimal, null,
+        stickers: ['tape'], font: 'fraunces', looks: [_paper, _cream]),
+  ];
+
   // --- style data ----------------------------------------------------------
 
   static final Map<TemplateStyle, _StyleSpec> _specs = {
@@ -347,6 +601,110 @@ class TemplateCatalog {
   };
 }
 
+/// The decorative vocabulary of one occasion's designs.
+class _OccasionSpec {
+  const _OccasionSpec(
+    this.id,
+    this.name,
+    this.style,
+    this.title, {
+    this.stickers = const [],
+    this.emoji = const [],
+    required this.fonts,
+    required this.looks,
+  });
+
+  final String id; // occasion id (see OccasionService), 'eid' covers both Eids
+  final String name; // English template name prefix (search, fallback)
+  final TemplateStyle style;
+  final String title; // a TemplateText placeholder, localised at display time
+  final List<String> stickers;
+  final List<String> emoji;
+  final List<String> fonts;
+  final List<_Look> looks;
+}
+
+class _InvitationSpec {
+  const _InvitationSpec(
+    this.id,
+    this.name,
+    this.style,
+    this.occasion, {
+    this.stickers = const [],
+    this.emoji,
+    required this.font,
+    required this.looks,
+  });
+
+  final String id;
+  final String name;
+  final TemplateStyle style;
+  final String? occasion;
+  final List<String> stickers;
+  final String? emoji;
+  final String font;
+  final List<_Look> looks;
+}
+
+/// Template text that is shown in the user's language. The catalog stores the
+/// English text; [localize] swaps in the translation (l10n key in [keys]) for
+/// previews and when a collage is started, so the user edits their own
+/// language. Any other text is left as it is.
+class TemplateText {
+  TemplateText._();
+
+  static const invited = "You're invited";
+  static const dateTime = 'Date · time';
+  static const place = 'Place';
+  static const newYear = 'Happy New Year';
+  static const lunarNewYear = 'Happy Lunar New Year';
+  static const valentines = "Happy Valentine's Day";
+  static const easter = 'Happy Easter';
+  static const mothersDay = "Happy Mother's Day";
+  static const fathersDay = "Happy Father's Day";
+  static const nationalDay = "Let's celebrate";
+  static const halloween = 'Happy Halloween';
+  static const diwali = 'Happy Diwali';
+  static const thanksgiving = 'Happy Thanksgiving';
+  static const christmas = 'Merry Christmas';
+  static const eid = 'Eid Mubarak';
+  static const birthday = 'Happy Birthday';
+
+  /// English text → l10n key (see lib/l10n/strings/templates.dart).
+  static const Map<String, String> keys = {
+    invited: 'tplTextInvited',
+    dateTime: 'tplTextDate',
+    place: 'tplTextPlace',
+    newYear: 'tplTextNewYear',
+    lunarNewYear: 'tplTextLunarNewYear',
+    valentines: 'tplTextValentines',
+    easter: 'tplTextEaster',
+    mothersDay: 'tplTextMothersDay',
+    fathersDay: 'tplTextFathersDay',
+    nationalDay: 'tplTextNationalDay',
+    halloween: 'tplTextHalloween',
+    diwali: 'tplTextDiwali',
+    thanksgiving: 'tplTextThanksgiving',
+    christmas: 'tplTextChristmas',
+    eid: 'tplTextEid',
+    birthday: 'tplTextBirthday',
+  };
+
+  /// [text] in the user's language when it is a known placeholder.
+  static String localize(String text, String Function(String key) translate) {
+    final key = keys[text];
+    return key == null ? text : translate(key);
+  }
+
+  /// Localises every known placeholder in [elements] in place (they must be
+  /// the project's own clones, never the shared catalog entries).
+  static void localizeAll(List<CanvasElement> elements, String Function(String key) translate) {
+    for (final e in elements) {
+      if (e is TextElement) e.text = localize(e.text, translate);
+    }
+  }
+}
+
 /// A style's decorative vocabulary.
 class _StyleSpec {
   const _StyleSpec({
@@ -413,3 +771,22 @@ const _grid = _Look(Color(0xFF1A1714), Color(0xFF3D362F), Color(0xFFFFB454),
     Color(0xFFF5EFE7), Color(0xFF3D362F), pattern: 'grid');
 const _dots = _Look(Color(0xFFF7F3ED), Color(0xFFD8CFC0), Color(0xFFE08A1E),
     Color(0xFF221C15), Color(0xFFD8CFC0), light: true, pattern: 'dots');
+
+// --- occasion looks (design content, not app chrome) --------------------------
+
+const _pumpkin = _Look(Color(0xFF1E1230), Color(0xFFFF7A1A), Color(0xFFFF9F43),
+    Color(0xFFFFE8CC), Color(0xFF6B3FA0));
+const _festive = _Look(Color(0xFF0F3D2E), Color(0xFF1F6B4A), Color(0xFFE23E57),
+    Color(0xFFFFF4E0), Color(0xFFE23E57), pattern: 'dots');
+const _gold = _Look(Color(0xFF0E1630), Color(0xFF3A2C10), Color(0xFFF2C14E),
+    Color(0xFFF7E3A1), Color(0xFFF2C14E));
+const _lantern = _Look(Color(0xFFB3121F), Color(0xFFE23E2B), Color(0xFFFFD166),
+    Color(0xFFFFE8A3), Color(0xFFFFD166));
+const _diya = _Look(Color(0xFF3B0F4F), Color(0xFFE07A1F), Color(0xFFFFC94D),
+    Color(0xFFFFF1C9), Color(0xFFFFC94D));
+const _oasis = _Look(Color(0xFF0B4F4A), Color(0xFF13315C), Color(0xFFE9C46A),
+    Color(0xFFF7EBCB), Color(0xFFE9C46A));
+const _harvest = _Look(Color(0xFF8C3B12), Color(0xFFD9822B), Color(0xFFFFE0B0),
+    Color(0xFFFFF4E2), Color(0xFFF2B880));
+const _pastel = _Look(Color(0xFFFCE4EC), Color(0xFFE3F2FD), Color(0xFF7E57C2),
+    Color(0xFF4A3B66), Color(0xFFD1C4E9), light: true);
