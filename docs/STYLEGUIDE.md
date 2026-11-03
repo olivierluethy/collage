@@ -188,9 +188,9 @@ The glow is the one place the UI "lights up". Never apply it to more than one el
 
 **Coach-mark** — `surfaceHigh` bubble, `amber` hairline border, pointer triangle, `caption`/`titleMd`, "Got it" ghost + optional "Show me". Spotlight dims the rest with `ink @72%`. First one may pulse the `focusGlow` once; respect reduced-motion.
 
-**Selection handles (canvas)** — bounding box `1.5px amber` + `focusGlow`. Corner handles: 22dp `surface` circle, `1.5px amber` ring, amber icon (rotate ⟳ top, scale ⤢ corners, delete × on a `danger` circle top-left). Handles never smaller than 22 and stay on-screen when the element is near an edge.
+**Selection handles (canvas)** — bounding box `1.5px amber` + `focusGlow`, drawn around the element plus a 12px transparent touch margin. Corner handles: 28dp visible circle inside a 44dp touch target, `1.5px amber` ring, amber icon (scale+rotate ⤢ bottom-right, snapping to right angles; delete × on a `danger` circle top-left). The × is a shortcut only: drag-to-trash and the Delete action in the context bar do the same.
 
-**Photo slot** — empty: `surfaceInput` fill, dashed `line` border, centred `+` in `textLo` and a `spec` size hint. Filled: image, thin `line` inset. Tap target for assignment covers the whole slot; a small amber `⇄` badge appears on long-press to signal "drag to swap".
+**Photo slot** — empty: `surfaceInput` fill, dashed `line` border, centred `+` in `textLo` and a `spec` size hint. Filled: image, thin `line` inset, and a pencil badge (26dp visual, 44dp target) that is a real button: it selects the photo and opens its controls. Unselected: dragging the photo swaps it (both cells preview the swap live; release commits). Selected: dragging moves the photo inside its frame — the context bar says so.
 
 ---
 
@@ -335,6 +335,16 @@ saving / saved / failed with **Try again**. Primary = **Share**; secondary = Kee
 Instagram grid and carousel exports collapse into one "For Instagram" group.
 
 ---
+
+## 9d. Studio patterns (v1.7 additions)
+
+**Context bars, not floating chips.** Whatever is selected gets one bottom bar (above the tool rail) listing what can be done with it, max five actions, `danger` last: photo → Replace · Edit · Filter · More · Remove; element → Edit/Crop · Duplicate · More · Delete. A one-line `caption` hint above the actions says what a drag does right now. Bars hide while a tool panel is open, so the canvas keeps its room.
+
+**Drag to trash.** While a photo or an element is dragged, a 64dp `danger`-outlined pill slides up from the bottom ("Drag here to delete"). Under the finger it fills `danger`, grows 12% and the element fades — "Release to delete". A selection haptic marks entering it; deleting gives a medium impact and a snackbar with Undo. Nothing is ever deleted by a swipe alone.
+
+**Panels stay compact.** A tool panel never takes more than ~42% of the screen height; its content scrolls. Style shows Borders · Background · Filters as pill tabs in the panel header instead of a title plus a segmented row.
+
+**Edge shaping.** Layout → Edges shows a dot on every edge shared by two photos; the selected edge turns amber and shows its two Bézier points (24dp amber, 44dp target). Points snap to straight and to thirds. Presets (Straight, Curve, Wave, Zigzag, Curvy zigzag), sliders and previous/next buttons give non-drag alternatives. Edges are part of the polygon layout geometry, so diagonal cuts, shapes and frames keep working with them.
 
 ## 10. How to use this file
 
