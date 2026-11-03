@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../data/fonts.dart';
 import '../../data/shape_catalog.dart';
@@ -10,8 +11,8 @@ import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
-import '../../theme/typography.dart';
 import '../../widgets/collage_background.dart';
+import '../../widgets/curved_edges.dart';
 import '../../widgets/drawing_painter.dart';
 import '../../widgets/photo_image.dart';
 import '../../widgets/poly_clipper.dart';
@@ -29,22 +30,22 @@ class CollageCanvas extends StatelessWidget {
     super.key,
     required this.controller,
     this.interactive = true,
-    this.onRequestReplace,
-    this.onRequestStyle,
-    this.onRequestVideo,
+    this.onEditSlot,
+    this.onElementTrashed,
+    this.isOverTrash,
   });
 
   final EditorController controller;
   final bool interactive;
 
-  /// Ask the host to open the replace picker for a slot (with live preview).
-  final void Function(String slotId)? onRequestReplace;
+  /// The edit (pencil) badge on a photo was tapped: show its controls.
+  final void Function(String slotId)? onEditSlot;
 
-  /// Ask the host to open the frame/shadow panel for a slot.
-  final void Function(String slotId)? onRequestStyle;
+  /// An overlay element was dragged onto the trash target and released.
+  final void Function(String elementId)? onElementTrashed;
 
-  /// Ask the host to pick a video for a slot.
-  final void Function(String slotId)? onRequestVideo;
+  /// Whether a global finger position is over the host's trash target.
+  final bool Function(Offset globalPosition)? isOverTrash;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +77,10 @@ class CollageCanvas extends StatelessWidget {
                       controller: c,
                       element: e,
                       canvas: size,
-                      interactive: interactive,
+                      // Elements step aside while edges are being shaped.
+                      interactive: interactive && !c.edgeEditing,
+                      onTrashed: onElementTrashed,
+                      isOverTrash: isOverTrash,
                     ),
                   // Alignment guides while a dragged element is snapped.
                   if (interactive && (c.guideX != null || c.guideY != null))
@@ -92,8 +96,12 @@ class CollageCanvas extends StatelessWidget {
                       ),
                     ),
                   // Drag handles on the edges between cells, to resize them.
-                  if (interactive && !c.drawing && c.selectedElementId == null)
+                  if (interactive && !c.drawing && !c.edgeEditing && c.selectedElementId == null)
                     ..._splitHandles(context, c, size),
+                  // Edge shaping: a handle on every shared edge, plus the
+                  // Bézier control points of the selected one.
+                  if (interactive && c.edgeEditing)
+                    Positioned.fill(child: _EdgeEditor(controller: c, content: _content(c, size))),
                   // Draw mode: a full-canvas layer that captures strokes.
                   if (interactive && c.drawing)
                     Positioned.fill(child: _DrawLayer(controller: c, canvas: size)),
@@ -114,6 +122,7 @@ class CollageCanvas extends StatelessWidget {
     final gap = c.border.gap * unit;
     final radius = c.border.radius * unit;
     final thickness = c.border.thickness * unit;
+    final edgeShapes = c.project.layout.edgeMap;
 
     final content = Rect.fromLTWH(
       margin,
@@ -130,10 +139,13 @@ class CollageCanvas extends StatelessWidget {
     return slots.map((slot) {
       if (slot.isPolygon) {
         // Map the normalised polygon into content pixels, inset for the gap,
-        // then position at its bounding box with local (box-relative) points.
+        // shape any curved / zigzag edges, then position the cell at the
+        // outline's bounds with a local (box-relative) path.
         var poly = slot.points!.map(toPx).toList();
         poly = insetConvexPolygon(poly, gap / 2);
-        final b = _boundsOf(poly);
+        final curved = curvedEdgesOf(slot, slots, edgeShapes);
+        final outline = curved.isEmpty ? polygonPath(poly) : shapedCellPath(poly, curved);
+        final b = curved.isEmpty ? _boundsOf(poly) : safeBounds(outline);
         final local = [for (final p in poly) p - b.topLeft];
         return Positioned(
           left: b.left,
@@ -145,12 +157,11 @@ class CollageCanvas extends StatelessWidget {
             slotId: slot.id,
             unit: unit,
             polygon: local,
+            outline: curved.isEmpty ? null : outline.shift(-b.topLeft),
             thickness: thickness,
             borderColor: c.border.color,
-            interactive: interactive,
-            onRequestReplace: onRequestReplace,
-            onRequestStyle: onRequestStyle,
-            onRequestVideo: onRequestVideo,
+            interactive: interactive && !c.edgeEditing,
+            onEditSlot: onEditSlot,
           ),
         );
       }
@@ -173,13 +184,22 @@ class CollageCanvas extends StatelessWidget {
           radius: radius,
           thickness: thickness,
           borderColor: c.border.color,
-          interactive: interactive,
-          onRequestReplace: onRequestReplace,
-          onRequestStyle: onRequestStyle,
-          onRequestVideo: onRequestVideo,
+          interactive: interactive && !c.edgeEditing,
+          onEditSlot: onEditSlot,
         ),
       );
     }).toList();
+  }
+
+  /// The content area (canvas minus the outer margin), in canvas pixels.
+  static Rect _content(EditorController c, Size size) {
+    final margin = c.border.margin * size.width / 1000;
+    return Rect.fromLTWH(
+      margin,
+      margin,
+      (size.width - 2 * margin).clamp(0, size.width),
+      (size.height - 2 * margin).clamp(0, size.height),
+    );
   }
 
   List<Widget> _splitHandles(BuildContext context, EditorController c, Size size) {
@@ -547,22 +567,23 @@ class _Vignette extends StatelessWidget {
 /// Shadow under a polygon cell, plus the Polaroid card when [cardColor] is
 /// set; paints nothing when neither is on.
 class _PolyShadowPainter extends CustomPainter {
-  _PolyShadowPainter({required this.points, required this.elevation, this.cardColor});
+  _PolyShadowPainter({required this.points, required this.elevation, this.cardColor, this.outline});
   final List<Offset> points;
+  final Path? outline;
   final double elevation;
   final Color? cardColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (points.length < 3) return;
-    final path = Path()..addPolygon(points, true);
+    final path = outline ?? (Path()..addPolygon(points, true));
     if (elevation > 0) canvas.drawShadow(path, Colors.black, elevation, false);
     if (cardColor != null) canvas.drawPath(path, Paint()..color = cardColor!);
   }
 
   @override
   bool shouldRepaint(_PolyShadowPainter old) =>
-      old.elevation != elevation || old.points != points || old.cardColor != cardColor;
+      old.elevation != elevation || old.points != points || old.cardColor != cardColor || old.outline != outline;
 }
 
 /// Clips a polygon cell's photo: the polygon itself, a shape mask centred in
@@ -571,12 +592,14 @@ class _PolyShadowPainter extends CustomPainter {
 class _PolyCellClipper extends CustomClipper<Path> {
   _PolyCellClipper({
     required this.points,
+    this.outline,
     required this.mask,
     required this.torn,
     required this.inset,
     required this.seed,
   });
   final List<Offset> points;
+  final Path? outline; // curved / zigzag cell outline, if any
   final String mask;
   final bool torn;
   final double inset;
@@ -584,7 +607,7 @@ class _PolyCellClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    final poly = polygonPath(points);
+    final poly = outline ?? polygonPath(points);
     if (mask != 'none') {
       final c = polygonCentroid(points);
       final side = math.min(size.width, size.height) * 0.85;
@@ -592,7 +615,7 @@ class _PolyCellClipper extends CustomClipper<Path> {
       return Path.combine(PathOperation.intersect, poly, shape);
     }
     if (torn) return _tornPolygon(points, seed, math.min(size.width, size.height));
-    if (inset > 0) return polygonPath(insetConvexPolygon(points, inset));
+    if (inset > 0 && outline == null) return polygonPath(insetConvexPolygon(points, inset));
     return poly;
   }
 
@@ -626,7 +649,12 @@ class _PolyCellClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(_PolyCellClipper old) =>
-      old.points != points || old.mask != mask || old.torn != torn || old.inset != inset || old.seed != seed;
+      old.points != points ||
+      old.outline != outline ||
+      old.mask != mask ||
+      old.torn != torn ||
+      old.inset != inset ||
+      old.seed != seed;
 }
 
 /// Two strips of tape over the two top-most corners of a polygon cell.
@@ -662,6 +690,178 @@ class _PolyTape extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Edge shaping on the canvas: a dot on the middle of every edge shared by two
+/// cells (tap to pick it) and, for the picked edge, its two Bézier control
+/// points, each draggable by finger or stylus with a 44dp target. Control
+/// points snap back to a straight line near it and to the thirds along it.
+class _EdgeEditor extends StatefulWidget {
+  const _EdgeEditor({required this.controller, required this.content});
+  final EditorController controller;
+  final Rect content;
+
+  @override
+  State<_EdgeEditor> createState() => _EdgeEditorState();
+}
+
+class _EdgeEditorState extends State<_EdgeEditor> {
+  Offset _px(Offset n) => Offset(
+        widget.content.left + n.dx * widget.content.width,
+        widget.content.top + n.dy * widget.content.height,
+      );
+
+  void _drag(SharedEdge edge, bool first, Offset global) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final local = box.globalToLocal(global);
+    final p = _px(edge.p), q = _px(edge.q);
+    var uv = edgeLocal(p, q, local);
+    var u = uv.dx.clamp(0.05, 0.95);
+    var v = uv.dy.clamp(-0.5, 0.5);
+    if (v.abs() < 0.02) v = 0; // snap to straight
+    for (final t in const [1 / 3, 2 / 3]) {
+      if ((u - t).abs() < 0.02) u = t;
+    }
+    uv = Offset(u, v);
+    widget.controller.setEdgeShape(edge.key, (s) => first ? s.copyWith(c1: uv) : s.copyWith(c2: uv));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.controller;
+    final edges = c.sharedEdges;
+    final shapes = c.project.layout.edgeMap;
+    SharedEdge? selected;
+    for (final e in edges) {
+      if (e.key == c.selectedEdgeKey) selected = e;
+    }
+    const hit = 44.0;
+    final l = context.l10n;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _EdgeGuidePainter(
+                edges: [
+                  for (final e in edges) (_px(e.p), _px(e.q), shapes[e.key], e.key == c.selectedEdgeKey),
+                ],
+                accent: context.colors.amber,
+                quiet: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ),
+        for (final e in edges)
+          if (e.key != c.selectedEdgeKey)
+            Positioned(
+              left: edgeMidpoint(_px(e.p), _px(e.q), shapes[e.key]).dx - hit / 2,
+              top: edgeMidpoint(_px(e.p), _px(e.q), shapes[e.key]).dy - hit / 2,
+              child: Semantics(
+                button: true,
+                label: l.t('edgeSelect'),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    c.selectEdge(e.key);
+                  },
+                  child: SizedBox(
+                    width: hit,
+                    height: hit,
+                    child: Center(
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: context.colors.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: context.colors.amber, width: 2),
+                          boxShadow: Shadows.e1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        if (selected != null)
+          for (final first in const [true, false])
+            Builder(builder: (context) {
+              final edge = selected!;
+              final shape = c.edgeShape(edge.key);
+              final at = edgePoint(_px(edge.p), _px(edge.q), first ? shape.c1 : shape.c2);
+              return Positioned(
+                left: at.dx - hit / 2,
+                top: at.dy - hit / 2,
+                child: Semantics(
+                  label: l.t(first ? 'edgeControl1' : 'edgeControl2'),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: (_) => HapticFeedback.selectionClick(),
+                    onPanUpdate: (d) => _drag(edge, first, d.globalPosition),
+                    child: SizedBox(
+                      width: hit,
+                      height: hit,
+                      child: Center(
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: context.colors.amber,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: context.colors.onAmber, width: 2),
+                            boxShadow: Shadows.focusGlow,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+      ],
+    );
+  }
+}
+
+/// Draws every shareable edge as a thin line, and the selected one in amber
+/// with its Bézier control arms.
+class _EdgeGuidePainter extends CustomPainter {
+  _EdgeGuidePainter({required this.edges, required this.accent, required this.quiet});
+  final List<(Offset, Offset, EdgeShape?, bool)> edges;
+  final Color accent;
+  final Color quiet;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final (p, q, shape, selected) in edges) {
+      final path = Path()..moveTo(p.dx, p.dy);
+      if (shape == null || shape.isStraight) {
+        path.lineTo(q.dx, q.dy);
+      } else {
+        appendShapedEdge(path, p, q, shape, false);
+      }
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = selected ? 2.5 : 1.2
+        ..color = selected ? accent : quiet;
+      canvas.drawPath(path, paint);
+      if (selected) {
+        final s = shape ?? const EdgeShape(a: '', b: '');
+        final arm = Paint()
+          ..strokeWidth = 1
+          ..color = accent.withValues(alpha: 0.8);
+        canvas.drawLine(p, edgePoint(p, q, s.c1), arm);
+        canvas.drawLine(q, edgePoint(p, q, s.c2), arm);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EdgeGuidePainter old) => true;
 }
 
 /// Thin guide lines at the canvas fractions an element is snapped to.
@@ -793,9 +993,7 @@ class _SlotView extends StatelessWidget {
     required this.thickness,
     required this.borderColor,
     required this.interactive,
-    this.onRequestReplace,
-    this.onRequestStyle,
-    this.onRequestVideo,
+    this.onEditSlot,
   });
 
   final EditorController controller;
@@ -805,9 +1003,7 @@ class _SlotView extends StatelessWidget {
   final double thickness;
   final Color borderColor;
   final bool interactive;
-  final void Function(String slotId)? onRequestReplace;
-  final void Function(String slotId)? onRequestStyle;
-  final void Function(String slotId)? onRequestVideo;
+  final void Function(String slotId)? onEditSlot;
 
   @override
   Widget build(BuildContext context) {
@@ -955,44 +1151,15 @@ class _SlotView extends StatelessWidget {
       builder: (context, candidate, rejected) => core,
     );
 
-    // Chrome (edit badge, action chips) rides above the photo as siblings, so
-    // adding or removing it never touches the photo subtree.
+    // Chrome (the edit badge) rides above the photo as a sibling, so adding or
+    // removing it never touches the photo subtree. The selected photo's
+    // actions live in the editor's bottom context bar, not on the photo.
     final overlays = <Widget>[
-      // A subtle, persistent edit badge signals every filled slot is tappable.
-      if (interactive && realFill != null && !selected)
+      if (interactive && realFill != null && !selected && controller.dragSourceSlot == null)
         Positioned(
-          right: 4,
-          bottom: 4,
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.45),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.edit_rounded, size: 12, color: Colors.white),
-          ),
-        ),
-      // Inline action chips on the selected slot.
-      if (interactive && selected)
-        Positioned(
-          top: 4,
-          left: 0,
           right: 0,
-          child: Center(
-            child: FittedBox(
-              child: _SlotChips(
-                hasPhoto: realFill != null,
-                onReplace: () => onRequestReplace?.call(slotId),
-                onSwap: () => controller.startSwapMode(slotId),
-                onFlipH: () => controller.flipSlot(slotId, horizontal: true),
-                onFlipV: () => controller.flipSlot(slotId, vertical: true),
-                onRotate: () => controller.rotateSlotQuarter(slotId),
-                onStyle: () => onRequestStyle?.call(slotId),
-                onVideo: () => onRequestVideo?.call(slotId),
-                onClear: () => controller.clearSlot(slotId),
-              ),
-            ),
-          ),
+          bottom: 0,
+          child: _EditBadge(onTap: () => onEditSlot?.call(slotId)),
         ),
     ];
 
@@ -1009,99 +1176,38 @@ class _SlotView extends StatelessWidget {
   }
 }
 
-/// The Replace / Swap / Flip / Clear chips shown on a selected slot.
-class _SlotChips extends StatelessWidget {
-  const _SlotChips({
-    required this.hasPhoto,
-    required this.onReplace,
-    required this.onSwap,
-    required this.onFlipH,
-    required this.onFlipV,
-    required this.onRotate,
-    required this.onStyle,
-    required this.onVideo,
-    required this.onClear,
-  });
-  final bool hasPhoto;
-  final VoidCallback onReplace;
-  final VoidCallback onSwap;
-  final VoidCallback onFlipH;
-  final VoidCallback onFlipV;
-  final VoidCallback onRotate;
-  final VoidCallback onStyle;
-  final VoidCallback onVideo;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(Radii.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _Chip(
-              icon: Icons.photo_library_rounded,
-              label: hasPhoto ? context.l10n.t('chipReplace') : context.l10n.t('chipChoose'),
-              onTap: onReplace),
-          _Chip(icon: Icons.videocam_outlined, label: context.l10n.t('chipVideo'), onTap: onVideo),
-          if (hasPhoto)
-            _Chip(icon: Icons.swap_horiz_rounded, label: context.l10n.t('chipSwap'), onTap: onSwap),
-          if (hasPhoto)
-            _Chip(icon: Icons.flip_rounded, label: context.l10n.t('chipFlipH'), onTap: onFlipH),
-          if (hasPhoto)
-            _Chip(icon: Icons.flip_rounded, label: context.l10n.t('chipFlipV'), onTap: onFlipV, iconTurns: 1),
-          if (hasPhoto)
-            _Chip(icon: Icons.rotate_90_degrees_cw_rounded, label: context.l10n.t('chipRotate'), onTap: onRotate),
-          if (hasPhoto)
-            _Chip(icon: Icons.filter_frames_rounded, label: context.l10n.t('chipStyle'), onTap: onStyle),
-          if (hasPhoto)
-            _Chip(icon: Icons.close_rounded, label: context.l10n.t('chipClear'), onTap: onClear, danger: true),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.danger = false,
-    this.iconTurns = 0,
-  });
-  final IconData icon;
-  final String label;
+/// The pencil on a filled, unselected photo. It is a real button (a 44dp
+/// target around a small visual) that selects the photo and opens its
+/// controls — before, it was a decoration that swallowed the tap.
+class _EditBadge extends StatelessWidget {
+  const _EditBadge({required this.onTap});
   final VoidCallback onTap;
-  final bool danger;
-  final int iconTurns; // quarter-turns applied to [icon] (1 → vertical mirror)
 
   @override
   Widget build(BuildContext context) {
-    final c = danger ? context.colors.danger : context.colors.amber;
-    Widget iconWidget = Icon(icon, size: 13, color: c);
-    if (iconTurns != 0) iconWidget = RotatedBox(quarterTurns: iconTurns, child: iconWidget);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: context.colors.surface,
-          borderRadius: BorderRadius.circular(Radii.pill),
-          border: Border.all(color: c),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            iconWidget,
-            const SizedBox(width: 4),
-            Text(label, style: context.text.labelMd.copyWith(color: c)),
-          ],
+    return Semantics(
+      button: true,
+      label: context.l10n.t('editPhoto'),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Align(
+            alignment: Alignment.bottomRight,
+            child: Container(
+              margin: const EdgeInsets.all(4),
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+              ),
+              child: const Icon(Icons.edit_rounded, size: 14, color: Colors.white),
+            ),
+          ),
         ),
       ),
     );
@@ -1142,9 +1248,8 @@ class _PolySlotView extends StatelessWidget {
     required this.thickness,
     required this.borderColor,
     required this.interactive,
-    this.onRequestReplace,
-    this.onRequestStyle,
-    this.onRequestVideo,
+    this.outline,
+    this.onEditSlot,
   });
 
   final EditorController controller;
@@ -1154,9 +1259,11 @@ class _PolySlotView extends StatelessWidget {
   final double thickness;
   final Color borderColor;
   final bool interactive;
-  final void Function(String slotId)? onRequestReplace;
-  final void Function(String slotId)? onRequestStyle;
-  final void Function(String slotId)? onRequestVideo;
+
+  /// The cell outline when some of its edges are curved or zigzagged (local
+  /// pixels); null for a plain polygon.
+  final Path? outline;
+  final void Function(String slotId)? onEditSlot;
 
   Widget _innerVisual(BuildContext context, SlotFill? fill) {
     if (fill == null) {
@@ -1194,6 +1301,7 @@ class _PolySlotView extends StatelessWidget {
     final card = polaroid ? math.max(fill.frameWidth, 10.0) * unit : 0.0;
     final clipper = _PolyCellClipper(
       points: polygon,
+      outline: outline,
       mask: fill?.mask ?? 'none',
       torn: fill != null && fill.frameStyle == FrameStyle.torn,
       inset: card,
@@ -1273,6 +1381,7 @@ class _PolySlotView extends StatelessWidget {
             child: CustomPaint(
               painter: _PolyShadowPainter(
                 points: polygon,
+                outline: outline,
                 elevation: fill != null && fill.shadow ? 10 * unit : 0,
                 // Polaroid: the card shows around the inset photo.
                 cardColor: polaroid ? (fill.frameWidth > 0 ? fill.frameColor : const Color(0xFFFDFBF7)) : null,
@@ -1290,7 +1399,7 @@ class _PolySlotView extends StatelessWidget {
             child: IgnorePointer(
               child: CustomPaint(
                 painter: PolygonBorderPainter(
-                    points: polygon, color: fill!.frameColor, strokeWidth: frame),
+                    points: polygon, outline: outline, color: fill!.frameColor, strokeWidth: frame),
               ),
             ),
           ),
@@ -1300,7 +1409,7 @@ class _PolySlotView extends StatelessWidget {
             child: IgnorePointer(
               child: CustomPaint(
                 painter: PolygonBorderPainter(
-                    points: polygon, color: borderColor, strokeWidth: thickness),
+                    points: polygon, outline: outline, color: borderColor, strokeWidth: thickness),
               ),
             ),
           ),
@@ -1311,49 +1420,21 @@ class _PolySlotView extends StatelessWidget {
               child: CustomPaint(
                 painter: PolygonBorderPainter(
                   points: polygon,
+                  outline: outline,
                   color: swapTarget ? context.colors.amberBright : context.colors.amber,
                   strokeWidth: swapTarget ? 3 : 2.5,
                 ),
               ),
             ),
           ),
-        // Persistent edit badge on a filled, unselected cell.
-        if (interactive && realFill != null && !selected)
+        // Edit badge on a filled, unselected cell (a real button).
+        if (interactive && realFill != null && !selected && controller.dragSourceSlot == null)
           Positioned(
             left: centroid.dx,
             top: centroid.dy,
             child: FractionalTranslation(
               translation: const Offset(-0.5, -0.5),
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.edit_rounded, size: 12, color: Colors.white),
-              ),
-            ),
-          ),
-        // Inline action chips on the selected cell.
-        if (interactive && selected)
-          Positioned(
-            left: centroid.dx,
-            top: centroid.dy,
-            child: FractionalTranslation(
-              translation: const Offset(-0.5, -0.5),
-              child: FittedBox(
-                child: _SlotChips(
-                  hasPhoto: realFill != null,
-                  onReplace: () => onRequestReplace?.call(slotId),
-                  onSwap: () => controller.startSwapMode(slotId),
-                  onFlipH: () => controller.flipSlot(slotId, horizontal: true),
-                  onFlipV: () => controller.flipSlot(slotId, vertical: true),
-                  onRotate: () => controller.rotateSlotQuarter(slotId),
-                  onStyle: () => onRequestStyle?.call(slotId),
-                  onVideo: () => onRequestVideo?.call(slotId),
-                  onClear: () => controller.clearSlot(slotId),
-                ),
-              ),
+              child: _EditBadge(onTap: () => onEditSlot?.call(slotId)),
             ),
           ),
       ],
@@ -1372,12 +1453,16 @@ class _ElementView extends StatefulWidget {
     required this.element,
     required this.canvas,
     required this.interactive,
+    this.onTrashed,
+    this.isOverTrash,
   });
 
   final EditorController controller;
   final CanvasElement element;
   final Size canvas;
   final bool interactive;
+  final void Function(String id)? onTrashed;
+  final bool Function(Offset globalPosition)? isOverTrash;
 
   @override
   State<_ElementView> createState() => _ElementViewState();
@@ -1410,12 +1495,19 @@ class _ElementViewState extends State<_ElementView> {
     final selected = c.selectedElementId == e.id;
 
     final child = _content(e, W);
+    final dragging = c.draggingElementId == e.id;
+    final doomed = dragging && c.overTrash;
 
     // The gesture wrapper and highlight container are always present (handlers
     // just go inert while exporting) so the element — a photo in particular —
     // keeps the same ancestors and never loses its decoded frame (see _SlotView).
+    //
+    // The hit area is the element's whole box plus a transparent margin
+    // ([_hitPad]), and it is opaque: a touch on a text's padding, between its
+    // letters or just beside a thin sticker selects that element and never
+    // falls through to the photo underneath.
     final gestured = GestureDetector(
-      behavior: HitTestBehavior.deferToChild,
+      behavior: HitTestBehavior.opaque,
       onTap: widget.interactive ? () => c.selectElement(e.id) : null,
       onScaleStart: widget.interactive
           ? (_) {
@@ -1438,15 +1530,29 @@ class _ElementViewState extends State<_ElementView> {
                 scale: d.pointerCount >= 2 ? _baseScale * d.scale : null,
                 rotation: d.pointerCount >= 2 ? _baseRotation + d.rotation : null,
               );
+              // A one-finger move reveals the trash; two fingers transform.
+              if (d.pointerCount == 1 && d.focalPointDelta.distance > 0) {
+                c.beginElementDrag(e.id);
+                final over = widget.isOverTrash?.call(d.focalPoint) ?? false;
+                if (over != c.overTrash) {
+                  HapticFeedback.selectionClick();
+                  c.setOverTrash(over);
+                }
+              }
             }
           : null,
-      onScaleEnd: widget.interactive ? (_) => c.clearGuides() : null,
-      child: child,
+      onScaleEnd: widget.interactive
+          ? (_) {
+              c.clearGuides();
+              if (c.endElementDrag()) widget.onTrashed?.call(e.id);
+            }
+          : null,
+      child: Padding(padding: const EdgeInsets.all(_hitPad), child: child),
     );
 
     final boxed = Container(
       key: _boxKey,
-      decoration: selected
+      decoration: selected && !dragging
           ? BoxDecoration(
               border: Border.all(color: context.colors.amber, width: 1.5),
               boxShadow: Shadows.focusGlow,
@@ -1455,7 +1561,8 @@ class _ElementViewState extends State<_ElementView> {
       child: gestured,
     );
 
-    final showHandles = widget.interactive && selected;
+    final showHandles = widget.interactive && selected && !dragging;
+    const h = _handleHit / 2;
 
     return Positioned(
       left: e.cx * W,
@@ -1464,56 +1571,80 @@ class _ElementViewState extends State<_ElementView> {
         translation: const Offset(-0.5, -0.5),
         child: Transform.rotate(
           angle: e.rotation,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              boxed,
-              if (showHandles) ...[
-                // Delete handle (top-left, danger)
-                Positioned(
-                  left: -12,
-                  top: -12,
-                  child: _Handle(
-                    icon: Icons.close_rounded,
-                    color: context.colors.danger,
-                    iconColor: context.colors.onDanger,
-                    onTap: () => c.deleteElement(e.id),
-                  ),
-                ),
-                // Scale + rotate handle (bottom-right)
-                Positioned(
-                  right: -12,
-                  bottom: -12,
-                  child: GestureDetector(
-                    onPanStart: (details) {
-                      final center = _center();
-                      final v = details.globalPosition - center;
-                      _handleBaseScale = e.scale;
-                      _handleBaseRotation = e.rotation;
-                      _handleBaseAngle = v.direction;
-                      _handleBaseDist = v.distance == 0 ? 1 : v.distance;
-                    },
-                    onPanUpdate: (details) {
-                      final center = _center();
-                      final v = details.globalPosition - center;
-                      final scale = _handleBaseScale * (v.distance / _handleBaseDist);
-                      final rot = _handleBaseRotation + (v.direction - _handleBaseAngle);
-                      c.updateTransform(e.id, scale: scale, rotation: rot);
-                    },
-                    child: _Handle(
-                      icon: Icons.open_in_full_rounded,
-                      color: context.colors.surface,
-                      iconColor: context.colors.amber,
+          child: AnimatedOpacity(
+            // Over the trash the element fades and shrinks: "release to delete".
+            opacity: doomed ? 0.45 : 1,
+            duration: Motion.fast,
+            child: AnimatedScale(
+              scale: doomed ? 0.7 : 1,
+              duration: Motion.fast,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  boxed,
+                  if (showHandles) ...[
+                    // Delete handle (top-left, danger). Dragging to the trash
+                    // and the Delete action in the bar do the same, so this
+                    // is a shortcut, not the only way.
+                    Positioned(
+                      left: _hitPad - h,
+                      top: _hitPad - h,
+                      child: _Handle(
+                        icon: Icons.close_rounded,
+                        color: context.colors.danger,
+                        iconColor: context.colors.onDanger,
+                        semantics: context.l10n.t('ctxDelete'),
+                        onTap: () => widget.onTrashed?.call(e.id),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ],
+                    // Scale + rotate handle (bottom-right)
+                    Positioned(
+                      right: _hitPad - h,
+                      bottom: _hitPad - h,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) {
+                          final center = _center();
+                          final v = details.globalPosition - center;
+                          _handleBaseScale = e.scale;
+                          _handleBaseRotation = e.rotation;
+                          _handleBaseAngle = v.direction;
+                          _handleBaseDist = v.distance == 0 ? 1 : v.distance;
+                        },
+                        onPanUpdate: (details) {
+                          final center = _center();
+                          final v = details.globalPosition - center;
+                          final scale = _handleBaseScale * (v.distance / _handleBaseDist);
+                          var rot = _handleBaseRotation + (v.direction - _handleBaseAngle);
+                          // Snap to straight / right angles within ~4°.
+                          const snap = 0.07;
+                          final quarter = (rot / (math.pi / 2)).roundToDouble() * (math.pi / 2);
+                          if ((rot - quarter).abs() < snap) rot = quarter;
+                          c.updateTransform(e.id, scale: scale, rotation: rot);
+                        },
+                        child: _Handle(
+                          icon: Icons.open_in_full_rounded,
+                          color: context.colors.surface,
+                          iconColor: context.colors.amber,
+                          semantics: context.l10n.t('resizeRotate'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// Transparent touch margin around every element (canvas pixels).
+  static const double _hitPad = 12;
+
+  /// Touch size of the corner handles.
+  static const double _handleHit = 44;
 
   Widget _content(CanvasElement e, double canvasW) {
     switch (e) {
@@ -1788,25 +1919,41 @@ class _Handle extends StatelessWidget {
     required this.color,
     required this.iconColor,
     this.onTap,
+    this.semantics,
   });
   final IconData icon;
   final Color color;
   final Color iconColor;
   final VoidCallback? onTap;
+  final String? semantics;
 
+  /// A 44dp touch target around a visible 28dp handle — big enough for a
+  /// fingertip, precise enough for a stylus.
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: Sizes.handle,
-        height: Sizes.handle,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: context.colors.amber, width: 1.5),
+    return Semantics(
+      button: onTap != null,
+      label: semantics,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: _ElementViewState._handleHit,
+          height: _ElementViewState._handleHit,
+          child: Center(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: context.colors.amber, width: 1.5),
+                boxShadow: Shadows.e1,
+              ),
+              child: Icon(icon, size: 16, color: iconColor),
+            ),
+          ),
         ),
-        child: Icon(icon, size: 14, color: iconColor),
       ),
     );
   }

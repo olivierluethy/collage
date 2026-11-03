@@ -5,6 +5,7 @@ import 'features/home/home_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'state/providers.dart';
+import 'state/reminders.dart';
 import 'state/settings.dart';
 import 'theme/app_theme.dart';
 
@@ -19,6 +20,8 @@ class CollageApp extends ConsumerWidget {
     // work without it, so the (possibly pending) result is only used to know
     // when to rebuild once extra fonts arrive.
     ref.watch(remoteCatalogsProvider);
+    // Re-plans occasion / birthday reminders; inert while reminders are off.
+    ref.watch(reminderSyncProvider);
     return MaterialApp(
       title: 'Collage',
       debugShowCheckedModeBanner: false,

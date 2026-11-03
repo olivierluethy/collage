@@ -13,6 +13,7 @@ import '../services/gallery_service.dart';
 import '../services/giphy_service.dart';
 import '../services/moments_service.dart';
 import '../services/permission_service.dart';
+import '../services/photo_usage.dart';
 import '../services/prefs_service.dart';
 import '../services/user_template_service.dart';
 import '../services/vision_service.dart';
@@ -58,7 +59,9 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
       ref.read(draftServiceProvider).list();
 
   Future<void> reload() async {
-    state = const AsyncLoading();
+    // Keep the current list visible while re-reading, so the library keeps its
+    // scroll position and filters instead of flashing a spinner.
+    state = const AsyncLoading<List<CollageProject>>().copyWithPrevious(state);
     state = await AsyncValue.guard(() => ref.read(draftServiceProvider).list());
   }
 
@@ -66,6 +69,24 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
   Future<void> remove(String id) async {
     await ref.read(draftServiceProvider).delete(id);
     await reload();
+    ref.invalidate(trashProvider);
+  }
+
+  /// Move several collages to the trash at once. The list is updated in
+  /// memory instead of re-reading every draft from disk.
+  Future<void> removeMany(Iterable<String> ids) async {
+    final gone = ids.toSet();
+    if (gone.isEmpty) return;
+    await ref.read(draftServiceProvider).deleteMany(gone);
+    final current = state.valueOrNull;
+    if (current == null) {
+      await reload();
+    } else {
+      state = AsyncData([
+        for (final p in current)
+          if (!gone.contains(p.id)) p,
+      ]);
+    }
     ref.invalidate(trashProvider);
   }
 
@@ -79,6 +100,12 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
     await reload();
   }
 }
+
+/// Which photos are already in which collages, derived from the library.
+final photoUsageProvider = Provider<PhotoUsageIndex>((ref) {
+  final drafts = ref.watch(draftsProvider).valueOrNull;
+  return drafts == null ? PhotoUsageIndex.empty : PhotoUsageIndex(drafts);
+});
 
 final userTemplateServiceProvider = Provider((_) => const UserTemplateService());
 
@@ -116,6 +143,14 @@ class TrashNotifier extends AsyncNotifier<List<(CollageProject, int)>> {
 
   Future<void> restore(String id) async {
     await ref.read(draftServiceProvider).restore(id);
+    await reload();
+    await ref.read(draftsProvider.notifier).reload();
+  }
+
+  /// Restore exactly [ids] (e.g. the Undo after a bulk delete), reloading
+  /// the trash and the library once.
+  Future<void> restoreMany(Iterable<String> ids) async {
+    await ref.read(draftServiceProvider).restoreMany(ids);
     await reload();
     await ref.read(draftsProvider.notifier).reload();
   }

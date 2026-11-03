@@ -149,14 +149,26 @@ class DraftService {
   }
 
   /// Move a collage to the trash. It can be restored for [trashDays] days.
-  Future<void> delete(String id) async {
-    final j = await _jsonFile(id);
-    final t = await _thumbFile(id);
+  Future<void> delete(String id) async =>
+      _trashOne(id, await _dir(), await _trashDir());
+
+  /// Move several collages to the trash in one pass (directories are resolved
+  /// once). Unknown ids are skipped.
+  Future<void> deleteMany(Iterable<String> ids) async {
+    final dir = await _dir();
+    final trash = await _trashDir();
+    for (final id in ids.toSet()) {
+      await _trashOne(id, dir, trash);
+    }
+  }
+
+  Future<void> _trashOne(String id, Directory dir, Directory trash) async {
+    final j = File('${dir.path}/$id.json');
+    final t = File('${dir.path}/$id.png');
     if (!await j.exists()) {
       if (await t.exists()) await t.delete();
       return;
     }
-    final trash = await _trashDir();
     final map = jsonDecode(await j.readAsString()) as Map<String, dynamic>;
     map['deletedAt'] = DateTime.now().millisecondsSinceEpoch;
     if (await t.exists()) {
@@ -205,6 +217,13 @@ class DraftService {
     project.thumbnailPath = null;
     await save(project, thumbnail: thumb);
     await _purge(id);
+  }
+
+  /// Put several trashed collages back into "My Collages".
+  Future<void> restoreMany(Iterable<String> ids) async {
+    for (final id in ids.toSet()) {
+      await restore(id);
+    }
   }
 
   /// Delete a trashed collage for good.

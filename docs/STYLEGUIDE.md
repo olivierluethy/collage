@@ -188,9 +188,9 @@ The glow is the one place the UI "lights up". Never apply it to more than one el
 
 **Coach-mark** — `surfaceHigh` bubble, `amber` hairline border, pointer triangle, `caption`/`titleMd`, "Got it" ghost + optional "Show me". Spotlight dims the rest with `ink @72%`. First one may pulse the `focusGlow` once; respect reduced-motion.
 
-**Selection handles (canvas)** — bounding box `1.5px amber` + `focusGlow`. Corner handles: 22dp `surface` circle, `1.5px amber` ring, amber icon (rotate ⟳ top, scale ⤢ corners, delete × on a `danger` circle top-left). Handles never smaller than 22 and stay on-screen when the element is near an edge.
+**Selection handles (canvas)** — bounding box `1.5px amber` + `focusGlow`, drawn around the element plus a 12px transparent touch margin. Corner handles: 28dp visible circle inside a 44dp touch target, `1.5px amber` ring, amber icon (scale+rotate ⤢ bottom-right, snapping to right angles; delete × on a `danger` circle top-left). The × is a shortcut only: drag-to-trash and the Delete action in the context bar do the same.
 
-**Photo slot** — empty: `surfaceInput` fill, dashed `line` border, centred `+` in `textLo` and a `spec` size hint. Filled: image, thin `line` inset. Tap target for assignment covers the whole slot; a small amber `⇄` badge appears on long-press to signal "drag to swap".
+**Photo slot** — empty: `surfaceInput` fill, dashed `line` border, centred `+` in `textLo` and a `spec` size hint. Filled: image, thin `line` inset, and a pencil badge (26dp visual, 44dp target) that is a real button: it selects the photo and opens its controls. Unselected: dragging the photo swaps it (both cells preview the swap live; release commits). Selected: dragging moves the photo inside its frame — the context bar says so.
 
 ---
 
@@ -303,7 +303,7 @@ titles are `labelMd`/`textMid` in sentence case, not overline caps. A row's curr
 end in `open_in_new`.
 
 **Cards with menus** — every collage card has a visible ⋯ `IconButton`; long-press stays as a
-shortcut. Moving to trash is never confirmed. Instead a snackbar offers **Undo**. Only actions that
+shortcut (in My Collages it starts selection, see §9d). Moving a single item to trash is never confirmed. Instead a snackbar offers **Undo**. Only actions that
 can't be undone (delete forever, empty trash, delete template/book) use `confirmDestructive`, whose
 danger button names the action.
 
@@ -333,6 +333,77 @@ tap-order hint and, under limited access, "Share more". The primary button says 
 **Result** — opening it already saves to the gallery; a live status line reports
 saving / saved / failed with **Try again**. Primary = **Share**; secondary = Keep editing · Done.
 Instagram grid and carousel exports collapse into one "For Instagram" group.
+
+---
+
+## 9d. Studio patterns (v1.7 additions)
+
+**Context bars, not floating chips.** Whatever is selected gets one bottom bar (above the tool rail) listing what can be done with it, max five actions, `danger` last: photo → Replace · Edit · Filter · More · Remove; element → Edit/Crop · Duplicate · More · Delete. A one-line `caption` hint above the actions says what a drag does right now. Bars hide while a tool panel is open, so the canvas keeps its room.
+
+**Drag to trash.** While a photo or an element is dragged, a 64dp `danger`-outlined pill slides up from the bottom ("Drag here to delete"). Under the finger it fills `danger`, grows 12% and the element fades — "Release to delete". A selection haptic marks entering it; deleting gives a medium impact and a snackbar with Undo. Nothing is ever deleted by a swipe alone.
+
+**Panels stay compact.** A tool panel never takes more than ~42% of the screen height; its content scrolls. Style shows Borders · Background · Filters as pill tabs in the panel header instead of a title plus a segmented row.
+
+**Edge shaping.** Layout → Edges shows a dot on every edge shared by two photos; the selected edge turns amber and shows its two Bézier points (24dp amber, 44dp target). Points snap to straight and to thirds. Presets (Straight, Curve, Wave, Zigzag, Curvy zigzag), sliders and previous/next buttons give non-drag alternatives. Edges are part of the polygon layout geometry, so diagonal cuts, shapes and frames keep working with them.
+
+## 9e. Library patterns (v1.7 additions)
+
+My Collages has to stay usable with hundreds of collages. No new colour or font is added.
+
+**Dates** — `MetaDate` formats with the locale (`DateFormat.yMMMd` + `Hm`) and leads with a relative
+day for recent items ("Today", "3 days ago"). It never ellipsises: when the line doesn't fit it
+moves the relative day and the time to a second line, then drops the time. Screen readers and the
+details sheet get the full date and time (`yMMMMEEEEd`, `Hm`).
+
+**Search row** — a fixed row above the list: search field, `tune` filter button (amber with a count
+badge when filters are on) and a `swap_vert` sort menu. Active filters show below it as removable
+`InputChip`s, followed by a `labelMd`/`textMid` result count ("24 collages") with **Jump to** and
+**Select**.
+
+**Filter sheet** — offers only metadata that occurs in the library: a date range picker, year and month
+`ChoiceChip`s (with counts), template style, occasion, ratio (`spec` text) and "Has video". The
+primary button names the result ("Show 24 collages").
+
+**Month sections** — the grid is grouped by month with a sticky header (`titleMd` month + `SpecChip`
+count, scaffold background). Tapping a header or **Jump to** opens a month list that holds only
+months with collages.
+
+**Activity strip** — collapsed by default (remembered). Bars per day / week / month, hours once a
+single day is picked. Bars are `textLo` (empty periods `line`), the active one `amber` on an
+`amberTint` cell. Every bar is a 40dp-wide button with a "March 2026: 14 collages" label.
+
+**Selection mode** — long-press, the ⋯ menu's **Select** or the **Select** button. The app bar shows
+Cancel and "3 selected". Its menu holds the explicit "Select all collages (312)". The bottom bar holds
+"Select all 24 shown" and a `danger` **Move to trash**. Selected cards get a 2px `amber` border
+and an amber check. Moving several collages to trash is confirmed with the exact count. Undo in the
+snackbar restores exactly those collages.
+
+## 9f. Templates and occasions (v1.7 additions)
+
+No new colour or font. The rule: help people find a design fast, mention an occasion once, and
+never nag.
+
+**Template browser** — a search field (`surfaceInput`, `control` radius) with a 48dp tonal
+*Filters* button whose badge counts active filters. Category chips (All · Favourites · Invitations ·
+Holidays · styles) follow §6 chips at 48dp height. Count and shape filters live in a bottom sheet.
+While nothing narrows the list, rows come first: *Recently used*, *Favourites*, *For you*,
+*My templates*. A `SpecChip` line reports the result count.
+
+**Template tile** — `surface` card, `card` radius, `line` border; the live preview is centred at its
+own ratio; a quiet `spec` line (photo icon + count, ratio in `textLo`). A star sits top-right on a
+26dp `scrim` circle inside a 48dp target: white outline, `amber` when starred. Long-press stars too
+and a snackbar confirms. One semantics node reads "name, n photos, shape".
+Grid: 2 columns under 360dp, 3 on phones, more on tablets.
+
+**Occasion card** — at most one at a time, at the top of Templates and the New collage sheet:
+`surfaceHigh`, `card` radius, a 40dp `amberTint` icon tile, the headline in `labelLg`
+("Halloween is on Friday") and one `bodyMd`/`textMid` line ("Want to make something for it?", or
+"Make another Halloween collage" once one exists). A ghost × hides that occurrence for good.
+Copy never counts what the user hasn't done.
+
+**Settings rows** — Occasions group in More: a switch row, value rows (value in `amber`) and
+sub-screens that reuse the grouped surface cards. Reminders use a master switch card that turns
+`amberTint` + `amber` border when on; the controls below are disabled until then.
 
 ---
 

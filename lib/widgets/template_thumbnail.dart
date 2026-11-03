@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../data/fonts.dart';
+import '../data/template_catalog.dart';
 import '../data/shape_catalog.dart';
+import '../l10n/app_localizations.dart';
 import '../models/canvas_element.dart';
 import '../models/collage_project.dart';
 import '../models/collage_template.dart';
@@ -101,7 +103,7 @@ class TemplateThumbnail extends StatelessWidget {
         child = SizedBox(
           width: w * 0.9,
           child: Text(
-            t.text,
+            TemplateText.localize(t.text, context.l10n.t),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

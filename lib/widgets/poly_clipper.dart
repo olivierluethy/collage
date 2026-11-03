@@ -71,7 +71,8 @@ List<Offset> insetConvexPolygon(List<Offset> pts, double d) {
   for (var i = 0; i < n; i++) {
     final prev = (i - 1 + n) % n;
     final p = _intersect(shiftedPoints[prev], dirs[prev], shiftedPoints[i], dirs[i]);
-    out.add(p ?? pts[i]);
+    // Parallel neighbours (a collinear junction vertex) shift with their edge.
+    out.add(p ?? shiftedPoints[i]);
   }
   return out;
 }
@@ -97,8 +98,12 @@ class PolygonBorderPainter extends CustomPainter {
     required this.points,
     required this.color,
     required this.strokeWidth,
+    this.outline,
   });
   final List<Offset> points;
+
+  /// A curved / zigzag outline to stroke instead of the straight polygon.
+  final Path? outline;
   final Color color;
   final double strokeWidth;
 
@@ -110,10 +115,10 @@ class PolygonBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(polygonPath(points), paint);
+    canvas.drawPath(outline ?? polygonPath(points), paint);
   }
 
   @override
   bool shouldRepaint(PolygonBorderPainter old) =>
-      old.points != points || old.color != color || old.strokeWidth != strokeWidth;
+      old.points != points || old.outline != outline || old.color != color || old.strokeWidth != strokeWidth;
 }
