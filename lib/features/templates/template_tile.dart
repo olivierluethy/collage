@@ -84,7 +84,16 @@ class TemplateTile extends ConsumerWidget {
                         const SizedBox(width: 2),
                         Text('${template.photoCount}', style: context.text.spec.copyWith(color: c.textMid)),
                         const Spacer(),
-                        Text(template.ratioLabel, style: context.text.spec.copyWith(color: c.textLo)),
+                        // Narrow tiles + large text: the ratio gives way first.
+                        Flexible(
+                          child: Text(
+                            template.ratioLabel,
+                            style: context.text.spec.copyWith(color: c.textLo),
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            softWrap: false,
+                          ),
+                        ),
                       ],
                     ),
                   ),
