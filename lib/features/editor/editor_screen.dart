@@ -1,7 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -17,16 +18,16 @@ import '../../theme/typography.dart';
 import '../../widgets/coach_tour.dart';
 import '../../widgets/sharpened.dart';
 import '../../widgets/ui.dart';
-import '../flow.dart';
-import '../picker/photo_picker_screen.dart';
+import '../picker/picker_flow.dart';
 import '../picker/video_picker_screen.dart';
 import '../result/result_screen.dart';
 import 'collage_canvas.dart';
 import 'editor_controller.dart';
+import 'edge_panel.dart';
 import 'editor_panels.dart';
 import 'export_sheet.dart';
 
-enum _Panel { none, layout, borders, background, filter, add, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace }
+enum _Panel { none, layout, borders, background, filter, add, stickers, shapes, text, emoji, gif, layers, crop, photoStyle, draw, replace, edges }
 
 /// The three panels grouped under the "Style" tool, in segment order.
 const _stylePanels = [_Panel.borders, _Panel.background, _Panel.filter];
@@ -47,6 +48,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   late final EditorController _c;
   final _boundaryKey = GlobalKey();
   final _layoutToolKey = GlobalKey();
+  final _trashKey = GlobalKey();
   bool _saving = false;
 
   /// Whether this collage has never been saved (a new or template project).
@@ -254,6 +256,51 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     }
     // Leaving the draw tool keeps what was drawn as one movable element.
     if (_panel == _Panel.draw && _c.drawing) _c.finishDrawing(_canvasSize());
+    if (_panel == _Panel.edges && _c.edgeEditing) _c.endEdgeEditing();
+  }
+
+  void _openEdges() {
+    setState(() {
+      _cleanupPanel();
+      _c.startEdgeEditing();
+      _panel = _Panel.edges;
+    });
+  }
+
+  // ---- delete with undo ----------------------------------------------------
+  /// Whether a finger at [global] is over the trash target.
+  bool _isOverTrash(Offset global) => _globalRect(_trashKey)?.inflate(12).contains(global) ?? false;
+
+  /// A short snackbar with an Undo action — every delete in the editor can be
+  /// taken back.
+  void _undoSnack(String message) {
+    showAppSnack(
+      context,
+      message,
+      actionLabel: context.l10n.t('undo'),
+      onAction: _undo,
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  void _deleteElement(String id) {
+    HapticFeedback.mediumImpact();
+    _c.deleteElement(id);
+    _undoSnack(context.l10n.t('elementDeleted'));
+  }
+
+  void _removeSlotPhoto(String slotId) {
+    if (_c.fillFor(slotId) == null) return;
+    HapticFeedback.mediumImpact();
+    _c.clearSlot(slotId);
+    _undoSnack(context.l10n.t('photoRemoved'));
+  }
+
+  /// The pencil on a photo: select it and open its photo controls.
+  void _editSlot(String slotId) {
+    HapticFeedback.selectionClick();
+    _c.selectSlot(slotId);
+    _openStyle(slotId);
   }
 
   /// The canvas's current on-screen size (zero before first layout).
@@ -361,24 +408,39 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     });
   }
 
+  /// The Photos tool: the picker opens with this collage's photos already
+  /// selected (with the right count), and the result replaces the selection —
+  /// removed photos leave their slots, new ones fill empty slots, every other
+  /// edit stays. One undo step, confirmed with a snackbar.
   Future<void> _addPhotos() async {
-    // Templates open straight into the editor with no photos, so ask for gallery
-    // access here the first time the user reaches for the Photos tool.
-    if (!await ensureGalleryAccess(context, ref)) return;
-    if (!mounted) return;
-    final picked = await Navigator.of(context).push<List<String>>(
-      MaterialPageRoute(builder: (_) => const PhotoPickerScreen(maxImages: 9)),
+    _closePanel();
+    final before = _c.selectedPhotos;
+    final picked = await pickCollagePhotos(
+      context,
+      ref,
+      current: before,
+      collageId: _c.project.id,
+      placed: _c.project.assetIds,
     );
-    if (picked == null) return;
-    final freeform = _c.project.layout.slots.isEmpty;
-    for (final id in picked) {
-      _c.addToPool(id);
-      if (freeform) {
-        final asset = await ref.read(galleryServiceProvider).byId(id);
-        _c.addImageElement(id, asset == null ? 1.0 : ref.read(galleryServiceProvider).aspectOf(asset));
+    if (picked == null || !mounted) return;
+    final diff = diffSelection(before, picked);
+    if (!diff.hasChanges) return;
+    _c.applyPhotoSelection(picked);
+    if (_c.project.layout.slots.isEmpty) {
+      // Freeform: each new photo becomes a movable element.
+      final gallery = ref.read(galleryServiceProvider);
+      for (final id in diff.added) {
+        final asset = await gallery.byId(id);
+        _c.addImageElement(id, asset == null ? 1.0 : gallery.aspectOf(asset));
       }
     }
-    if (!freeform) _c.autofill();
+    if (!mounted) return;
+    final l = context.l10n;
+    final parts = [
+      if (diff.added.isNotEmpty) l.a('photosAdded', {'n': '${diff.added.length}'}),
+      if (diff.removed.isNotEmpty) l.a('photosRemovedCount', {'n': '${diff.removed.length}'}),
+    ];
+    _undoSnack(parts.join(' · '));
   }
 
   ExportOptions _lastExportOptions() {
@@ -537,7 +599,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
+        children: [
+      Column(
         children: [
           // Canvas — always visible, shrinks to fit the space above any panel.
           Expanded(
@@ -551,28 +615,41 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
                     child: CollageCanvas(
                       controller: _c,
                       interactive: !_exporting,
-                      onRequestReplace: _openReplace,
-                      onRequestStyle: _openStyle,
-                      onRequestVideo: _pickVideo,
+                      onEditSlot: _editSlot,
+                      onElementTrashed: _deleteElement,
+                      isOverTrash: _isOverTrash,
                     ),
                   ),
                 ),
               ),
             ),
           ),
-          _ContextBar(
-            controller: _c,
-            onEditText: (e) {
-              setState(() { _editingTextId = e.id; _panel = _Panel.text; });
-            },
-            onCrop: (e) {
-              setState(() {
-                _cleanupPanel();
-                _cropElementId = e.id;
-                _panel = _Panel.crop;
-              });
-            },
-          ),
+          // Contextual actions for what is selected — only while no tool
+          // panel is open, so the canvas keeps its room.
+          if (_panel == _Panel.none) ...[
+            _ContextBar(
+              controller: _c,
+              onEditText: (e) {
+                setState(() { _editingTextId = e.id; _panel = _Panel.text; });
+              },
+              onCrop: (e) {
+                setState(() {
+                  _cleanupPanel();
+                  _cropElementId = e.id;
+                  _panel = _Panel.crop;
+                });
+              },
+              onDelete: (e) => _deleteElement(e.id),
+            ),
+            _SlotBar(
+              controller: _c,
+              onReplace: _openReplace,
+              onEdit: _openStyle,
+              onFilter: (_) => _openPanel(_Panel.filter),
+              onVideo: _pickVideo,
+              onRemove: _removeSlotPhoto,
+            ),
+          ],
           if (_panel != _Panel.none) _panelHost(context),
           _ToolRail(
             active: _panel,
@@ -582,6 +659,28 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
             onAdd: () => _togglePanel(_Panel.add),
             onLayers: () => _togglePanel(_Panel.layers),
             onPhotos: _addPhotos,
+          ),
+        ],
+      ),
+          // Drag-to-delete: an obvious target slides up while something is
+          // being dragged; releasing over it deletes (with Undo).
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: Space.md),
+                child: Center(
+                  child: _TrashTarget(
+                    key: _trashKey,
+                    controller: _c,
+                    onSlotDropped: _removeSlotPhoto,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -624,7 +723,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   Widget _panelHost(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
     final (title, body, height) = switch (_panel) {
-      _Panel.layout => (context.l10n.t('panelLayout'), LayoutPanel(c: _c), 360.0),
+      _Panel.layout => (context.l10n.t('panelLayout'), LayoutPanel(c: _c, onShapeEdges: _openEdges), 340.0),
+      _Panel.edges => (context.l10n.t('edgeShapeTitle'), EdgePanel(c: _c, onDone: _closePanel), 330.0),
       _Panel.add => (context.l10n.t('toolAdd'), _AddGrid(onPick: _onTool), 236.0),
       _Panel.borders => (context.l10n.t('panelBorders'), BordersPanel(c: _c), 280.0),
       _Panel.background => (context.l10n.t('panelBackground'), BackgroundPanel(c: _c), 330.0),
@@ -649,11 +749,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
 
     final isStyle = _stylePanels.contains(_panel);
     final fromAdd = _addPanels.contains(_panel);
-    // The Style panels share one header: a segmented switch between them.
-    const segH = 52.0;
-    final bodyH = isStyle ? 360.0 : height;
+    // Never let a panel take more than ~42% of the screen: on a small phone the
+    // collage must stay visible while it is being styled. Panels scroll inside.
+    final maxBody = (h * 0.42 - 46).clamp(170.0, 400.0);
+    final bodyH = math.min(isStyle ? 300.0 : height, maxBody);
     return Container(
-      height: bodyH + 46 + (isStyle ? segH : 0),
+      height: bodyH + 46,
       decoration: BoxDecoration(
         color: context.colors.surface,
         border: Border(top: BorderSide(color: context.colors.line)),
@@ -673,10 +774,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
                     color: context.colors.textMid,
                   )
                 else
-                  const SizedBox(width: Space.lg),
+                  const SizedBox(width: Space.md),
+                // Style: its three sections are the header itself — compact
+                // tabs instead of a title plus a second row of segments.
                 Expanded(
-                  child: Text(isStyle ? context.l10n.t('toolStyle') : title,
-                      style: context.text.titleMd, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: isStyle
+                      ? _StyleTabs(
+                          active: _panel,
+                          onSelect: _openPanel,
+                        )
+                      : Text(title, style: context.text.titleMd, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
                 IconButton(
                   tooltip: context.l10n.t('closePanel'),
@@ -688,24 +795,66 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
             ),
           ),
           const Divider(height: 1),
-          if (isStyle)
-            SizedBox(
-              height: segH,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.lg, 0),
-                child: SegmentedButton<_Panel>(
-                  showSelectedIcon: false,
-                  segments: [
-                    ButtonSegment(value: _Panel.borders, label: Text(context.l10n.t('toolBorders')), icon: const Icon(Icons.border_outer_rounded, size: 18)),
-                    ButtonSegment(value: _Panel.background, label: Text(context.l10n.t('toolBackground')), icon: const Icon(Icons.gradient_rounded, size: 18)),
-                    ButtonSegment(value: _Panel.filter, label: Text(context.l10n.t('toolFilter')), icon: const Icon(Icons.tune_rounded, size: 18)),
-                  ],
-                  selected: {_panel},
-                  onSelectionChanged: (v) => _openPanel(v.first),
+          Expanded(child: body),
+        ],
+      ),
+    );
+  }
+}
+
+/// The Style tool's sections (Borders · Background · Filters) as one row of
+/// compact tabs in the panel header.
+class _StyleTabs extends StatelessWidget {
+  const _StyleTabs({required this.active, required this.onSelect});
+  final _Panel active;
+  final void Function(_Panel) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final tabs = <(_Panel, IconData, String)>[
+      (_Panel.borders, Icons.border_outer_rounded, l.t('toolBorders')),
+      (_Panel.background, Icons.gradient_rounded, l.t('toolBackground')),
+      (_Panel.filter, Icons.tune_rounded, l.t('toolFilter')),
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (panel, icon, label) in tabs)
+            Padding(
+              padding: const EdgeInsets.only(right: Space.xs),
+              child: Semantics(
+                selected: panel == active,
+                button: true,
+                child: InkWell(
+                  onTap: () => onSelect(panel),
+                  borderRadius: BorderRadius.circular(Radii.pill),
+                  child: AnimatedContainer(
+                    duration: Motion.fast,
+                    constraints: const BoxConstraints(minHeight: 36),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                    decoration: BoxDecoration(
+                      color: panel == active ? context.colors.amberTint : null,
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 18, color: panel == active ? context.colors.amber : context.colors.textMid),
+                        const SizedBox(width: 6),
+                        Text(
+                          label,
+                          style: context.text.labelMd.copyWith(
+                            color: panel == active ? context.colors.amber : context.colors.textMid,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          Expanded(child: body),
         ],
       ),
     );
@@ -768,10 +917,16 @@ class _AddGrid extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ContextBar extends StatelessWidget {
-  const _ContextBar({required this.controller, required this.onEditText, required this.onCrop});
+  const _ContextBar({
+    required this.controller,
+    required this.onEditText,
+    required this.onCrop,
+    required this.onDelete,
+  });
   final EditorController controller;
   final void Function(TextElement e) onEditText;
   final void Function(ImageElement e) onCrop;
+  final void Function(CanvasElement e) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -779,7 +934,7 @@ class _ContextBar extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final el = controller.selectedElement;
-        if (el == null) return const SizedBox.shrink();
+        if (el == null || controller.draggingElementId != null) return const SizedBox.shrink();
         // At most four actions: the one that edits this kind of element, the
         // two everyone needs, and "More" for the rest — never a scrolling row.
         return Container(
@@ -801,7 +956,7 @@ class _ContextBar extends StatelessWidget {
                   icon: Icons.delete_outline_rounded,
                   label: context.l10n.t('ctxDelete'),
                   color: context.colors.danger,
-                  onTap: () => controller.deleteElement(el.id),
+                  onTap: () => onDelete(el),
                 ),
               ),
             ],
@@ -969,6 +1124,228 @@ class _ToolRail extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Selected photo: what can be done with it
+// ---------------------------------------------------------------------------
+
+/// The contextual bar for a selected photo cell. It says what a drag does
+/// right now (move the photo inside its frame) and lists everything that can
+/// be done with this photo — replacing the tiny chips that used to float on
+/// the photo itself.
+class _SlotBar extends StatelessWidget {
+  const _SlotBar({
+    required this.controller,
+    required this.onReplace,
+    required this.onEdit,
+    required this.onFilter,
+    required this.onVideo,
+    required this.onRemove,
+  });
+  final EditorController controller;
+  final void Function(String slotId) onReplace;
+  final void Function(String slotId) onEdit;
+  final void Function(String slotId) onFilter;
+  final void Function(String slotId) onVideo;
+  final void Function(String slotId) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final c = controller;
+        final id = c.selectedSlotId;
+        if (id == null || c.edgeEditing || c.replaceSlotId != null || c.dragSourceSlot != null) {
+          return const SizedBox.shrink();
+        }
+        final l = context.l10n;
+        final fill = c.fillFor(id);
+        final swapping = c.swapSource != null;
+        final hint = swapping
+            ? l.t('swapHint')
+            : fill != null
+                ? l.t('framingHint')
+                : l.t('emptySlotHint');
+        return Container(
+          decoration: BoxDecoration(
+            color: context.colors.surface,
+            border: Border(top: BorderSide(color: context.colors.line)),
+          ),
+          padding: const EdgeInsets.fromLTRB(Space.sm, Space.xs, Space.sm, 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Semantics(
+                liveRegion: true,
+                child: Row(
+                  children: [
+                    const SizedBox(width: Space.sm),
+                    Icon(swapping ? Icons.swap_horiz_rounded : Icons.pan_tool_alt_outlined,
+                        size: 16, color: swapping ? context.colors.amber : context.colors.textLo),
+                    const SizedBox(width: Space.sm),
+                    Expanded(
+                      child: Text(
+                        hint,
+                        style: context.text.caption.copyWith(color: context.colors.textMid),
+                      ),
+                    ),
+                    if (swapping)
+                      TextButton(onPressed: c.cancelSwapMode, child: Text(l.t('cancel'))),
+                  ],
+                ),
+              ),
+              Row(
+                children: fill == null
+                    ? [
+                        Expanded(child: _CtxBtn(icon: Icons.photo_library_outlined, label: l.t('chipChoose'), onTap: () => onReplace(id))),
+                        Expanded(child: _CtxBtn(icon: Icons.videocam_outlined, label: l.t('chipVideo'), onTap: () => onVideo(id))),
+                      ]
+                    : [
+                        Expanded(child: _CtxBtn(icon: Icons.photo_library_outlined, label: l.t('chipReplace'), onTap: () => onReplace(id))),
+                        Expanded(child: _CtxBtn(icon: Icons.edit_rounded, label: l.t('ctxEdit'), onTap: () => onEdit(id))),
+                        Expanded(child: _CtxBtn(icon: Icons.tune_rounded, label: l.t('toolFilter'), onTap: () => onFilter(id))),
+                        Expanded(child: _CtxBtn(icon: Icons.more_horiz_rounded, label: l.t('ctxMore'), onTap: () => _more(context, id))),
+                        Expanded(
+                          child: _CtxBtn(
+                            icon: Icons.delete_outline_rounded,
+                            label: l.t('ctxRemove'),
+                            color: context.colors.danger,
+                            onTap: () => onRemove(id),
+                          ),
+                        ),
+                      ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _more(BuildContext context, String id) async {
+    final l = context.l10n;
+    final c = controller;
+    final items = <(IconData, int, String, VoidCallback)>[
+      (Icons.swap_horiz_rounded, 0, l.t('swapWithAnother'), () => c.startSwapMode(id)),
+      (Icons.flip_rounded, 0, l.t('chipFlipH'), () => c.flipSlot(id, horizontal: true)),
+      (Icons.flip_rounded, 1, l.t('chipFlipV'), () => c.flipSlot(id, vertical: true)),
+      (Icons.rotate_90_degrees_cw_rounded, 0, l.t('chipRotate'), () => c.rotateSlotQuarter(id)),
+      (Icons.center_focus_strong_outlined, 0, l.t('resetFraming'), () => c.resetSlotTransform(id)),
+      (Icons.videocam_outlined, 0, l.t('chipVideo'), () => onVideo(id)),
+    ];
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (icon, turns, label, action) in items)
+                ListTile(
+                  leading: RotatedBox(quarterTurns: turns, child: Icon(icon)),
+                  title: Text(label),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    action();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drag-to-delete target
+// ---------------------------------------------------------------------------
+
+/// Slides up from the bottom while a photo or an element is being dragged.
+/// Elements report the finger position themselves (see the canvas); slot
+/// photos are [Draggable]s and land here as a [DragTarget]. It grows and
+/// turns red under the finger, so a release that deletes is never a surprise.
+class _TrashTarget extends StatelessWidget {
+  const _TrashTarget({super.key, required this.controller, required this.onSlotDropped});
+  final EditorController controller;
+  final void Function(String slotId) onSlotDropped;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final c = controller;
+        final show = c.showTrash;
+        final over = show && c.overTrash;
+        final l = context.l10n;
+        return DragTarget<String>(
+          onWillAcceptWithDetails: (_) => c.dragSourceSlot != null,
+          onMove: (_) {
+            if (!c.overTrash) {
+              HapticFeedback.selectionClick();
+              c.setOverTrash(true);
+            }
+          },
+          onLeave: (_) => c.setOverTrash(false),
+          onAcceptWithDetails: (d) {
+            c.endSlotDrag();
+            onSlotDropped(d.data);
+          },
+          builder: (context, _, __) => IgnorePointer(
+            ignoring: !show,
+            child: AnimatedSlide(
+              offset: show ? Offset.zero : const Offset(0, 1.6),
+              duration: Motion.base,
+              curve: Motion.emphasized,
+              child: AnimatedOpacity(
+                opacity: show ? 1 : 0,
+                duration: Motion.fast,
+                child: AnimatedScale(
+                  scale: over ? 1.12 : 1,
+                  duration: Motion.fast,
+                  child: Semantics(
+                    label: l.t(over ? 'releaseToDelete' : 'dragHereToDelete'),
+                    child: AnimatedContainer(
+                      duration: Motion.fast,
+                      height: 64,
+                      padding: const EdgeInsets.symmetric(horizontal: Space.xl),
+                      decoration: BoxDecoration(
+                        color: over ? context.colors.danger : context.colors.surfaceHigh,
+                        borderRadius: BorderRadius.circular(Radii.pill),
+                        border: Border.all(color: context.colors.danger, width: 2),
+                        boxShadow: Shadows.e3,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            over ? Icons.delete_forever_rounded : Icons.delete_outline_rounded,
+                            color: over ? context.colors.onDanger : context.colors.danger,
+                            size: 28,
+                          ),
+                          const SizedBox(width: Space.sm),
+                          Text(
+                            l.t(over ? 'releaseToDelete' : 'dragHereToDelete'),
+                            style: context.text.labelLg.copyWith(
+                              color: over ? context.colors.onDanger : context.colors.textHi,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
