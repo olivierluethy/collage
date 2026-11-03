@@ -7,15 +7,15 @@ import 'gallery_service.dart';
 /// "you were at {place} on {date}: make this day's collage".
 class Moment {
   Moment({
-    required this.title,
-    required this.subtitle,
+    required this.place,
     required this.assetIds,
     required this.coverId,
     required this.when,
   });
 
-  final String title; // place name, or a date-based label when no location
-  final String subtitle; // formatted date
+  /// Reverse-geocoded place name; null when the photos carry no location or
+  /// geocoding failed. The UI then titles the moment with its localised date.
+  final String? place;
   final List<String> assetIds;
   final String coverId;
   final DateTime when;
@@ -38,13 +38,6 @@ class _Bucket {
 class MomentsService {
   const MomentsService(this._gallery);
   final GalleryService _gallery;
-
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
-
-  String _fmt(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   Future<List<Moment>> discover({int scan = 120, int maxMoments = 12}) async {
     final albums = await _gallery.albums();
@@ -94,7 +87,7 @@ class MomentsService {
     final moments = <Moment>[];
     for (final b in good.take(maxMoments)) {
       final day = b.day ?? b.assets.first.createDateTime;
-      String title = 'A day of photos';
+      String? place;
       if (b.lat != null && b.lng != null) {
         try {
           final marks = await placemarkFromCoordinates(b.lat!, b.lng!);
@@ -107,15 +100,14 @@ class MomentsService {
                     : (m.administrativeArea?.isNotEmpty ?? false)
                         ? m.administrativeArea!
                         : m.country ?? '';
-            if (name.isNotEmpty) title = name;
+            if (name.isNotEmpty) place = name;
           }
         } catch (_) {
           // Geocoding unavailable/denied — keep the date-based title.
         }
       }
       moments.add(Moment(
-        title: title,
-        subtitle: _fmt(day),
+        place: place,
         assetIds: b.assets.map((a) => a.id).toList(),
         coverId: b.assets.first.id,
         when: day,

@@ -1,0 +1,4 @@
+/* Permission texts shown by iOS. Keep in step with Info.plist (English). */
+"NSPhotoLibraryUsageDescription" = "يحتاج Collage إلى الوصول إلى صورك لتتمكن من اختيار صور الكولاج.";
+"NSContactsUsageDescription" = "فقط إذا اخترت استيراد أعياد الميلاد: يقرأ Collage الأسماء وتواريخ الميلاد ليقترح عليك كولاجًا قبل اليوم. تبقى البيانات على هذا الجهاز.";
+"NSPhotoLibraryAddUsageDescription" = "يحفظ Collage الكولاج المكتمل في مكتبة الصور.";

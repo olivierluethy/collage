@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/exports/export_history_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/templates/occasion_card.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'state/providers.dart';
+import 'services/occasion_service.dart';
 import 'services/reminder_service.dart';
 import 'state/occasions.dart';
 import 'state/reminders.dart';
@@ -47,12 +49,39 @@ class _CollageAppState extends ConsumerState<CollageApp> {
   }
 
   /// "Collage saved" opens Recent exports, where the file can be opened,
-  /// found or shared. Other notifications just open the app.
+  /// found or shared. An occasion or birthday reminder opens that
+  /// occasion's templates. Memories (and anything unknown) just open the app.
   void _openFor(String payload) {
-    if (payload != ReminderService.exportPayload) return;
-    appNavigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => const ExportHistoryScreen()),
-    );
+    final nav = appNavigatorKey.currentState;
+    if (nav == null) return;
+    if (payload == ReminderService.exportPayload) {
+      nav.push(MaterialPageRoute(builder: (_) => const ExportHistoryScreen()));
+      return;
+    }
+    final occasion = _occasionFor(payload);
+    if (occasion != null) {
+      nav.push(MaterialPageRoute(builder: (_) => OccasionTemplatesScreen(occasion: occasion)));
+    }
+  }
+
+  /// Reminders arrive a few days ahead and may be tapped late, so look a
+  /// little back as well as ahead.
+  OccasionDate? _occasionFor(String payload) {
+    final now = DateTime.now();
+    final candidates = ref.read(occasionServiceProvider).occurrences(
+          from: now.subtract(const Duration(days: 14)),
+          to: now.add(const Duration(days: 60)),
+          region: ref.read(occasionRegionProvider),
+          birthdays: ref.read(birthdaysProvider),
+        );
+    // Bare ids from older versions: prefer the next occurrence over a past one.
+    final today = DateTime(now.year, now.month, now.day);
+    candidates.sort((a, b) {
+      final ap = a.date.isBefore(today), bp = b.date.isBefore(today);
+      if (ap != bp) return ap ? 1 : -1;
+      return a.date.compareTo(b.date);
+    });
+    return ReminderService.matchOccasionPayload(payload, candidates);
   }
 
   @override

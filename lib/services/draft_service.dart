@@ -216,7 +216,9 @@ class DraftService {
     final thumb = await t.exists() ? await t.readAsBytes() : null;
     project.thumbnailPath = null;
     await save(project, thumbnail: thumb);
-    await _purge(id);
+    // Only the trash copy goes; the full-size render belongs to the
+    // collage again.
+    await _purge(id, keepRender: true);
   }
 
   /// Put several trashed collages back into "My Collages".
@@ -238,15 +240,17 @@ class DraftService {
     if (await trash.exists()) await trash.delete(recursive: true);
   }
 
-  Future<void> _purge(String id) async {
+  Future<void> _purge(String id, {bool keepRender = false}) async {
     final trash = await _trashDir();
     final dir = await _dir();
     for (final f in [
       File('${trash.path}/$id.json'),
       File('${trash.path}/$id.png'),
       // The full-size render stays beside the drafts until the collage is gone.
-      File('${dir.path}/$id.render.png'),
-      File('${dir.path}/$id.render.jpg'),
+      if (!keepRender) ...[
+        File('${dir.path}/$id.render.png'),
+        File('${dir.path}/$id.render.jpg'),
+      ],
     ]) {
       if (await f.exists()) await f.delete();
     }

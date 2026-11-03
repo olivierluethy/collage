@@ -3,6 +3,9 @@
 // carry exactly the English key set (merged into AppLocalizations.maps).
 const Map<String, Map<String, String>> editorStrings = {
   'en': {
+    'zoomIn': 'Zoom in',
+    'zoomOut': 'Zoom out',
+    'zoomFit': 'Show whole canvas',
     'photoMissing': 'Photo no longer on this device',
     'editPhoto': 'Edit photo',
     'resizeRotate': 'Resize and rotate',
@@ -40,6 +43,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Straighten all',
   },
   'zh': {
+    'zoomIn': '放大',
+    'zoomOut': '缩小',
+    'zoomFit': '显示整个画布',
     'photoMissing': '照片已不在此设备上',
     'editPhoto': '编辑照片',
     'resizeRotate': '缩放和旋转',
@@ -77,6 +83,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': '全部拉直',
   },
   'hi': {
+    'zoomIn': 'ज़ूम इन',
+    'zoomOut': 'ज़ूम आउट',
+    'zoomFit': 'पूरा कैनवस दिखाएँ',
     'photoMissing': 'फ़ोटो अब इस डिवाइस पर नहीं है',
     'editPhoto': 'फ़ोटो संपादित करें',
     'resizeRotate': 'आकार बदलें और घुमाएँ',
@@ -114,6 +123,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'सभी सीधे करें',
   },
   'es': {
+    'zoomIn': 'Acercar',
+    'zoomOut': 'Alejar',
+    'zoomFit': 'Ver todo el lienzo',
     'photoMissing': 'La foto ya no está en este dispositivo',
     'editPhoto': 'Editar foto',
     'resizeRotate': 'Cambiar tamaño y girar',
@@ -151,6 +163,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Enderezar todos',
   },
   'ar': {
+    'zoomIn': 'تكبير',
+    'zoomOut': 'تصغير',
+    'zoomFit': 'عرض اللوحة كاملة',
     'photoMissing': 'لم تعد الصورة على هذا الجهاز',
     'editPhoto': 'تعديل الصورة',
     'resizeRotate': 'تغيير الحجم والتدوير',
@@ -188,6 +203,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'تقويم الكل',
   },
   'bn': {
+    'zoomIn': 'জুম ইন',
+    'zoomOut': 'জুম আউট',
+    'zoomFit': 'পুরো ক্যানভাস দেখান',
     'photoMissing': 'ছবিটি আর এই ডিভাইসে নেই',
     'editPhoto': 'ছবি সম্পাদনা',
     'resizeRotate': 'আকার বদলান ও ঘোরান',
@@ -225,6 +243,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'সব সোজা করুন',
   },
   'fr': {
+    'zoomIn': 'Zoom avant',
+    'zoomOut': 'Zoom arrière',
+    'zoomFit': 'Voir tout le canevas',
     'photoMissing': 'Cette photo n’est plus sur l’appareil',
     'editPhoto': 'Modifier la photo',
     'resizeRotate': 'Redimensionner et faire pivoter',
@@ -262,6 +283,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Tout redresser',
   },
   'ru': {
+    'zoomIn': 'Увеличить',
+    'zoomOut': 'Уменьшить',
+    'zoomFit': 'Показать весь холст',
     'photoMissing': 'Фото больше нет на устройстве',
     'editPhoto': 'Изменить фото',
     'resizeRotate': 'Размер и поворот',
@@ -299,6 +323,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Выпрямить все',
   },
   'pt': {
+    'zoomIn': 'Aproximar',
+    'zoomOut': 'Afastar',
+    'zoomFit': 'Ver a tela inteira',
     'photoMissing': 'A foto não está mais neste dispositivo',
     'editPhoto': 'Editar foto',
     'resizeRotate': 'Redimensionar e girar',
@@ -336,6 +363,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Endireitar todas',
   },
   'id': {
+    'zoomIn': 'Perbesar',
+    'zoomOut': 'Perkecil',
+    'zoomFit': 'Tampilkan seluruh kanvas',
     'photoMissing': 'Foto sudah tidak ada di perangkat ini',
     'editPhoto': 'Edit foto',
     'resizeRotate': 'Ubah ukuran dan putar',
@@ -373,6 +403,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Luruskan semua',
   },
   'de': {
+    'zoomIn': 'Vergrössern',
+    'zoomOut': 'Verkleinern',
+    'zoomFit': 'Ganze Fläche zeigen',
     'photoMissing': 'Foto ist nicht mehr auf diesem Gerät',
     'editPhoto': 'Foto bearbeiten',
     'resizeRotate': 'Grösse ändern und drehen',
@@ -410,6 +443,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Alle begradigen',
   },
   'ja': {
+    'zoomIn': '拡大',
+    'zoomOut': '縮小',
+    'zoomFit': 'キャンバス全体を表示',
     'photoMissing': 'この写真は端末にありません',
     'editPhoto': '写真を編集',
     'resizeRotate': 'サイズ変更と回転',
@@ -447,6 +483,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'すべて直線に戻す',
   },
   'tr': {
+    'zoomIn': 'Yakınlaştır',
+    'zoomOut': 'Uzaklaştır',
+    'zoomFit': 'Tüm tuvali göster',
     'photoMissing': 'Fotoğraf artık bu cihazda değil',
     'editPhoto': 'Fotoğrafı düzenle',
     'resizeRotate': 'Boyutlandır ve döndür',
@@ -484,6 +523,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Tümünü düzleştir',
   },
   'it': {
+    'zoomIn': 'Ingrandisci',
+    'zoomOut': 'Riduci',
+    'zoomFit': 'Mostra tutta la tela',
     'photoMissing': 'La foto non è più sul dispositivo',
     'editPhoto': 'Modifica foto',
     'resizeRotate': 'Ridimensiona e ruota',
@@ -521,6 +563,9 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Raddrizza tutti',
   },
   'ko': {
+    'zoomIn': '확대',
+    'zoomOut': '축소',
+    'zoomFit': '캔버스 전체 보기',
     'photoMissing': '이 기기에 더 이상 없는 사진',
     'editPhoto': '사진 편집',
     'resizeRotate': '크기 조절 및 회전',

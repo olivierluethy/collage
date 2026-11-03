@@ -7,7 +7,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Collage needs access to your photos so you can pick the pictures for your collage.</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Only if you choose to import birthdays: Collage reads names and birthdays to suggest a collage a week ahead. They stay on this device.</string>
+	<string>Only if you choose to import birthdays: Collage reads names and birthdays to suggest a collage before the day. They stay on this device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Collage saves your finished collage to your photo library.</string>
 	<!-- Exported PDFs are kept in the app's Documents folder; these two keys

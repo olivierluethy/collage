@@ -29,10 +29,6 @@ const Map<String, String> ru = {
   'discoverTitle': 'Откройте свои моменты',
   'discoverMessage': 'Разрешите доступ к фото, и Collage предложит готовые коллажи по месту и дате съёмки.',
   'turnOnPhotos': 'Включить доступ к фото',
-  'findingMoments': 'Ищем ваши моменты…',
-  'noMomentsTitle': 'Пока нет моментов',
-  'noMomentsMessage': 'Снимите несколько фото, а потом вернитесь — Collage сгруппирует их по месту и дню.',
-  'tapMomentHint': 'Нажмите на момент, чтобы создать коллаж.',
   'momentSubtitle': '{subtitle} · {count} фото',
 
   // Permission

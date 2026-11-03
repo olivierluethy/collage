@@ -9,6 +9,7 @@ import '../../models/layout_template.dart';
 import '../../theme/palette.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/curved_edges.dart';
+import 'canvas_zoom.dart';
 import 'editor_controller.dart';
 
 /// Direct manipulation of the cuts between photos: every point where cuts
@@ -105,7 +106,8 @@ class _CutPointEditorState extends State<CutPointEditor> {
                       width: hit,
                       height: hit,
                       child: Center(
-                        child: Container(
+                        child: ZoomInvariant(
+                          child: Container(
                           width: 16,
                           height: 16,
                           decoration: BoxDecoration(
@@ -114,6 +116,7 @@ class _CutPointEditorState extends State<CutPointEditor> {
                             border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1),
                           ),
                           child: const Icon(Icons.add_rounded, size: 12, color: Colors.white),
+                        ),
                         ),
                       ),
                     ),
@@ -187,7 +190,8 @@ class _CutPointEditorState extends State<CutPointEditor> {
                   child: SizedBox(
                     width: hit,
                     height: hit,
-                    child: Center(child: _PointHandle(kind: kind, selected: selected)),
+                    // Constant on-screen size when the canvas is zoomed.
+                    child: Center(child: ZoomInvariant(child: _PointHandle(kind: kind, selected: selected))),
                   ),
                 ),
               ),

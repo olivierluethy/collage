@@ -1,0 +1,4 @@
+/* Permission texts shown by iOS. Keep in step with Info.plist (English). */
+"NSPhotoLibraryUsageDescription" = "কোলাজের জন্য ছবি বেছে নিতে Collage-এর আপনার ছবিতে অ্যাক্সেস দরকার।";
+"NSContactsUsageDescription" = "শুধু আপনি জন্মদিন ইমপোর্ট করতে চাইলে: দিনের আগে কোলাজ সাজেস্ট করতে Collage নাম ও জন্মদিন পড়ে। এগুলো এই ডিভাইসেই থাকে।";
+"NSPhotoLibraryAddUsageDescription" = "Collage আপনার তৈরি কোলাজ ফটো লাইব্রেরিতে সেভ করে।";

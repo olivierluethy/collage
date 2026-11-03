@@ -559,7 +559,11 @@ class _MonthHeader extends SliverPersistentHeaderDelegate {
     } catch (_) {
       label = DateFormat.yMMMM('en').format(month);
     }
-    return Material(
+    // The sliver hands its child loose constraints: fill the whole extent,
+    // or the header paints less than it reserves (an invalid geometry that
+    // asserts in debug and leaves a see-through strip in release).
+    return SizedBox.expand(
+      child: Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Semantics(
         header: true,
@@ -589,6 +593,7 @@ class _MonthHeader extends SliverPersistentHeaderDelegate {
             ),
           ),
         ),
+      ),
       ),
     );
   }

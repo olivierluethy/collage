@@ -29,10 +29,6 @@ const Map<String, String> zh = {
   'discoverTitle': '发现你的精彩瞬间',
   'discoverMessage': '开启照片访问后，Collage 会根据照片的拍摄地点和时间，为你推荐现成的拼图。',
   'turnOnPhotos': '开启照片访问',
-  'findingMoments': '正在寻找你的瞬间…',
-  'noMomentsTitle': '还没有瞬间',
-  'noMomentsMessage': '外出多拍几张照片，然后再回来——Collage 会按地点和日期为你分组。',
-  'tapMomentHint': '点按一个瞬间即可把它变成拼图。',
   'momentSubtitle': '{subtitle} · {count} 张照片',
 
   // Permission

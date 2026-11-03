@@ -71,13 +71,18 @@ class EditorController extends ChangeNotifier {
   static const _flushDelay = Duration(milliseconds: 180);
 
   /// The editable state as JSON, without bookkeeping fields that change on
-  /// every touch (so an unchanged collage compares equal).
+  /// every touch (so an unchanged collage compares equal). The photo pool is
+  /// part of it, so undoing a photo selection also restores what the Photos
+  /// tool shows as selected.
   String _snapshot() {
     final j = project.toJson()
       ..remove('updatedAt')
       ..remove('thumbnailPath');
+    j[_poolKey] = _pool;
     return jsonEncode(j);
   }
+
+  static const _poolKey = r'$pool';
 
   /// Take the pending snapshot now, if one is owed.
   void _flush() {
@@ -146,7 +151,14 @@ class EditorController extends ChangeNotifier {
     _committed = snapshot;
     _latest = snapshot;
     _lastTouch = null;
-    final p = CollageProject.fromJson(jsonDecode(snapshot) as Map<String, dynamic>);
+    final j = jsonDecode(snapshot) as Map<String, dynamic>;
+    final pool = j.remove(_poolKey);
+    if (pool is List) {
+      _pool
+        ..clear()
+        ..addAll(pool.cast<String>());
+    }
+    final p = CollageProject.fromJson(j);
     project
       ..title = p.title
       ..ratioLabel = p.ratioLabel

@@ -422,6 +422,9 @@ class _MomentCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final date = DateFormat.yMMMd(dateLocale(context)).format(moment.when);
+    // No place name: the weekday and date say which day it was, in the
+    // user's language.
+    final title = moment.place ?? DateFormat.MMMMEEEEd(dateLocale(context)).format(moment.when);
     return SizedBox(
       width: 240,
       child: Material(
@@ -429,7 +432,7 @@ class _MomentCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(Radii.card),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => openPhotosAsCollage(context, ref, moment.assetIds, title: moment.title),
+          onTap: () => openPhotosAsCollage(context, ref, moment.assetIds, title: title),
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(Radii.card),
@@ -456,13 +459,14 @@ class _MomentCard extends ConsumerWidget {
                   padding: const EdgeInsets.all(Space.md),
                   child: Row(
                     children: [
-                      Icon(Icons.place_rounded, color: c.amber, size: 18),
+                      Icon(moment.place != null ? Icons.place_rounded : Icons.event_rounded,
+                          color: c.amber, size: 18),
                       const SizedBox(width: Space.sm),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(moment.title,
+                            Text(title,
                                 style: context.text.labelLg,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),

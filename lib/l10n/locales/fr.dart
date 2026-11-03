@@ -29,10 +29,6 @@ const Map<String, String> fr = {
   'discoverTitle': 'Découvrez vos moments',
   'discoverMessage': 'Autorisez l\'accès aux photos et Collage proposera des collages tout prêts selon le lieu et la date de vos photos.',
   'turnOnPhotos': 'Activer les photos',
-  'findingMoments': 'Recherche de vos moments…',
-  'noMomentsTitle': 'Aucun moment pour l\'instant',
-  'noMomentsMessage': 'Prenez quelques photos en balade, puis revenez — Collage les regroupera par lieu et par jour.',
-  'tapMomentHint': 'Touchez un moment pour le transformer en collage.',
   'momentSubtitle': '{subtitle} · {count} photos',
 
   // Permission

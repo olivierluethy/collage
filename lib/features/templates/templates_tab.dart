@@ -205,16 +205,21 @@ class _TemplatesTabState extends ConsumerState<TemplatesTab> {
       padding: const EdgeInsets.fromLTRB(Space.lg, Space.sm, Space.sm, 0),
       child: Row(
         children: [
-          SpecChip(l.a('tplCount', {'count': '$count'})),
-          if (_q.count != null) ...[
-            const SizedBox(width: Space.xs),
-            SpecChip(l.a('templatePhotoCount', {'count': '${_q.count}'}), active: true),
-          ],
-          if (_q.ratio != null) ...[
-            const SizedBox(width: Space.xs),
-            SpecChip(_q.ratio!, active: true),
-          ],
-          const Spacer(),
+          // Wraps on narrow phones (or large text) instead of overflowing
+          // into the Clear filters button.
+          Expanded(
+            child: Wrap(
+              spacing: Space.xs,
+              runSpacing: Space.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SpecChip(l.a('tplCount', {'count': '$count'})),
+                if (_q.count != null)
+                  SpecChip(l.a('templatePhotoCount', {'count': '${_q.count}'}), active: true),
+                if (_q.ratio != null) SpecChip(_q.ratio!, active: true),
+              ],
+            ),
+          ),
           if (narrowed)
             TextButton(onPressed: _clearAll, child: Text(l.t('tplClearFilters'))),
         ],
@@ -269,7 +274,8 @@ class _FilterSheetState extends State<_FilterSheet> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     return SafeArea(
-      child: Padding(
+      // Scrolls when the chips wrap to many rows (small phones, large text).
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -325,11 +331,16 @@ class _FilterSheetState extends State<_FilterSheet> {
                   onPressed: () => setState(() => _q = _q.copyWith(clearCount: true, clearRatio: true)),
                   child: Text(l.t('tplReset')),
                 ),
-                const Spacer(),
-                PrimaryButton(
-                  expand: false,
-                  label: l.t('tplShowResults'),
-                  onPressed: () => Navigator.pop(context, _q),
+                const SizedBox(width: Space.sm),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: PrimaryButton(
+                      expand: false,
+                      label: l.t('tplShowResults'),
+                      onPressed: () => Navigator.pop(context, _q),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -387,7 +398,7 @@ class _Chip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[Icon(icon, size: 16, color: fg), const SizedBox(width: Space.xs)],
-                Text(label, style: style),
+                Flexible(child: Text(label, style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
               ],
             ),
           ),

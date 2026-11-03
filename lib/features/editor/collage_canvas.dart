@@ -20,6 +20,7 @@ import '../../widgets/poly_clipper.dart';
 import '../../widgets/sharpened.dart';
 import '../../widgets/sticker_image.dart';
 import '../../widgets/video_slot.dart';
+import 'canvas_zoom.dart';
 import 'cut_editor.dart';
 import 'editor_controller.dart';
 import 'slot_splits.dart';
@@ -776,7 +777,8 @@ class _EdgeEditorState extends State<_EdgeEditor> {
             Positioned(
               left: edgeMidpoint(_px(e.p), _px(e.q), shapes[e.key]).dx - hit / 2,
               top: edgeMidpoint(_px(e.p), _px(e.q), shapes[e.key]).dy - hit / 2,
-              child: Semantics(
+              child: ZoomInvariant(
+                child: Semantics(
                 button: true,
                 label: l.t('edgeSelect'),
                 child: GestureDetector(
@@ -803,6 +805,7 @@ class _EdgeEditorState extends State<_EdgeEditor> {
                   ),
                 ),
               ),
+              ),
             ),
         if (selected != null)
           for (final first in const [true, false])
@@ -813,7 +816,8 @@ class _EdgeEditorState extends State<_EdgeEditor> {
               return Positioned(
                 left: at.dx - hit / 2,
                 top: at.dy - hit / 2,
-                child: Semantics(
+                child: ZoomInvariant(
+                  child: Semantics(
                   label: l.t(first ? 'edgeControl1' : 'edgeControl2'),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -836,6 +840,7 @@ class _EdgeEditorState extends State<_EdgeEditor> {
                       ),
                     ),
                   ),
+                ),
                 ),
               );
             }),
@@ -1629,14 +1634,18 @@ class _ElementViewState extends State<_ElementView> {
     return Positioned(
       left: e.cx * W,
       top: e.cy * H,
-      // Locked layers let touches through to what lies below. Always in
-      // the tree so locking never rebuilds the layer.
-      child: IgnorePointer(
-        ignoring: e.locked,
-        child: FractionalTranslation(
+      child: FractionalTranslation(
         translation: const Offset(-0.5, -0.5),
         child: Transform.rotate(
           angle: e.rotation,
+          // Locked layers let touches through to what lies below. Always in
+          // the tree so locking never rebuilds the layer. It sits inside the
+          // translation and rotation because it bounds hits by its own box:
+          // above them, only the part of the element overlapping its
+          // unshifted layout box (the bottom-right quarter) took touches —
+          // the rest fell through to the photo beneath.
+          child: IgnorePointer(
+          ignoring: e.locked,
           child: AnimatedOpacity(
             // Over the trash the element fades and shrinks: "release to delete".
             opacity: doomed ? 0.45 : 1,
