@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/palette.dart';
 
 /// Renders a device photo by its photo_manager asset id, caching bytes in
@@ -106,7 +107,7 @@ class _PhotoImageState extends State<PhotoImage> {
     if (_bytes == null && _missing) {
       // The photo was deleted or renamed away: say so instead of spinning.
       return Semantics(
-        label: 'missing photo',
+        label: context.l10n.t('photoMissing'),
         child: ColoredBox(
           color: context.colors.surfaceInput,
           child: Center(

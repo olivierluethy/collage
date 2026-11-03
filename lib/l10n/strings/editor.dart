@@ -3,6 +3,7 @@
 // carry exactly the English key set (merged into AppLocalizations.maps).
 const Map<String, Map<String, String>> editorStrings = {
   'en': {
+    'photoMissing': 'Photo no longer on this device',
     'editPhoto': 'Edit photo',
     'resizeRotate': 'Resize and rotate',
     'elementDeleted': 'Deleted',
@@ -39,6 +40,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Straighten all',
   },
   'zh': {
+    'photoMissing': '照片已不在此设备上',
     'editPhoto': '编辑照片',
     'resizeRotate': '缩放和旋转',
     'elementDeleted': '已删除',
@@ -75,6 +77,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': '全部拉直',
   },
   'hi': {
+    'photoMissing': 'फ़ोटो अब इस डिवाइस पर नहीं है',
     'editPhoto': 'फ़ोटो संपादित करें',
     'resizeRotate': 'आकार बदलें और घुमाएँ',
     'elementDeleted': 'हटा दिया गया',
@@ -111,6 +114,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'सभी सीधे करें',
   },
   'es': {
+    'photoMissing': 'La foto ya no está en este dispositivo',
     'editPhoto': 'Editar foto',
     'resizeRotate': 'Cambiar tamaño y girar',
     'elementDeleted': 'Eliminado',
@@ -147,6 +151,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Enderezar todos',
   },
   'ar': {
+    'photoMissing': 'لم تعد الصورة على هذا الجهاز',
     'editPhoto': 'تعديل الصورة',
     'resizeRotate': 'تغيير الحجم والتدوير',
     'elementDeleted': 'تم الحذف',
@@ -183,6 +188,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'تقويم الكل',
   },
   'bn': {
+    'photoMissing': 'ছবিটি আর এই ডিভাইসে নেই',
     'editPhoto': 'ছবি সম্পাদনা',
     'resizeRotate': 'আকার বদলান ও ঘোরান',
     'elementDeleted': 'মুছে ফেলা হয়েছে',
@@ -219,6 +225,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'সব সোজা করুন',
   },
   'fr': {
+    'photoMissing': 'Cette photo n’est plus sur l’appareil',
     'editPhoto': 'Modifier la photo',
     'resizeRotate': 'Redimensionner et faire pivoter',
     'elementDeleted': 'Supprimé',
@@ -255,6 +262,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Tout redresser',
   },
   'ru': {
+    'photoMissing': 'Фото больше нет на устройстве',
     'editPhoto': 'Изменить фото',
     'resizeRotate': 'Размер и поворот',
     'elementDeleted': 'Удалено',
@@ -291,6 +299,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Выпрямить все',
   },
   'pt': {
+    'photoMissing': 'A foto não está mais neste dispositivo',
     'editPhoto': 'Editar foto',
     'resizeRotate': 'Redimensionar e girar',
     'elementDeleted': 'Excluído',
@@ -327,6 +336,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Endireitar todas',
   },
   'id': {
+    'photoMissing': 'Foto sudah tidak ada di perangkat ini',
     'editPhoto': 'Edit foto',
     'resizeRotate': 'Ubah ukuran dan putar',
     'elementDeleted': 'Dihapus',
@@ -363,6 +373,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Luruskan semua',
   },
   'de': {
+    'photoMissing': 'Foto ist nicht mehr auf diesem Gerät',
     'editPhoto': 'Foto bearbeiten',
     'resizeRotate': 'Grösse ändern und drehen',
     'elementDeleted': 'Gelöscht',
@@ -399,6 +410,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Alle begradigen',
   },
   'ja': {
+    'photoMissing': 'この写真は端末にありません',
     'editPhoto': '写真を編集',
     'resizeRotate': 'サイズ変更と回転',
     'elementDeleted': '削除しました',
@@ -435,6 +447,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'すべて直線に戻す',
   },
   'tr': {
+    'photoMissing': 'Fotoğraf artık bu cihazda değil',
     'editPhoto': 'Fotoğrafı düzenle',
     'resizeRotate': 'Boyutlandır ve döndür',
     'elementDeleted': 'Silindi',
@@ -471,6 +484,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Tümünü düzleştir',
   },
   'it': {
+    'photoMissing': 'La foto non è più sul dispositivo',
     'editPhoto': 'Modifica foto',
     'resizeRotate': 'Ridimensiona e ruota',
     'elementDeleted': 'Eliminato',
@@ -507,6 +521,7 @@ const Map<String, Map<String, String>> editorStrings = {
     'edgeStraightenAll': 'Raddrizza tutti',
   },
   'ko': {
+    'photoMissing': '이 기기에 더 이상 없는 사진',
     'editPhoto': '사진 편집',
     'resizeRotate': '크기 조절 및 회전',
     'elementDeleted': '삭제됨',
