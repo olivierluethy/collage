@@ -1,0 +1,4 @@
+/* Permission texts shown by iOS. Keep in step with Info.plist (English). */
+"NSPhotoLibraryUsageDescription" = "O Collage precisa de acesso às suas fotos para você escolher as imagens da colagem.";
+"NSContactsUsageDescription" = "Só se você optar por importar aniversários: o Collage lê nomes e datas de aniversário para sugerir uma colagem antes do dia. Eles ficam neste aparelho.";
+"NSPhotoLibraryAddUsageDescription" = "O Collage salva a colagem pronta na sua biblioteca de fotos.";

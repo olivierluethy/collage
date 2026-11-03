@@ -1,0 +1,4 @@
+/* Permission texts shown by iOS. Keep in step with Info.plist (English). */
+"NSPhotoLibraryUsageDescription" = "Collage, kolajın için fotoğraf seçebilmen için fotoğraflarına erişmek ister.";
+"NSContactsUsageDescription" = "Yalnızca doğum günlerini içe aktarmayı seçersen: Collage, günden önce bir kolaj önermek için adları ve doğum günlerini okur. Bunlar bu cihazda kalır.";
+"NSPhotoLibraryAddUsageDescription" = "Collage, bitmiş kolajını fotoğraf arşivine kaydeder.";

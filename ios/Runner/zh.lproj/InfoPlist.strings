@@ -1,0 +1,4 @@
+/* Permission texts shown by iOS. Keep in step with Info.plist (English). */
+"NSPhotoLibraryUsageDescription" = "Collage 需要访问你的照片，以便你为拼图挑选图片。";
+"NSContactsUsageDescription" = "仅当你选择导入生日时：Collage 会读取姓名和生日，在当天之前为你推荐拼图。这些信息只保存在本设备上。";
+"NSPhotoLibraryAddUsageDescription" = "Collage 会把完成的拼图保存到你的照片图库。";

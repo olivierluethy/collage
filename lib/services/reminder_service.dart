@@ -130,6 +130,34 @@ class ReminderService {
   Stream<String> get taps => _taps.stream;
 
   static const exportPayload = 'export';
+  static const memoryPayload = 'memory';
+
+  /// Prefix of an occasion reminder's payload; the rest is
+  /// [OccasionDate.key], so a tap can open exactly that occurrence (a
+  /// birthday names its person).
+  static const occasionPayloadPrefix = 'occ:';
+
+  static String occasionPayload(OccasionDate o) => '$occasionPayloadPrefix${o.key}';
+
+  /// The occurrence a tapped reminder was about, looked up in [candidates].
+  /// Also understands payloads scheduled by older versions (a bare occasion
+  /// id): those resolve to the first candidate with that id, so pass the
+  /// candidates in date order. Null for export/memory payloads or when the
+  /// occasion is gone (e.g. a deleted birthday).
+  static OccasionDate? matchOccasionPayload(String payload, Iterable<OccasionDate> candidates) {
+    if (payload == exportPayload || payload == memoryPayload) return null;
+    if (payload.startsWith(occasionPayloadPrefix)) {
+      final key = payload.substring(occasionPayloadPrefix.length);
+      for (final o in candidates) {
+        if (o.key == key) return o;
+      }
+      return null;
+    }
+    for (final o in candidates) {
+      if (o.id == payload && o.birthday == null) return o;
+    }
+    return null;
+  }
 
   static const _channelId = 'occasion_reminders';
   static const _exportChannelId = 'export_done';
@@ -252,7 +280,7 @@ class ReminderService {
                     ? l.t('remMemoryTitleOne')
                     : l.a('remMemoryTitle', {'years': '${m.yearsAgo}'})),
             body: o != null ? l.t('remBody') : l.t('remMemoryBody'),
-            payload: o?.id ?? 'memory',
+            payload: o != null ? occasionPayload(o) : memoryPayload,
           );
         }
       });

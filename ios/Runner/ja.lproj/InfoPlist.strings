@@ -1,0 +1,4 @@
+/* Permission texts shown by iOS. Keep in step with Info.plist (English). */
+"NSPhotoLibraryUsageDescription" = "コラージュに使う写真を選べるよう、Collage は写真へのアクセスを必要とします。";
+"NSContactsUsageDescription" = "誕生日を読み込む場合のみ：Collage は名前と誕生日を読み取り、当日の前にコラージュを提案します。情報はこのデバイスにのみ保存されます。";
+"NSPhotoLibraryAddUsageDescription" = "Collage は完成したコラージュを写真ライブラリに保存します。";
