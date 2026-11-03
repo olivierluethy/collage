@@ -29,10 +29,6 @@ const Map<String, String> ko = {
   'discoverTitle': '나의 순간을 찾아보세요',
   'discoverMessage': '사진 접근을 켜면 Collage가 사진을 찍은 장소와 시간을 바탕으로 바로 쓸 수 있는 콜라주를 제안해 줘요.',
   'turnOnPhotos': '사진 켜기',
-  'findingMoments': '순간을 찾는 중…',
-  'noMomentsTitle': '아직 순간이 없어요',
-  'noMomentsMessage': '밖에서 사진을 몇 장 찍고 다시 돌아오세요 — Collage가 장소와 날짜별로 묶어 드려요.',
-  'tapMomentHint': '순간을 탭하면 콜라주로 만들 수 있어요.',
   'momentSubtitle': '{subtitle} · 사진 {count}장',
 
   // Permission

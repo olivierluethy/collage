@@ -29,10 +29,6 @@ const Map<String, String> ar = {
   'discoverTitle': 'اكتشف لحظاتك',
   'discoverMessage': 'فعّل الوصول إلى الصور وسيقترح Collage كولاجات جاهزة حسب مكان صورك وزمانها.',
   'turnOnPhotos': 'تفعيل الصور',
-  'findingMoments': 'جارٍ البحث عن لحظاتك…',
-  'noMomentsTitle': 'لا توجد لحظات بعد',
-  'noMomentsMessage': 'التقط بعض الصور في الخارج ثم عُد — سيجمع Collage صورك حسب المكان واليوم.',
-  'tapMomentHint': 'اضغط على لحظة لتحويلها إلى كولاج.',
   'momentSubtitle': '{subtitle} · {count} صور',
 
   // Permission

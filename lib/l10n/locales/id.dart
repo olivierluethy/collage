@@ -29,10 +29,6 @@ const Map<String, String> id = {
   'discoverTitle': 'Temukan momenmu',
   'discoverMessage': 'Aktifkan akses foto dan Collage akan menyarankan kolase siap pakai berdasarkan tempat dan waktu fotomu diambil.',
   'turnOnPhotos': 'Aktifkan foto',
-  'findingMoments': 'Mencari momenmu…',
-  'noMomentsTitle': 'Belum ada momen',
-  'noMomentsMessage': 'Ambil beberapa foto di luar, lalu kembali lagi — Collage akan mengelompokkannya berdasarkan tempat dan hari untukmu.',
-  'tapMomentHint': 'Ketuk momen untuk mengubahnya menjadi kolase.',
   'momentSubtitle': '{subtitle} · {count} foto',
 
   // Permission

@@ -29,10 +29,6 @@ const Map<String, String> ja = {
   'discoverTitle': '思い出を見つけよう',
   'discoverMessage': '写真へのアクセスをオンにすると、Collage が撮影した場所と日時から、すぐに使えるコラージュを提案します。',
   'turnOnPhotos': '写真をオンにする',
-  'findingMoments': '思い出を探しています…',
-  'noMomentsTitle': 'まだ思い出がありません',
-  'noMomentsMessage': '外出先で写真を何枚か撮ってからもう一度開いてください — Collage が場所と日付ごとにまとめます。',
-  'tapMomentHint': '思い出をタップするとコラージュにできます。',
   'momentSubtitle': '{subtitle} · 写真 {count} 枚',
 
   // Permission

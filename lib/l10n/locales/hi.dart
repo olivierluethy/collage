@@ -29,10 +29,6 @@ const Map<String, String> hi = {
   'discoverTitle': 'अपने पल खोजें',
   'discoverMessage': 'फ़ोटो एक्सेस चालू करें और Collage आपकी फ़ोटो कहाँ और कब ली गईं, उसके आधार पर तैयार कोलाज सुझाएगा।',
   'turnOnPhotos': 'फ़ोटो चालू करें',
-  'findingMoments': 'आपके पल खोजे जा रहे हैं…',
-  'noMomentsTitle': 'अभी कोई पल नहीं',
-  'noMomentsMessage': 'बाहर कुछ फ़ोटो लें, फिर वापस आएँ — Collage उन्हें जगह और दिन के हिसाब से समूहित करेगा।',
-  'tapMomentHint': 'किसी पल पर टैप करें और उसे कोलाज में बदलें।',
   'momentSubtitle': '{subtitle} · {count} फ़ोटो',
 
   // Permission

@@ -29,10 +29,6 @@ const Map<String, String> tr = {
   'discoverTitle': 'Anlarını keşfet',
   'discoverMessage': 'Fotoğraf erişimini aç; Collage fotoğraflarının nerede ve ne zaman çekildiğine göre hazır kolajlar önerir.',
   'turnOnPhotos': 'Fotoğrafları aç',
-  'findingMoments': 'Anların bulunuyor…',
-  'noMomentsTitle': 'Henüz an yok',
-  'noMomentsMessage': 'Dışarıda birkaç fotoğraf çek, sonra geri dön — Collage onları senin için yere ve güne göre gruplandırır.',
-  'tapMomentHint': 'Bir anı kolaja dönüştürmek için dokun.',
   'momentSubtitle': '{subtitle} · {count} fotoğraf',
 
   // Permission

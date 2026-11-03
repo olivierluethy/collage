@@ -29,10 +29,6 @@ const Map<String, String> bn = {
   'discoverTitle': 'আপনার মুহূর্তগুলো খুঁজুন',
   'discoverMessage': 'ছবির অ্যাক্সেস চালু করুন, Collage আপনার ছবি কোথায় ও কখন তোলা হয়েছে তার ভিত্তিতে তৈরি কোলাজ সাজিয়ে দেবে।',
   'turnOnPhotos': 'ছবি চালু করুন',
-  'findingMoments': 'আপনার মুহূর্ত খোঁজা হচ্ছে…',
-  'noMomentsTitle': 'এখনও কোনো মুহূর্ত নেই',
-  'noMomentsMessage': 'বাইরে কিছু ছবি তুলুন, তারপর ফিরে আসুন — Collage সেগুলো জায়গা ও দিন অনুযায়ী সাজিয়ে দেবে।',
-  'tapMomentHint': 'কোনো মুহূর্তে ট্যাপ করে সেটিকে কোলাজে বদলান।',
   'momentSubtitle': '{subtitle} · {count} ছবি',
 
   // Permission
