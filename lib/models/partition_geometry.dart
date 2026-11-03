@@ -231,9 +231,9 @@ class PartitionGeometry {
   // -------------------------------------------------------------------------
 
   /// [cells] with the shared point [vertex] moved towards [target] under the
-  /// topology rules above, or null when nothing would change or the result
-  /// would be invalid.
-  static List<LayoutSlot>? moveVertex(List<LayoutSlot> cells, Offset vertex, Offset target) {
+  /// topology rules above, plus where the point ended up; null when nothing
+  /// would change or the result would be invalid.
+  static ({List<LayoutSlot> cells, Offset at})? moveVertex(List<LayoutSlot> cells, Offset vertex, Offset target) {
     Offset moved;
     // Per cell: how to rewrite it. Replace the vertex, or keep the corner and
     // add the moved point before / after it.
@@ -294,7 +294,7 @@ class PartitionGeometry {
       out.add(LayoutSlot.poly(cell.id, dedupe(next)));
     }
     if (changed.isEmpty) return null;
-    return _valid(cells, out, changed) ? out : null;
+    return _valid(cells, out, changed) ? (cells: out, at: moved) : null;
   }
 
   /// Insert a new point into the cut [p]–[q] shared by cells [a] and [b], at

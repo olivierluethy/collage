@@ -19,6 +19,7 @@ import '../../widgets/poly_clipper.dart';
 import '../../widgets/sharpened.dart';
 import '../../widgets/sticker_image.dart';
 import '../../widgets/video_slot.dart';
+import 'cut_editor.dart';
 import 'editor_controller.dart';
 import 'slot_splits.dart';
 
@@ -101,7 +102,11 @@ class CollageCanvas extends StatelessWidget {
                   // Edge shaping: a handle on every shared edge, plus the
                   // Bézier control points of the selected one.
                   if (interactive && c.edgeEditing)
-                    Positioned.fill(child: _EdgeEditor(controller: c, content: _content(c, size))),
+                    Positioned.fill(
+                      child: c.cutMode == CutMode.points
+                          ? CutPointEditor(controller: c, content: _content(c, size))
+                          : _EdgeEditor(controller: c, content: _content(c, size)),
+                    ),
                   // Draw mode: a full-canvas layer that captures strokes.
                   if (interactive && c.drawing)
                     Positioned.fill(child: _DrawLayer(controller: c, canvas: size)),
@@ -225,7 +230,10 @@ class CollageCanvas extends StatelessWidget {
           split: sp,
           content: content,
         ),
+      // Bent cuts (several pieces between the same cells) are reshaped by
+      // their points in the cut editor; a pill per piece would only clutter.
       for (final sp in c.polySplits)
+        if (c.polySplits.where((o) => o.slots.length == sp.slots.length && o.slots.containsAll(sp.slots)).length == 1)
         _PolySplitHandle(
           key: ValueKey('poly:${(sp.slots.toList()..sort()).join(',')}'),
           controller: c,

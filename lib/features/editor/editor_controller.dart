@@ -9,10 +9,14 @@ import '../../models/aspect_adapt.dart';
 import '../../models/canvas_element.dart';
 import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
+import '../../models/partition_geometry.dart';
 import '../../models/photo_filter.dart';
 import '../../services/vision_service.dart';
 import '../../widgets/curved_edges.dart';
 import 'slot_splits.dart';
+
+/// What the cut editor manipulates (see [EditorController.cutMode]).
+enum CutMode { points, curves }
 
 /// Holds the collage being edited plus selection state, and exposes every
 /// mutation the editor UI performs. A plain [ChangeNotifier] so the canvas and
@@ -159,6 +163,8 @@ class EditorController extends ChangeNotifier {
     if (selectedEdgeKey != null && !sharedEdges.any((e) => e.key == selectedEdgeKey)) {
       selectedEdgeKey = null;
     }
+    _vertexDrag = null;
+    if (selectedVertexKey != null && selectedVertex == null) selectedVertexKey = null;
     if (selectedElementId != null && !project.elements.any((e) => e.id == selectedElementId)) {
       selectedElementId = null;
     }
@@ -497,7 +503,191 @@ class EditorController extends ChangeNotifier {
   void endEdgeEditing() {
     edgeEditing = false;
     selectedEdgeKey = null;
+    selectedVertexKey = null;
+    cutGuideX = null;
+    cutGuideY = null;
+    _vertexDrag = null;
     notifyListeners();
+  }
+
+  // ---- cut points (editable partitions) --------------------------------------
+  /// What the cut editor manipulates: the points where cuts meet (move, add,
+  /// remove — diagonals, zigzags, asymmetric polygons) or the curve of each
+  /// cut (Bézier bend and teeth).
+  CutMode cutMode = CutMode.points;
+
+  void setCutMode(CutMode m) {
+    if (cutMode == m) return;
+    cutMode = m;
+    _vertexDrag = null;
+    notifyListeners();
+  }
+
+  /// The selected cut point, by [PartitionVertex.key].
+  String? selectedVertexKey;
+
+  /// Content-area fractions where a dragged cut point is snapped (guides).
+  double? cutGuideX;
+  double? cutGuideY;
+
+  /// Every point shared by two or more cells, of the polygon equivalent of
+  /// the layout (rectangles are converted on the first real change).
+  List<PartitionVertex> get partitionVertices => _geo.vertices;
+
+  PartitionVertex? get selectedVertex {
+    final k = selectedVertexKey;
+    if (k == null) return null;
+    for (final v in partitionVertices) {
+      if (v.key == k) return v;
+    }
+    return null;
+  }
+
+  void selectVertex(String? key) {
+    selectedVertexKey = key;
+    _selectCutAt(selectedVertex?.at);
+    notifyListeners();
+  }
+
+  /// Make a cut touching [at] the selected one, so the panel's cut actions
+  /// apply to what the user just grabbed.
+  void _selectCutAt(Offset? at) {
+    if (at == null) return;
+    final cur = selectedEdgeKey;
+    final touching = [
+      for (final e in sharedEdges)
+        if (PartitionGeometry.near(e.p, at) || PartitionGeometry.near(e.q, at)) e.key,
+    ];
+    if (touching.isEmpty || (cur != null && touching.contains(cur))) return;
+    selectedEdgeKey = touching.first;
+  }
+
+  /// Cells and point as they were when the current point drag began; every
+  /// update is applied to this start state, so a drag that crosses an
+  /// invalid position resumes cleanly once it is valid again.
+  ({List<LayoutSlot> cells, Offset at})? _vertexDrag;
+
+  void beginVertexDrag(PartitionVertex v) {
+    _vertexDrag = (cells: _geo.polygons, at: v.at);
+    selectedVertexKey = v.key;
+    _selectCutAt(v.at);
+    notifyListeners();
+  }
+
+  /// Move the dragged point to [target] (content-area fractions), snapping
+  /// to thirds/halves and to other points. Returns false (leaving the
+  /// layout as it is) when that position would break the partition.
+  bool dragVertexTo(Offset target, {bool snap = true}) {
+    final d = _vertexDrag;
+    if (d == null) return false;
+    var t = target;
+    if (snap) {
+      final others = [for (final v in partitionVertices) if (!PartitionGeometry.near(v.at, d.at)) v.at];
+      final (p, gx, gy) = PartitionGeometry.snap(target, others);
+      t = p;
+      cutGuideX = gx;
+      cutGuideY = gy;
+    }
+    final r = PartitionGeometry.moveVertex(d.cells, d.at, t);
+    if (r == null) {
+      notifyListeners();
+      return false;
+    }
+    _setSlots(r.cells);
+    selectedVertexKey = PartitionVertex(r.at, const {}).key;
+    return true;
+  }
+
+  void endVertexDrag() {
+    _vertexDrag = null;
+    cutGuideX = null;
+    cutGuideY = null;
+    notifyListeners();
+  }
+
+  /// Nudge the selected point by [delta] (content fractions) — the keyboard
+  /// and screen-reader alternative to dragging.
+  bool nudgeSelectedVertex(Offset delta) {
+    final v = selectedVertex;
+    if (v == null) return false;
+    beginVertexDrag(v);
+    final ok = dragVertexTo(v.at + delta, snap: false);
+    _vertexDrag = null;
+    return ok;
+  }
+
+  /// Select [v] and nudge it (screen-reader custom actions).
+  bool nudgeSelectedVertexOr(PartitionVertex v, Offset delta) {
+    selectedVertexKey = v.key;
+    return nudgeSelectedVertex(delta);
+  }
+
+  /// Add a point in the middle of the cut [edge] and select it, ready to be
+  /// dragged into a zigzag or an asymmetric polygon.
+  bool insertCutPoint(SharedEdge edge, {Offset? at}) {
+    final next = PartitionGeometry.insertVertex(_geo.polygons, a: edge.a, b: edge.b, p: edge.p, q: edge.q, at: at);
+    if (next == null) return false;
+    _setSlots(next);
+    selectedVertexKey = PartitionVertex(at ?? (edge.p + edge.q) / 2, const {}).key;
+    selectedEdgeKey = edge.key;
+    return true;
+  }
+
+  /// Remove the selected point when it only bends one cut.
+  bool removeSelectedVertex() {
+    final v = selectedVertex;
+    if (v == null || !v.removable) return false;
+    final next = PartitionGeometry.removeVertex(_geo.polygons, v.at);
+    if (next == null) return false;
+    selectedVertexKey = null;
+    _setSlots(next);
+    return true;
+  }
+
+  /// The two cells of [key] ("a|b").
+  (String, String) _pair(String key) {
+    final ids = key.split('|');
+    return (ids.first, ids.last);
+  }
+
+  /// Layout with the curve of [key] removed (cut points replace it).
+  List<EdgeShape> _edgesWithout(String key) => [for (final e in project.layout.edges) if (e.key != key) e];
+
+  /// Turn the cut [key] into an editable zigzag: it is straightened first,
+  /// then every straight piece gets [teeth] teeth whose points can each be
+  /// dragged. A Bézier/teeth shape on that cut is dropped (the points are
+  /// the shape now).
+  bool zigzagCut(String key, {int teeth = 4, double amplitude = 0.06}) {
+    final (a, b) = _pair(key);
+    var cells = PartitionGeometry.straightenCut(_geo.polygons, a, b);
+    final pieces = [for (final e in findSharedEdges(cells)) if (e.key == key) e];
+    if (pieces.isEmpty) return false;
+    for (final e in pieces) {
+      final next = PartitionGeometry.zigzag(cells, a: a, b: b, p: e.p, q: e.q, teeth: teeth, amplitude: amplitude);
+      if (next != null) cells = next;
+    }
+    _setLayout(cells, _edgesWithout(key));
+    return true;
+  }
+
+  /// Remove every bend point and curve from the cut [key].
+  void straightenCut(String key) {
+    final (a, b) = _pair(key);
+    _setLayout(PartitionGeometry.straightenCut(_geo.polygons, a, b), _edgesWithout(key));
+  }
+
+  /// Angle (degrees) of the cut [key] on the canvas when it is one straight
+  /// piece; null for bent cuts.
+  double? cutAngle(String key) {
+    final pieces = [for (final e in sharedEdges) if (e.key == key) e];
+    if (pieces.length != 1) return null;
+    return PartitionGeometry.angleDegrees(pieces.first.p, pieces.first.q, project.ratio.value);
+  }
+
+  void _setLayout(List<LayoutSlot> slots, List<EdgeShape> edges) {
+    final l = project.layout;
+    project.layout = LayoutTemplate(id: l.id, name: l.name, family: l.family, slots: slots, custom: true, edges: edges);
+    _touch();
   }
 
   void selectEdge(String? key) {
@@ -1069,6 +1259,7 @@ class _GeometryCache {
   /// shaping and point editing operate on.
   late final List<LayoutSlot> polygons = _needsPolygons ? polygonizeSlots(slots) : slots;
   late final List<SharedEdge> sharedEdges = findSharedEdges(polygons);
+  late final List<PartitionVertex> vertices = PartitionGeometry.vertices(polygons);
 
   late final Map<String, EdgeShape> _edgeMap = layout.edgeMap;
   final Map<String, Map<int, (EdgeShape, bool)>> _curved = {};
