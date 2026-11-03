@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'photo_layer.dart';
+
 import '../data/fonts.dart';
 import '../data/template_catalog.dart';
 import '../data/shape_catalog.dart';
@@ -50,7 +52,7 @@ class TemplateThumbnail extends StatelessWidget {
                   ),
                 ),
               ),
-              for (final e in elements)
+              for (final e in elements.where((e) => !e.hidden))
                 _element(context, e, w, h),
             ],
           );
@@ -89,7 +91,11 @@ class TemplateThumbnail extends StatelessWidget {
         child = SizedBox(
           width: size,
           height: size / im.aspectRatio,
-          child: ColoredBox(color: Colors.white.withValues(alpha: 0.2)),
+          // The layer's shape, so a star or oval photo reads in the preview.
+          child: ClipPath(
+            clipper: _PhotoLayerClip(im),
+            child: ColoredBox(color: Colors.white.withValues(alpha: 0.2)),
+          ),
         );
       case DrawingElement d:
         final size = d.naturalWidthFrac * w * d.scale;
@@ -128,4 +134,15 @@ class TemplateThumbnail extends StatelessWidget {
         BackgroundKind.pattern => bg.patternBg,
         BackgroundKind.image => const Color(0xFF1A1714),
       };
+}
+
+class _PhotoLayerClip extends CustomClipper<Path> {
+  _PhotoLayerClip(this.element);
+  final ImageElement element;
+
+  @override
+  Path getClip(Size size) => photoLayerMask(element, size);
+
+  @override
+  bool shouldReclip(_PhotoLayerClip old) => old.element != element;
 }
