@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../models/partition_geometry.dart';
+
 /// Geometry helpers for polygon (non-rectangular) collage cells.
 ///
 /// A cell is a convex polygon in some coordinate space (normalised 0..1 in a
@@ -29,53 +31,12 @@ Path polygonPath(List<Offset> pts) {
   return path;
 }
 
-Offset _normalize(Offset v) {
-  final d = v.distance;
-  return d == 0 ? v : v / d;
-}
-
-Offset? _intersect(Offset p1, Offset d1, Offset p2, Offset d2) {
-  final denom = d1.dx * d2.dy - d1.dy * d2.dx;
-  if (denom.abs() < 1e-9) return null; // parallel
-  final diff = p2 - p1;
-  final t = (diff.dx * d2.dy - diff.dy * d2.dx) / denom;
-  return p1 + d1 * t;
-}
-
-/// Inset a convex polygon inward by [d] along each edge's inward normal, so
-/// adjacent cells leave an even gap of `2*d`. Returns the input unchanged for
-/// degenerate cases. Works reliably for the convex cells our templates use.
-List<Offset> insetConvexPolygon(List<Offset> pts, double d) {
-  final n = pts.length;
-  if (n < 3 || d <= 0) return pts;
-  final c = polygonCentroid(pts);
-
-  // Each edge shifted inward: keep a point on it and its direction.
-  final shiftedPoints = <Offset>[];
-  final dirs = <Offset>[];
-  for (var i = 0; i < n; i++) {
-    final a = pts[i];
-    final b = pts[(i + 1) % n];
-    final dir = _normalize(b - a);
-    var nrm = Offset(-dir.dy, dir.dx);
-    final mid = (a + b) / 2;
-    if (nrm.dx * (c.dx - mid.dx) + nrm.dy * (c.dy - mid.dy) < 0) {
-      nrm = -nrm; // ensure it points inward (toward the centroid)
-    }
-    shiftedPoints.add(a + nrm * d);
-    dirs.add(dir);
-  }
-
-  // Each output vertex is where the two shifted edges meeting there cross.
-  final out = <Offset>[];
-  for (var i = 0; i < n; i++) {
-    final prev = (i - 1 + n) % n;
-    final p = _intersect(shiftedPoints[prev], dirs[prev], shiftedPoints[i], dirs[i]);
-    // Parallel neighbours (a collinear junction vertex) shift with their edge.
-    out.add(p ?? shiftedPoints[i]);
-  }
-  return out;
-}
+/// Inset a cell polygon inward by [d] along each edge's inward normal, so
+/// adjacent cells leave an even gap of `2*d`. Works for convex cells and for
+/// the concave ones produced by dragging cut points (the inward side comes
+/// from the winding; see [PartitionGeometry.inset]). Returns the input
+/// unchanged for degenerate cases.
+List<Offset> insetConvexPolygon(List<Offset> pts, double d) => PartitionGeometry.inset(pts, d);
 
 /// Clips a child to a polygon given in the child's local pixel coordinates.
 /// Because `ClipPath` also clips pointer hit-testing, taps in the bounding-box
