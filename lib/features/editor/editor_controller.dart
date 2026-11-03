@@ -9,6 +9,7 @@ import '../../models/collage_project.dart';
 import '../../models/layout_template.dart';
 import '../../models/photo_filter.dart';
 import '../../services/vision_service.dart';
+import '../../widgets/curved_edges.dart';
 import 'slot_splits.dart';
 
 /// Holds the collage being edited plus selection state, and exposes every
@@ -108,6 +109,11 @@ class EditorController extends ChangeNotifier {
     replaceCandidate = null;
     guideX = null;
     guideY = null;
+    draggingElementId = null;
+    overTrash = false;
+    if (selectedEdgeKey != null && !sharedEdges.any((e) => e.key == selectedEdgeKey)) {
+      selectedEdgeKey = null;
+    }
     if (selectedElementId != null && !project.elements.any((e) => e.id == selectedElementId)) {
       selectedElementId = null;
     }
@@ -208,6 +214,7 @@ class EditorController extends ChangeNotifier {
   void endSlotDrag() {
     dragSourceSlot = null;
     dragOverSlot = null;
+    overTrash = false;
     notifyListeners();
   }
 
@@ -378,7 +385,86 @@ class EditorController extends ChangeNotifier {
   /// the change is saved with the collage.
   void _setSlots(List<LayoutSlot> slots) {
     final l = project.layout;
-    project.layout = LayoutTemplate(id: l.id, name: l.name, family: l.family, slots: slots, custom: true);
+    project.layout = LayoutTemplate(
+      id: l.id,
+      name: l.name,
+      family: l.family,
+      slots: slots,
+      custom: true,
+      edges: l.edges,
+    );
+    _touch();
+  }
+
+  // ---- curved / zigzag edges ------------------------------------------------
+  /// While true the canvas shows a handle on every interior edge so its shape
+  /// can be edited; cell resizing handles are hidden meanwhile.
+  bool edgeEditing = false;
+
+  /// The shared edge (by [EdgeShape.key]) whose shape is being edited.
+  String? selectedEdgeKey;
+
+  /// Interior edges shared by exactly two cells (polygon layouts only).
+  List<SharedEdge> get sharedEdges => findSharedEdges(project.layout.slots);
+
+  /// The shape of [key], straight when it has none yet.
+  EdgeShape edgeShape(String key) {
+    final found = project.layout.edgeMap[key];
+    if (found != null) return found;
+    final ids = key.split('|');
+    return EdgeShape(a: ids.first, b: ids.last);
+  }
+
+  /// Enter edge editing. Rectangular layouts are turned into the equivalent
+  /// polygons first (with T-junction corners split), so every boundary
+  /// between two cells becomes an edge that can be shaped. The photos and
+  /// their framing are untouched.
+  void startEdgeEditing() {
+    clearSelection();
+    final slots = project.layout.slots;
+    final needsPolys = slots.any((s) => !s.isPolygon) || sharedEdges.isEmpty;
+    if (needsPolys && slots.length > 1) _setSlots(polygonizeSlots(slots));
+    edgeEditing = true;
+    final edges = sharedEdges;
+    selectedEdgeKey = edges.isEmpty ? null : edges.first.key;
+    notifyListeners();
+  }
+
+  void endEdgeEditing() {
+    edgeEditing = false;
+    selectedEdgeKey = null;
+    notifyListeners();
+  }
+
+  void selectEdge(String? key) {
+    selectedEdgeKey = key;
+    notifyListeners();
+  }
+
+  /// Replace the shape of one edge (or of every shared edge with [all]).
+  void setEdgeShape(String key, EdgeShape Function(EdgeShape s) fn, {bool all = false}) {
+    final l = project.layout;
+    final map = l.edgeMap;
+    final keys = all ? [for (final e in sharedEdges) e.key] : [key];
+    for (final k in keys) {
+      map[k] = fn(edgeShape(k));
+    }
+    project.layout = LayoutTemplate(
+      id: l.id,
+      name: l.name,
+      family: l.family,
+      slots: l.slots,
+      custom: true,
+      edges: [for (final e in map.values) if (!e.isStraight) e],
+    );
+    _touch();
+  }
+
+  /// Straighten every edge again.
+  void straightenAllEdges() {
+    final l = project.layout;
+    if (l.edges.isEmpty) return;
+    project.layout = LayoutTemplate(id: l.id, name: l.name, family: l.family, slots: l.slots, custom: true);
     _touch();
   }
 
@@ -533,6 +619,74 @@ class EditorController extends ChangeNotifier {
   void addToPool(String assetId) {
     if (!_pool.contains(assetId)) _pool.add(assetId);
     notifyListeners();
+  }
+
+  /// Apply a new photo selection from the picker: photos no longer selected
+  /// leave the pool and their slots are emptied (every other slot keeps its
+  /// framing, filter and style); new photos join the pool and fill empty
+  /// slots in order. One undo step.
+  void applyPhotoSelection(List<String> selection) {
+    final keep = selection.toSet();
+    _pool.removeWhere((id) => !keep.contains(id));
+    project.fills.removeWhere((_, f) => !f.isVideo && !keep.contains(f.assetId));
+    project.elements.removeWhere((e) => e is ImageElement && !keep.contains(e.assetId));
+    for (final id in selection) {
+      if (!_pool.contains(id)) _pool.add(id);
+    }
+    if (selectedSlotId != null && !project.fills.containsKey(selectedSlotId)) selectedSlotId = null;
+    if (project.layout.slots.isNotEmpty) {
+      autofill();
+    } else {
+      _touch();
+    }
+  }
+
+  /// The photos currently in the collage, in slot order, followed by picked
+  /// photos not placed yet — what the picker shows as already selected.
+  List<String> get selectedPhotos {
+    final out = <String>[];
+    for (final s in project.layout.slots) {
+      final f = project.fills[s.id];
+      if (f != null && !f.isVideo && !out.contains(f.assetId)) out.add(f.assetId);
+    }
+    for (final e in project.elements) {
+      if (e is ImageElement && !out.contains(e.assetId)) out.add(e.assetId);
+    }
+    for (final id in _pool) {
+      if (!out.contains(id)) out.add(id);
+    }
+    return out;
+  }
+
+  // ---- drag to trash ----------------------------------------------------------
+  /// The overlay element being dragged by one finger (shows the trash target).
+  String? draggingElementId;
+
+  /// The finger is over the trash target: releasing deletes.
+  bool overTrash = false;
+
+  /// The trash target is showing: an element or a slot photo is being dragged.
+  bool get showTrash => draggingElementId != null || dragSourceSlot != null;
+
+  void beginElementDrag(String id) {
+    if (draggingElementId == id) return;
+    draggingElementId = id;
+    notifyListeners();
+  }
+
+  void setOverTrash(bool v) {
+    if (overTrash == v) return;
+    overTrash = v;
+    notifyListeners();
+  }
+
+  /// Ends an element drag; returns true when it was released over the trash.
+  bool endElementDrag() {
+    final dropped = overTrash && draggingElementId != null;
+    draggingElementId = null;
+    overTrash = false;
+    notifyListeners();
+    return dropped;
   }
 
   // ---- layout / ratio -----------------------------------------------------

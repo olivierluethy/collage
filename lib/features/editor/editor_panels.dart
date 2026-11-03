@@ -445,8 +445,11 @@ class _PresetChip extends StatelessWidget {
 }
 
 class LayoutPanel extends StatelessWidget {
-  const LayoutPanel({super.key, required this.c});
+  const LayoutPanel({super.key, required this.c, this.onShapeEdges});
   final EditorController c;
+
+  /// Open edge shaping (curves, waves, zigzags between the photos).
+  final VoidCallback? onShapeEdges;
 
   /// Build a layout by hand (the custom template builder) and apply it.
   Future<void> _makeCustom(BuildContext context, int count) async {
@@ -470,6 +473,7 @@ class LayoutPanel extends StatelessWidget {
           if (current.slots.isNotEmpty && !presets.any((t) => t.id == current.id)) current,
           LayoutTemplates.freeform,
         ];
+        final canShape = onShapeEdges != null && current.slots.length > 1;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -529,8 +533,15 @@ class LayoutPanel extends StatelessWidget {
                   crossAxisSpacing: Space.sm,
                   childAspectRatio: 0.9,
                 ),
-                itemCount: options.length + 1,
+                itemCount: options.length + (canShape ? 2 : 1),
                 itemBuilder: (_, i) {
+                  if (i == options.length + 1) {
+                    return _ExtraTile(
+                      icon: Icons.gesture_rounded,
+                      label: context.l10n.t('edgeShapeTool'),
+                      onTap: onShapeEdges!,
+                    );
+                  }
                   if (i == options.length) {
                     return Tooltip(
                       message: context.l10n.t('customLayout'),
@@ -591,6 +602,48 @@ class LayoutPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// An action tile at the end of the arrangement grid (e.g. shape the edges).
+class _ExtraTile extends StatelessWidget {
+  const _ExtraTile({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Radii.control),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.control),
+              border: Border.all(color: context.colors.lineStrong),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: context.colors.amber),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.caption.copyWith(color: context.colors.textMid),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
