@@ -10,6 +10,17 @@
 	<string>Only if you choose to import birthdays: Collage reads names and birthdays to suggest a collage a week ahead. They stay on this device.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Collage saves your finished collage to your photo library.</string>
+	<!-- Exported PDFs are kept in the app's Documents folder; these two keys
+	     make it visible in the Files app under On My iPhone > Collage. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>shareddocuments</string>
+		<string>photos-redirect</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
