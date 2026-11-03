@@ -294,6 +294,8 @@ class CollageProject {
     required this.border,
     required this.background,
     this.thumbnailPath,
+    this.templateId,
+    this.occasionId,
   });
 
   final String id;
@@ -310,6 +312,17 @@ class CollageProject {
   BackgroundSettings background;
   String? thumbnailPath;
 
+  /// The ready-made template this collage was started from, if any (for
+  /// "recently used" templates and library filters).
+  String? templateId;
+
+  /// The occasion this collage was made for (e.g. 'halloween', 'birthday'),
+  /// when started from an occasion suggestion.
+  String? occasionId;
+
+  /// The distinct photo/video asset ids placed in the slots.
+  Set<String> get assetIds => {for (final f in fills.values) f.assetId};
+
   CanvasRatio get ratio => CanvasRatio.byLabel(ratioLabel);
 
   Map<String, dynamic> toJson() => {
@@ -325,6 +338,8 @@ class CollageProject {
         'border': border.toJson(),
         'background': background.toJson(),
         'thumbnailPath': thumbnailPath,
+        if (templateId != null) 'templateId': templateId,
+        if (occasionId != null) 'occasionId': occasionId,
       };
 
   factory CollageProject.fromJson(Map<String, dynamic> j) => CollageProject(
@@ -351,5 +366,7 @@ class CollageProject {
         background:
             BackgroundSettings.fromJson(j['background'] as Map<String, dynamic>),
         thumbnailPath: j['thumbnailPath'] as String?,
+        templateId: j['templateId'] as String?,
+        occasionId: j['occasionId'] as String?,
       );
 }

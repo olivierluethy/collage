@@ -16,6 +16,11 @@ import 'locales/pt.dart';
 import 'locales/ru.dart';
 import 'locales/tr.dart';
 import 'locales/zh.dart';
+import 'strings/discover.dart';
+import 'strings/editor.dart';
+import 'strings/library.dart';
+import 'strings/picker.dart';
+import 'strings/templates.dart';
 
 /// One supported language: its [code] (matching the locale files) and its
 /// endonym [name] (shown in the language picker in the language itself).
@@ -30,7 +35,7 @@ class AppLanguage {
 /// keys as the English source of truth (`locales/en.dart`). Missing keys fall
 /// back to English, and an assertion flags typos in debug builds.
 class AppLocalizations {
-  AppLocalizations(this.locale) : _map = maps[locale.languageCode] ?? en;
+  AppLocalizations(this.locale) : _map = maps[locale.languageCode] ?? maps['en']!;
 
   final Locale locale;
   final Map<String, String> _map;
@@ -75,8 +80,9 @@ class AppLocalizations {
   String t(String key) {
     final v = _map[key];
     if (v != null) return v;
-    assert(en.containsKey(key), 'Missing string key: $key');
-    return en[key] ?? key;
+    final english = maps['en']!;
+    assert(english.containsKey(key), 'Missing string key: $key');
+    return english[key] ?? key;
   }
 
   /// Translate [key] and substitute `{placeholders}` from [args].
@@ -86,9 +92,8 @@ class AppLocalizations {
     return s;
   }
 
-  /// Every locale map, keyed by language code. Public so tests can assert that
-  /// each one carries exactly the English key set.
-  static const Map<String, Map<String, String>> maps = {
+  /// The base locale maps (`locales/<code>.dart`), keyed by language code.
+  static const Map<String, Map<String, String>> _base = {
     'en': en,
     'zh': zh,
     'hi': hi,
@@ -104,6 +109,26 @@ class AppLocalizations {
     'tr': tr,
     'it': it,
     'ko': ko,
+  };
+
+  /// Feature-area string sets (`strings/<area>.dart`), each one map per
+  /// language, merged on top of the base maps.
+  static const List<Map<String, Map<String, String>>> _areas = [
+    editorStrings,
+    pickerStrings,
+    discoverStrings,
+    templatesStrings,
+    libraryStrings,
+  ];
+
+  /// Every locale map (base + feature areas), keyed by language code. Public
+  /// so tests can assert that each one carries exactly the English key set.
+  static final Map<String, Map<String, String>> maps = {
+    for (final e in _base.entries)
+      e.key: {
+        ...e.value,
+        for (final area in _areas) ...?area[e.key],
+      },
   };
 }
 

@@ -77,5 +77,6 @@ class CollageTemplate {
         elements: [for (final e in elements) e.clone()],
         border: border.clone(),
         background: background.clone(),
+        templateId: this.id,
       );
 }

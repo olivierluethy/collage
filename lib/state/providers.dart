@@ -13,6 +13,7 @@ import '../services/gallery_service.dart';
 import '../services/giphy_service.dart';
 import '../services/moments_service.dart';
 import '../services/permission_service.dart';
+import '../services/photo_usage.dart';
 import '../services/prefs_service.dart';
 import '../services/user_template_service.dart';
 import '../services/vision_service.dart';
@@ -79,6 +80,12 @@ class DraftsNotifier extends AsyncNotifier<List<CollageProject>> {
     await reload();
   }
 }
+
+/// Which photos are already in which collages, derived from the library.
+final photoUsageProvider = Provider<PhotoUsageIndex>((ref) {
+  final drafts = ref.watch(draftsProvider).valueOrNull;
+  return drafts == null ? PhotoUsageIndex.empty : PhotoUsageIndex(drafts);
+});
 
 final userTemplateServiceProvider = Provider((_) => const UserTemplateService());
 
