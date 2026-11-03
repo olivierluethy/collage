@@ -235,6 +235,9 @@ class BirthdaysNotifier extends Notifier<List<Birthday>> {
 
   void remove(String id) => _save([for (final x in state) if (x.id != id) x]);
 
+  /// Puts back an entry removed a moment ago (snackbar Undo).
+  void restore(Birthday b) => _save([for (final x in state) if (x.id != b.id) x, b]);
+
   /// Replaces previously imported entries with [imported]; manual entries stay.
   /// Returns how many were imported.
   int replaceImported(List<Birthday> imported) {
