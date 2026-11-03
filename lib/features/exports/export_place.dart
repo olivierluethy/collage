@@ -115,6 +115,7 @@ class _DestinationChooserState extends ConsumerState<DestinationChooser> {
     final d = ref.watch(exportDestinationProvider);
     final svc = ref.read(exportDestinationServiceProvider);
     final notifier = ref.read(exportDestinationProvider.notifier);
+    final folderLost = ref.watch(folderUsableProvider).valueOrNull == false;
 
     Widget option({
       required ExportDestinationMode mode,
@@ -189,10 +190,29 @@ class _DestinationChooserState extends ConsumerState<DestinationChooser> {
                       color: d.mode == ExportDestinationMode.folder ? c.amber : c.textMid,
                     ),
                   ),
+                if (folderLost)
+                  Semantics(
+                    liveRegion: true,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.error_outline_rounded, size: 16, color: c.danger),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(l.t('expFolderLost'), style: context.text.caption.copyWith(color: c.danger)),
+                        ),
+                      ],
+                    ),
+                  ),
                 TextButton.icon(
                   onPressed: _busy ? null : _chooseFolder,
                   icon: const Icon(Icons.drive_folder_upload_outlined, size: 18),
-                  label: Text(d.hasFolder ? l.t('expChangeFolder') : l.t('expChooseFolder')),
+                  label: Text(folderLost
+                      ? l.t('expChooseFolderAgain')
+                      : d.hasFolder
+                          ? l.t('expChangeFolder')
+                          : l.t('expChooseFolder')),
                 ),
               ],
             ),

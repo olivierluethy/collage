@@ -126,7 +126,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> {
         );
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.t('remTitle'))),
+      appBar: AppBar(title: Text(l.t('notifTitle'))),
       body: ListView(
         padding: const EdgeInsets.only(bottom: Space.xxl),
         children: [

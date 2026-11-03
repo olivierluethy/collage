@@ -142,10 +142,8 @@ const Map<String, String> hi = {
 
   // Result
   'yourCollage': 'आपका कोलाज',
-  'savedToGallery': 'आपकी गैलरी में सहेजा गया',
   'saveToGallery': 'गैलरी में सहेजें',
   'keepEditing': 'संपादन जारी रखें',
-  'couldNotSave': 'सहेजा नहीं जा सका — फ़ोटो अनुमतियाँ जाँचें।',
 
   // AI
   'aiTitle': 'AI ऑटो-कोलाज',
@@ -359,7 +357,6 @@ const Map<String, String> hi = {
   'noVideos': 'इस डिवाइस पर कोई वीडियो नहीं है।',
   'exportPdfHint': 'प्रिंट के लिए। A4 कोलाज को ठीक A4 पेज मिलता है।',
   'exportMp4Hint': 'वीडियो, 6 सेकंड, वीडियो सेल चलते रहते हैं।',
-  'savePdf': 'PDF सहेजें',
   'gridSave': 'प्रोफ़ाइल ग्रिड के रूप में सहेजें (3×{rows})',
   'gridSaved': '{count} टाइल सहेजी गईं। इन्हें क्रम से पोस्ट करें: पहले post 1।',
   'insertDatePlace': 'तारीख और जगह',
@@ -388,7 +385,6 @@ const Map<String, String> hi = {
   'browseTemplates': 'टेम्पलेट देखें',
   'closePanel': 'बंद करें',
   'createFirstCollage': 'अपना पहला कोलाज बनाएँ',
-  'createPdf': 'PDF बनाएँ',
   'createWithNPhotos': '{count} फ़ोटो से कोलाज बनाएँ',
   'createWithOnePhoto': '1 फ़ोटो से कोलाज बनाएँ',
   'ctxMore': 'अधिक',
@@ -431,7 +427,6 @@ const Map<String, String> hi = {
   'obPageOf': 'पेज {page} / {count}',
   'obPickPhotos': 'फ़ोटो चुनें',
   'obPrivacyNote': 'आपकी फ़ोटो आपके फ़ोन पर ही रहती हैं।',
-  'pdfHint': 'PDF को फ़ाइलें में सहेजने या भेजने के लिए नीचे टैप करें।',
   'pickerEmptyTitle': 'अभी यहाँ कोई फ़ोटो नहीं',
   'pickerEmptyMessage': 'कोई फ़ोटो लें या Collage के साथ और फ़ोटो शेयर करें, फिर वापस आएँ।',
   'pickerLimited': 'Collage सिर्फ़ वही फ़ोटो देख सकता है जो आपने शेयर की हैं।',
@@ -449,7 +444,6 @@ const Map<String, String> hi = {
   'ratioA4': 'A4 प्रिंट',
   'ratioA4Landscape': 'A4 लैंडस्केप',
   'restored': 'कोलाज वापस लाया गया',
-  'savingToGallery': 'आपकी गैलरी में सहेजा जा रहा है…',
   'showTour': 'टूर दिखाएँ',
   'tabMore': 'अधिक',
   'toolAdd': 'जोड़ें',

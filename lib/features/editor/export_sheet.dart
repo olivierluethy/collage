@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../models/export_record.dart';
 import '../../services/export_service.dart';
 import '../../state/exports.dart';
 import '../../theme/palette.dart';
@@ -61,6 +62,8 @@ class _ExportSheetState extends ConsumerState<_ExportSheet> {
     final c = context.colors;
     final dest = ref.watch(exportDestinationProvider);
     final svc = ref.read(exportDestinationServiceProvider);
+    final folderLost = dest.mode == ExportDestinationMode.folder &&
+        ref.watch(folderUsableProvider).valueOrNull == false;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
@@ -131,7 +134,11 @@ class _ExportSheetState extends ConsumerState<_ExportSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
                     child: Row(
                       children: [
-                        Icon(exportPlaceIcon(svc.targetFor(dest, _o.format)), size: 20, color: c.amber),
+                        Icon(
+                          folderLost ? Icons.error_outline_rounded : exportPlaceIcon(svc.targetFor(dest, _o.format)),
+                          size: 20,
+                          color: folderLost ? c.danger : c.amber,
+                        ),
                         const SizedBox(width: Space.md),
                         Expanded(
                           child: Column(
@@ -139,6 +146,9 @@ class _ExportSheetState extends ConsumerState<_ExportSheet> {
                             children: [
                               Text(l.t('expSavesTo'), style: context.text.caption.copyWith(color: c.textMid)),
                               Text(destinationFor(l, dest, svc, _o.format), style: context.text.bodyMd),
+                              if (folderLost)
+                                Text(l.t('expFolderLostShort'),
+                                    style: context.text.caption.copyWith(color: c.danger)),
                             ],
                           ),
                         ),

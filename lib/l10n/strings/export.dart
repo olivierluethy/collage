@@ -122,6 +122,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} is in {place}',
     'expNotifChannel': 'Finished exports',
     'expNotifChannelHint': 'Where a saved collage went',
+    'notifTitle': 'Notifications',
+    'expFolderLost': 'This folder can’t be reached any more. Choose it again or use the recommended place.',
+    'expFolderLostShort': 'Folder not reachable. Tap to change.',
   },
   // Chinese
   'zh': {
@@ -227,6 +230,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} 在 {place}',
     'expNotifChannel': '已完成的导出',
     'expNotifChannelHint': '已保存拼图的位置',
+    'notifTitle': '通知',
+    'expFolderLost': '无法再访问此文件夹。请重新选择，或使用推荐位置。',
+    'expFolderLostShort': '无法访问文件夹。点按以更改。',
   },
   // Hindi
   'hi': {
@@ -332,6 +338,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} {place} में है',
     'expNotifChannel': 'पूरे हुए एक्सपोर्ट',
     'expNotifChannelHint': 'सहेजा गया कोलाज कहाँ गया',
+    'notifTitle': 'सूचनाएं',
+    'expFolderLost': 'यह फ़ोल्डर अब उपलब्ध नहीं है। इसे फिर से चुनें या सुझाई गई जगह इस्तेमाल करें।',
+    'expFolderLostShort': 'फ़ोल्डर उपलब्ध नहीं। बदलने के लिए टैप करें।',
   },
   // Spanish
   'es': {
@@ -437,6 +446,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} está en {place}',
     'expNotifChannel': 'Exportaciones terminadas',
     'expNotifChannelHint': 'Dónde se guardó un collage',
+    'notifTitle': 'Notificaciones',
+    'expFolderLost': 'Ya no se puede acceder a esta carpeta. Vuelve a elegirla o usa el lugar recomendado.',
+    'expFolderLostShort': 'Carpeta no disponible. Toca para cambiarla.',
   },
   // Arabic
   'ar': {
@@ -542,6 +554,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} في {place}',
     'expNotifChannel': 'عمليات التصدير المكتملة',
     'expNotifChannelHint': 'أين ذهب الكولاج المحفوظ',
+    'notifTitle': 'الإشعارات',
+    'expFolderLost': 'لم يعد من الممكن الوصول إلى هذا المجلد. اختره مرة أخرى أو استخدم المكان المقترح.',
+    'expFolderLostShort': 'المجلد غير متاح. اضغط للتغيير.',
   },
   // Bengali
   'bn': {
@@ -647,6 +662,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} আছে {place}-এ',
     'expNotifChannel': 'শেষ হওয়া এক্সপোর্ট',
     'expNotifChannelHint': 'সংরক্ষিত কোলাজ কোথায় গেছে',
+    'notifTitle': 'বিজ্ঞপ্তি',
+    'expFolderLost': 'এই ফোল্ডারে আর পৌঁছানো যাচ্ছে না। আবার বেছে নিন বা প্রস্তাবিত জায়গা ব্যবহার করুন।',
+    'expFolderLostShort': 'ফোল্ডার পাওয়া যাচ্ছে না। বদলাতে ট্যাপ করুন।',
   },
   // French
   'fr': {
@@ -752,6 +770,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} est dans {place}',
     'expNotifChannel': 'Exports terminés',
     'expNotifChannelHint': 'Où est allé un collage enregistré',
+    'notifTitle': 'Notifications',
+    'expFolderLost': 'Ce dossier n’est plus accessible. Choisissez-le à nouveau ou utilisez l’emplacement recommandé.',
+    'expFolderLostShort': 'Dossier inaccessible. Touchez pour changer.',
   },
   // Russian
   'ru': {
@@ -857,6 +878,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} в {place}',
     'expNotifChannel': 'Завершённый экспорт',
     'expNotifChannelHint': 'Куда сохранён коллаж',
+    'notifTitle': 'Уведомления',
+    'expFolderLost': 'Эта папка больше недоступна. Выберите её снова или используйте рекомендуемое место.',
+    'expFolderLostShort': 'Папка недоступна. Нажмите, чтобы изменить.',
   },
   // Portuguese
   'pt': {
@@ -962,6 +986,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} está em {place}',
     'expNotifChannel': 'Exportações concluídas',
     'expNotifChannelHint': 'Para onde foi uma colagem salva',
+    'notifTitle': 'Notificações',
+    'expFolderLost': 'Esta pasta já não está acessível. Escolha-a novamente ou use o local recomendado.',
+    'expFolderLostShort': 'Pasta indisponível. Toque para alterar.',
   },
   // Indonesian
   'id': {
@@ -1067,6 +1094,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} ada di {place}',
     'expNotifChannel': 'Ekspor selesai',
     'expNotifChannelHint': 'Tujuan kolase yang disimpan',
+    'notifTitle': 'Notifikasi',
+    'expFolderLost': 'Folder ini tidak bisa diakses lagi. Pilih lagi atau gunakan tempat yang disarankan.',
+    'expFolderLostShort': 'Folder tidak bisa diakses. Ketuk untuk mengganti.',
   },
   // German
   'de': {
@@ -1172,6 +1202,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} ist in {place}',
     'expNotifChannel': 'Fertige Exporte',
     'expNotifChannelHint': 'Wohin eine gespeicherte Collage ging',
+    'notifTitle': 'Mitteilungen',
+    'expFolderLost': 'Dieser Ordner ist nicht mehr erreichbar. Wähle ihn erneut oder nutze den empfohlenen Ort.',
+    'expFolderLostShort': 'Ordner nicht erreichbar. Tippe zum Ändern.',
   },
   // Japanese
   'ja': {
@@ -1277,6 +1310,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} は {place} にあります',
     'expNotifChannel': '完了した書き出し',
     'expNotifChannelHint': '保存したコラージュの保存先',
+    'notifTitle': '通知',
+    'expFolderLost': 'このフォルダにアクセスできなくなりました。もう一度選ぶか、おすすめの場所を使ってください。',
+    'expFolderLostShort': 'フォルダにアクセスできません。タップして変更。',
   },
   // Turkish
   'tr': {
@@ -1382,6 +1418,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file}, {place} içinde',
     'expNotifChannel': 'Biten dışa aktarmalar',
     'expNotifChannelHint': 'Kaydedilen kolajın nereye gittiği',
+    'notifTitle': 'Bildirimler',
+    'expFolderLost': 'Bu klasöre artık ulaşılamıyor. Yeniden seç ya da önerilen yeri kullan.',
+    'expFolderLostShort': 'Klasöre ulaşılamıyor. Değiştirmek için dokun.',
   },
   // Italian
   'it': {
@@ -1487,6 +1526,9 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file} è in {place}',
     'expNotifChannel': 'Esportazioni completate',
     'expNotifChannelHint': 'Dove è finito un collage salvato',
+    'notifTitle': 'Notifiche',
+    'expFolderLost': 'Questa cartella non è più raggiungibile. Sceglila di nuovo o usa il posto consigliato.',
+    'expFolderLostShort': 'Cartella non raggiungibile. Tocca per cambiarla.',
   },
   // Korean
   'ko': {
@@ -1592,5 +1634,8 @@ const Map<String, Map<String, String>> exportStrings = {
     'expNotifBody': '{file}이(가) {place}에 있어요',
     'expNotifChannel': '완료된 내보내기',
     'expNotifChannelHint': '저장한 콜라주의 위치',
+    'notifTitle': '알림',
+    'expFolderLost': '이 폴더에 더 이상 접근할 수 없어요. 다시 선택하거나 추천 위치를 사용하세요.',
+    'expFolderLostShort': '폴더에 접근할 수 없어요. 탭해서 변경하세요.',
   },
 };

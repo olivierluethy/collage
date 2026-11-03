@@ -142,10 +142,8 @@ const Map<String, String> ja = {
 
   // Result
   'yourCollage': 'あなたのコラージュ',
-  'savedToGallery': 'ギャラリーに保存しました',
   'saveToGallery': 'ギャラリーに保存',
   'keepEditing': '編集を続ける',
-  'couldNotSave': '保存できませんでした — 写真の権限を確認してください。',
 
   // AI
   'aiTitle': 'AI 自動コラージュ',
@@ -359,7 +357,6 @@ const Map<String, String> ja = {
   'noVideos': 'このデバイスに動画がありません。',
   'exportPdfHint': '印刷向け。A4 のコラージュは正確な A4 ページになります。',
   'exportMp4Hint': '動画、6 秒。動画セルは再生されたままです。',
-  'savePdf': 'PDF を保存',
   'gridSave': 'プロフィールグリッドとして保存（3×{rows}）',
   'gridSaved': '{count} 枚のタイルを保存しました。post 1 から順番に投稿してください。',
   'insertDatePlace': '日付と場所',
@@ -388,7 +385,6 @@ const Map<String, String> ja = {
   'browseTemplates': 'テンプレートを見る',
   'closePanel': '閉じる',
   'createFirstCollage': '最初のコラージュを作る',
-  'createPdf': 'PDF を作成',
   'createWithNPhotos': '{count} 枚の写真でコラージュを作成',
   'createWithOnePhoto': '1 枚の写真でコラージュを作成',
   'ctxMore': 'その他',
@@ -431,7 +427,6 @@ const Map<String, String> ja = {
   'obPageOf': '{page} / {count} ページ',
   'obPickPhotos': '写真を選ぶ',
   'obPrivacyNote': '写真はお使いのスマホの中だけに保存されます。',
-  'pdfHint': '下をタップして PDF を「ファイル」に保存するか、送信します。',
   'pickerEmptyTitle': 'まだ写真がありません',
   'pickerEmptyMessage': '写真を撮るか、Collage と共有する写真を増やしてから戻ってきてください。',
   'pickerLimited': 'Collage は共有された写真だけを表示できます。',
@@ -449,7 +444,6 @@ const Map<String, String> ja = {
   'ratioA4': 'A4 印刷',
   'ratioA4Landscape': 'A4 横',
   'restored': 'コラージュを復元しました',
-  'savingToGallery': 'ギャラリーに保存中…',
   'showTour': 'ガイドを表示',
   'tabMore': 'その他',
   'toolAdd': '追加',

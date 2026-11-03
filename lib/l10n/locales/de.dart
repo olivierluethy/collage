@@ -142,10 +142,8 @@ const Map<String, String> de = {
 
   // Result
   'yourCollage': 'Deine Collage',
-  'savedToGallery': 'In deiner Galerie gespeichert',
   'saveToGallery': 'In Galerie speichern',
   'keepEditing': 'Weiter bearbeiten',
-  'couldNotSave': 'Speichern fehlgeschlagen — prüfe die Fotoberechtigungen.',
 
   // AI
   'aiTitle': 'AI-Auto-Collage',
@@ -359,7 +357,6 @@ const Map<String, String> de = {
   'noVideos': 'Keine Videos auf diesem Gerät.',
   'exportPdfHint': 'Zum Drucken. A4-Collagen bekommen eine exakte A4-Seite.',
   'exportMp4Hint': 'Video, 6 Sekunden, Video-Zellen laufen weiter.',
-  'savePdf': 'PDF speichern',
   'gridSave': 'Als Profil-Raster speichern (3×{rows})',
   'gridSaved': '{count} Kacheln gespeichert. In dieser Reihenfolge posten: zuerst Post 1.',
   'insertDatePlace': 'Datum & Ort',
@@ -388,7 +385,6 @@ const Map<String, String> de = {
   'browseTemplates': 'Vorlagen ansehen',
   'closePanel': 'Schliessen',
   'createFirstCollage': 'Erste Collage erstellen',
-  'createPdf': 'PDF erstellen',
   'createWithNPhotos': 'Collage mit {count} Fotos erstellen',
   'createWithOnePhoto': 'Collage mit 1 Foto erstellen',
   'ctxMore': 'Mehr',
@@ -431,7 +427,6 @@ const Map<String, String> de = {
   'obPageOf': 'Seite {page} von {count}',
   'obPickPhotos': 'Fotos wählen',
   'obPrivacyNote': 'Deine Fotos bleiben auf deinem Gerät.',
-  'pdfHint': 'Tippe unten, um das PDF in Dateien zu sichern oder zu senden.',
   'pickerEmptyTitle': 'Noch keine Fotos',
   'pickerEmptyMessage': 'Mach ein Foto oder gib Collage Zugriff auf mehr Fotos und komm dann zurück.',
   'pickerLimited': 'Collage sieht nur die Fotos, die du freigegeben hast.',
@@ -449,7 +444,6 @@ const Map<String, String> de = {
   'ratioA4': 'A4-Druck',
   'ratioA4Landscape': 'A4 quer',
   'restored': 'Collage wiederhergestellt',
-  'savingToGallery': 'Wird in der Galerie gespeichert…',
   'showTour': 'Einführung zeigen',
   'tabMore': 'Mehr',
   'toolAdd': 'Hinzufügen',

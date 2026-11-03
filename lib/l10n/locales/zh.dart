@@ -142,10 +142,8 @@ const Map<String, String> zh = {
 
   // Result
   'yourCollage': '你的拼图',
-  'savedToGallery': '已保存到相册',
   'saveToGallery': '保存到相册',
   'keepEditing': '继续编辑',
-  'couldNotSave': '保存失败——请检查照片权限。',
 
   // AI
   'aiTitle': 'AI 自动拼图',
@@ -359,7 +357,6 @@ const Map<String, String> zh = {
   'noVideos': '此设备上没有视频。',
   'exportPdfHint': '用于打印。A4 拼图会得到精确的 A4 页面。',
   'exportMp4Hint': '视频，6 秒，视频格子保持播放。',
-  'savePdf': '保存 PDF',
   'gridSave': '保存为主页宫格（3×{rows}）',
   'gridSaved': '已保存 {count} 张切图。请按顺序发布，先发 post 1。',
   'insertDatePlace': '日期和地点',
@@ -388,7 +385,6 @@ const Map<String, String> zh = {
   'browseTemplates': '浏览模板',
   'closePanel': '关闭',
   'createFirstCollage': '制作第一张拼图',
-  'createPdf': '创建 PDF',
   'createWithNPhotos': '用 {count} 张照片制作拼图',
   'createWithOnePhoto': '用 1 张照片制作拼图',
   'ctxMore': '更多',
@@ -431,7 +427,6 @@ const Map<String, String> zh = {
   'obPageOf': '第 {page} 页，共 {count} 页',
   'obPickPhotos': '选择照片',
   'obPrivacyNote': '你的照片只保存在你的手机上。',
-  'pdfHint': '点按下方即可将 PDF 存储到“文件”或发送。',
   'pickerEmptyTitle': '这里还没有照片',
   'pickerEmptyMessage': '拍一张照片或与 Collage 共享更多照片，然后再回来。',
   'pickerLimited': 'Collage 只能看到你共享的照片。',
@@ -449,7 +444,6 @@ const Map<String, String> zh = {
   'ratioA4': 'A4 打印',
   'ratioA4Landscape': 'A4 横版',
   'restored': '拼图已恢复',
-  'savingToGallery': '正在保存到相册…',
   'showTour': '查看导览',
   'tabMore': '更多',
   'toolAdd': '添加',

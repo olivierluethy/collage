@@ -142,10 +142,8 @@ const Map<String, String> en = {
 
   // Result
   'yourCollage': 'Your collage',
-  'savedToGallery': 'Saved to your gallery',
   'saveToGallery': 'Save to gallery',
   'keepEditing': 'Keep editing',
-  'couldNotSave': 'Could not save — check photo permissions.',
 
   // AI
   'aiTitle': 'AI auto-collage',
@@ -359,7 +357,6 @@ const Map<String, String> en = {
   'noVideos': 'No videos on this device.',
   'exportPdfHint': 'For printing. A4 collages get an exact A4 page.',
   'exportMp4Hint': 'Video, 6 seconds, keeps video cells playing.',
-  'savePdf': 'Save PDF',
   'gridSave': 'Save as profile grid (3×{rows})',
   'gridSaved': '{count} tiles saved. Post them in order: post 1 first.',
   'insertDatePlace': 'Date & place',
@@ -388,7 +385,6 @@ const Map<String, String> en = {
   'browseTemplates': 'Browse templates',
   'closePanel': 'Close',
   'createFirstCollage': 'Create your first collage',
-  'createPdf': 'Create PDF',
   'createWithNPhotos': 'Create collage with {count} photos',
   'createWithOnePhoto': 'Create collage with 1 photo',
   'ctxMore': 'More',
@@ -431,7 +427,6 @@ const Map<String, String> en = {
   'obPageOf': 'Page {page} of {count}',
   'obPickPhotos': 'Pick photos',
   'obPrivacyNote': 'Your photos stay on your phone.',
-  'pdfHint': 'Tap below to save the PDF to Files or send it.',
   'pickerEmptyTitle': 'No photos here yet',
   'pickerEmptyMessage': 'Take a photo or share more photos with Collage, then come back.',
   'pickerLimited': 'Collage can only see the photos you shared.',
@@ -449,7 +444,6 @@ const Map<String, String> en = {
   'ratioA4': 'A4 print',
   'ratioA4Landscape': 'A4 landscape',
   'restored': 'Collage restored',
-  'savingToGallery': 'Saving to your gallery…',
   'showTour': 'Show the tour',
   'tabMore': 'More',
   'toolAdd': 'Add',

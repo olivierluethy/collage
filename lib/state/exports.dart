@@ -179,3 +179,12 @@ final exportAvailabilityProvider =
     FutureProvider.autoDispose.family<ExportAvailability, ExportRecord>((ref, r) {
   return ref.read(exportDestinationServiceProvider).check(r);
 });
+
+/// Whether the chosen folder can still be written to (null: no folder).
+/// autoDispose, so it is checked again each time a screen shows it — access
+/// can be removed in system settings, or the folder deleted, at any time.
+final folderUsableProvider = FutureProvider.autoDispose<bool?>((ref) async {
+  final d = ref.watch(exportDestinationProvider);
+  if (!d.hasFolder) return null;
+  return ref.read(exportDestinationServiceProvider).folderUsable(d.folderUri!);
+});

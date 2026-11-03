@@ -21,7 +21,7 @@ List<Widget> occasionSettingsRows(BuildContext context, WidgetRef ref) {
   return [
     SettingsRow(
       icon: Icons.notifications_none_rounded,
-      title: l.t('remTitle'),
+      title: l.t('notifTitle'),
       value: p.remindersOn || p.notifyExports ? l.t('remOn') : l.t('remOff'),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RemindersScreen())),
     ),

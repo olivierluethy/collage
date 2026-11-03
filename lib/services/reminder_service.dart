@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -121,6 +123,13 @@ class ReminderService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
   Future<void> _queue = Future.value();
+  final _taps = StreamController<String>.broadcast();
+
+  /// Payloads of notifications the user tapped while the app was running:
+  /// an occasion id, 'memory' or [exportPayload].
+  Stream<String> get taps => _taps.stream;
+
+  static const exportPayload = 'export';
 
   static const _channelId = 'occasion_reminders';
   static const _exportChannelId = 'export_done';
@@ -144,8 +153,25 @@ class ReminderService {
           requestSoundPermission: false,
         ),
       ),
+      onDidReceiveNotificationResponse: (r) {
+        final p = r.payload;
+        if (p != null) _taps.add(p);
+      },
     );
     _ready = true;
+  }
+
+  /// The payload of the notification that opened the app, if one did.
+  /// Sets the plugin up (without asking for any permission).
+  Future<String?> launchPayload() async {
+    try {
+      await _init();
+      final d = await _plugin.getNotificationAppLaunchDetails();
+      if (d == null || !d.didNotificationLaunchApp) return null;
+      return d.notificationResponse?.payload;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Asks the OS for permission to post notifications. True when granted.
@@ -250,7 +276,7 @@ class ReminderService {
             ),
             iOS: const DarwinNotificationDetails(presentSound: false),
           ),
-          payload: 'export',
+          payload: exportPayload,
         );
       });
 
