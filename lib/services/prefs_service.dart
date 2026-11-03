@@ -16,6 +16,7 @@ class PrefsService {
   static const _kCatalogStickers = 'catalog_stickers_json';
   static const _kExportFormat = 'export_format';
   static const _kExportSize = 'export_size';
+  static const _kDiscoverDismissed = 'discover_dismissed_days';
 
   bool get onboardingDone => _prefs.getBool(_kOnboardingDone) ?? false;
   Future<void> setOnboardingDone() => _prefs.setBool(_kOnboardingDone, true);
@@ -74,4 +75,12 @@ class PrefsService {
     await _prefs.setString(_kCatalogFonts, fonts);
     await _prefs.setString(_kCatalogStickers, stickers);
   }
+
+  /// Discover suggestions the user hid, as `yyyymmdd` day keys.
+  Set<int> get discoverDismissedDays => {
+        for (final s in _prefs.getStringList(_kDiscoverDismissed) ?? const <String>[])
+          if (int.tryParse(s) case final int k) k,
+      };
+  Future<void> setDiscoverDismissedDays(Set<int> days) => _prefs.setStringList(
+      _kDiscoverDismissed, [for (final d in days) '$d']);
 }
