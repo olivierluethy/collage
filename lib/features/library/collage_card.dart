@@ -226,14 +226,15 @@ Future<void> showCollageMenu(BuildContext context, WidgetRef ref, CollageProject
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // Exports live in Details, and selection is a long-press (or the
+              // header's Select) — keeping them out of here leaves a shorter,
+              // calmer action list.
               tile(CollageAction.details, Icons.info_outline_rounded, l.t('libDetails')),
               tile(CollageAction.edit, Icons.edit_rounded, l.t('ctxEdit')),
               tile(CollageAction.share, Icons.ios_share_rounded, l.t('share')),
-              tile(CollageAction.exports, Icons.history_rounded, l.t('expOfCollage')),
               tile(CollageAction.rename, Icons.drive_file_rename_outline_rounded, l.t('renameCollage')),
               tile(CollageAction.duplicate, Icons.copy_rounded, l.t('duplicateCollage')),
               tile(CollageAction.sendForEditing, Icons.people_outline_rounded, l.t('shareForEditing')),
-              tile(CollageAction.select, Icons.check_circle_outline_rounded, l.t('libSelect')),
               tile(CollageAction.trash, Icons.delete_outline_rounded, l.t('moveToTrash'), danger: true),
             ],
           ),

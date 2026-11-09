@@ -14,7 +14,6 @@ import '../../theme/typography.dart';
 import '../../widgets/meta_date.dart';
 import '../../widgets/mini_collage.dart';
 import '../../widgets/ui.dart';
-import 'activity_strip.dart';
 import 'collage_card.dart';
 import 'library_actions.dart';
 import 'library_query.dart';
@@ -189,18 +188,22 @@ class _LibraryViewState extends ConsumerState<LibraryView> {
     final shown = applyLibraryQuery(all, q, l);
     final sections = groupByMonth(shown, q.sort);
     final headers = q.sort != LibrarySort.title;
-    final forActivity = applyLibraryQuery(all, q, l, ignorePeriod: true);
+    // Keep the start screen calm when there's little to manage: search, filter
+    // and sort only earn their place once the library is big enough to need
+    // them (or a query is already active, so it always stays reachable).
+    final showControls = all.length > 8 || q.hasFilters || q.text.isNotEmpty;
 
     return Column(
       children: [
-        _SearchRow(
-          controller: _search,
-          query: q,
-          onText: (t) => ref.read(libraryQueryProvider.notifier).state = _q.copyWith(text: t),
-          onClear: () => _setQuery(_q.copyWith(text: '')),
-          onFilters: () => _openFilters(all),
-          onSort: (s) => _setQuery(_q.copyWith(sort: s)),
-        ),
+        if (showControls)
+          _SearchRow(
+            controller: _search,
+            query: q,
+            onText: (t) => ref.read(libraryQueryProvider.notifier).state = _q.copyWith(text: t),
+            onClear: () => _setQuery(_q.copyWith(text: '')),
+            onFilters: () => _openFilters(all),
+            onSort: (s) => _setQuery(_q.copyWith(sort: s)),
+          ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, box) {
@@ -227,11 +230,6 @@ class _LibraryViewState extends ConsumerState<LibraryView> {
                               onJump: () => _jump(sections, m),
                               onSelect: () => ref.startSelecting(),
                               onTrashShown: () => _trashShown(shown),
-                            ),
-                            ActivityStrip(
-                              collages: forActivity,
-                              period: q.period,
-                              onPick: (p) => _setQuery(_q.copyWith(period: p)),
                             ),
                             const SizedBox(height: Space.sm),
                           ],

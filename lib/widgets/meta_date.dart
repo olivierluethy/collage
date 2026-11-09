@@ -122,19 +122,18 @@ class MetaDate extends StatelessWidget {
           String join(List<String?> parts) =>
               parts.whereType<String>().where((s) => s.isNotEmpty).join(' · ');
 
-          final one = join([rel, date, if (showTime) time]);
+          // When a relative label applies ("3 days ago") it replaces the
+          // absolute date rather than doubling up — the full date still reaches
+          // screen readers (Semantics above) and the details sheet.
+          final primary = rel ?? date;
+          final one = join([primary, if (showTime) time]);
           final List<String> lines;
           if (fits(one)) {
             lines = [one];
+          } else if (showTime && time.isNotEmpty && fits(primary)) {
+            lines = [primary, time];
           } else {
-            final second = join([rel, if (showTime) time]);
-            if (second.isEmpty) {
-              lines = [date];
-            } else if (fits(second)) {
-              lines = [date, second];
-            } else {
-              lines = [date, rel ?? time];
-            }
+            lines = [primary];
           }
 
           return Row(

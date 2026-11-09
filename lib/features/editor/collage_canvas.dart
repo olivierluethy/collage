@@ -100,7 +100,14 @@ class CollageCanvas extends StatelessWidget {
                       ),
                     ),
                   // Drag handles on the edges between cells, to resize them.
-                  if (interactive && !c.drawing && !c.edgeEditing && c.selectedElementId == null)
+                  // Hidden while a photo cell is selected: once you're framing
+                  // one photo (its actions sit in the context bar below), the
+                  // seam pills are just clutter — they return on deselect.
+                  if (interactive &&
+                      !c.drawing &&
+                      !c.edgeEditing &&
+                      c.selectedElementId == null &&
+                      c.selectedSlotId == null)
                     ..._splitHandles(context, c, size),
                   // Edge shaping: a handle on every shared edge, plus the
                   // Bézier control points of the selected one.
